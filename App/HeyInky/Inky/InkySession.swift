@@ -38,6 +38,8 @@ final class InkySession {
     let speechInput = SpeechInput()
     let speechOutput = SpeechOutput()
     var notebookTitle: String?
+    /// Follow-up memory per page ("now explain why", "undo that").
+    let conversation = InkyConversation()
 
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var toastTask: Task<Void, Never>?
@@ -94,13 +96,22 @@ final class InkySession {
         task = Task { [weak self] in
             guard let self else { return }
             let (image, lines) = await editor.snapshotForInky()
-            let request = InkyRequest(
+            let request = await InkyContextBuilder.makeRequest(
                 question: asked,
-                images: InkyLocalization.modelImages(pageImage: image, lasso: editor.lassoRegion, lassoPath: editor.lassoPath),
+                pageImage: image,
                 recognizedText: lines,
                 lassoRegion: editor.lassoRegion,
+                lassoPath: editor.lassoPath,
                 pageAspectRatio: editor.page.width / editor.page.height,
-                notebookTitle: notebookTitle
+                notebookTitle: notebookTitle,
+                annotations: editor.annotations.map { annotation in
+                    InkyPageAnnotation(
+                        id: annotation.id, action: annotation.action,
+                        bounds: InkyAnnotationGeometry.bounds(for: annotation, pageSize: editor.page.size),
+                        isHidden: annotation.isHidden, question: annotation.question
+                    )
+                },
+                history: conversation.history(for: editor.page.id)
             )
             await self.run(request, editor: editor)
         }
@@ -109,23 +120,35 @@ final class InkySession {
     /// Streams the response and applies actions as they arrive.
     func run(_ request: InkyRequest, editor: PageEditorModel) async {
         var applied = 0
+        var actions: [InkyAction] = []
+        var removed: [UUID] = []
+        let before = Set(editor.annotations.map(\.id))
         do {
             for try await event in client.respond(to: request) {
                 switch event {
                 case .action(let action):
                     apply(action, editor: editor, question: request.question)
+                    actions.append(action)
                     applied += 1
                 case .completed(let response):
                     for action in response.actions.dropFirst(applied) {
                         apply(action, editor: editor, question: request.question)
+                        actions.append(action)
                         applied += 1
                     }
+                    removed = response.removedAnnotationIDs
+                    for id in removed { editor.deleteAnnotation(id) }
                 case .textDelta:
                     break
                 }
             }
             appliedActionCount = applied
-            if applied == 0 { showToast("Inky had nothing to add.", isError: false) }
+            conversation.record(InkyTurn(
+                question: request.question, actions: actions,
+                createdAnnotationIDs: editor.annotations.map(\.id).filter { !before.contains($0) },
+                removedAnnotationIDs: removed
+            ), pageID: editor.page.id)
+            if applied == 0 && removed.isEmpty { showToast("Inky had nothing to add.", isError: false) }
             question = ""
             phase = .idle
             editor.isInkyMode = false

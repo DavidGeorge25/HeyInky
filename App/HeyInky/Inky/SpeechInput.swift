@@ -57,6 +57,8 @@ final class SpeechInput {
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
+        request.addsPunctuation = true
+        request.contextualStrings = InkyVoiceHints.contextualStrings
         if recognizer.supportsOnDeviceRecognition {
             request.requiresOnDeviceRecognition = true
         }

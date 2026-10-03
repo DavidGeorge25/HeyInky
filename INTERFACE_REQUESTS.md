@@ -4,9 +4,7 @@ Changes other owners need to make so AICore features reach the app. Newest last.
 
 ## 1. InkySession: send marks + conversation, apply removals, record turns — from AICore (feat/ai-core)
 
-**Owner:** lead (app shell). **Status:** open. **Patch:** [`interface-requests/0001-inky-session-followups-voice.patch`](interface-requests/0001-inky-session-followups-voice.patch)
-(`git apply interface-requests/0001-inky-session-followups-voice.patch`; verified on top of feat/ai-core: builds with zero
-warnings, 71 unit tests green including the new `InkySessionFollowUpTests`).
+**Owner:** lead (app shell). **Status:** ✅ done (applied on main during the integration merge; patch file removed).
 
 Why: follow-ups ("now explain why", "undo that", "no, the other one") need the model to see what is already on
 the page and what was said, and the app has to act on `removeAnnotations`. Until this lands, AICore still works
@@ -25,6 +23,8 @@ What the patch does (InkySession.swift, ~30 lines):
 4. Doesn't show "Inky had nothing to add." when the turn only removed marks.
 
 ## 2. SpeechInput: STEM vocabulary + punctuation for voice questions
+
+**Status:** ✅ done (same patch).
 
 Same patch, SpeechInput.swift (2 lines): `request.addsPunctuation = true` and
 `request.contextualStrings = InkyVoiceHints.contextualStrings` (AICore list of STEM words that dictation tends to
