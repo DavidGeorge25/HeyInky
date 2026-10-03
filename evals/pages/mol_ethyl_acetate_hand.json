@@ -1,0 +1,28 @@
+{
+ "id": "mol_ethyl_acetate_hand",
+ "hand": true,
+ "size": [
+  816,
+  1056
+ ],
+ "lines": [
+  {
+   "text": "Lab 4 \u2014 smells",
+   "box": [
+    0.0899,
+    0.0713,
+    0.2255,
+    0.0271
+   ]
+  },
+  {
+   "text": "fruity smell, used in glue",
+   "box": [
+    0.1103,
+    0.5385,
+    0.2181,
+    0.0234
+   ]
+  }
+ ]
+}

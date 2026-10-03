@@ -1,0 +1,91 @@
+{
+ "id": "notes_mitosis_hand",
+ "hand": true,
+ "size": [
+  816,
+  1056
+ ],
+ "lines": [
+  {
+   "text": "Mitosis",
+   "box": [
+    0.0882,
+    0.053,
+    0.1029,
+    0.0253
+   ]
+  },
+  {
+   "text": "1. Prophase -",
+   "box": [
+    0.1005,
+    0.1345,
+    0.1422,
+    0.0278
+   ]
+  },
+  {
+   "text": "chromosomes condense",
+   "box": [
+    0.2606,
+    0.1357,
+    0.2418,
+    0.0215
+   ]
+  },
+  {
+   "text": "2. Metaphase -",
+   "box": [
+    0.0989,
+    0.1951,
+    0.1724,
+    0.029
+   ]
+  },
+  {
+   "text": "chromosomes line up in the middle",
+   "box": [
+    0.2892,
+    0.1963,
+    0.3399,
+    0.0284
+   ]
+  },
+  {
+   "text": "3. Anaphase -",
+   "box": [
+    0.1005,
+    0.2563,
+    0.1609,
+    0.0278
+   ]
+  },
+  {
+   "text": "sister chromatids pulled apart",
+   "box": [
+    0.277,
+    0.2569,
+    0.2998,
+    0.0259
+   ]
+  },
+  {
+   "text": "4. Telophase -",
+   "box": [
+    0.098,
+    0.3163,
+    0.165,
+    0.0271
+   ]
+  },
+  {
+   "text": "two nuclei form",
+   "box": [
+    0.281,
+    0.3163,
+    0.156,
+    0.0196
+   ]
+  }
+ ]
+}

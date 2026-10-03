@@ -20,6 +20,7 @@ const ALLOWED_FIELDS = new Set([
   "stream",
   "temperature",
   "metadata",
+  "prompt_cache_key",
 ]);
 
 export interface ProxyEnv {

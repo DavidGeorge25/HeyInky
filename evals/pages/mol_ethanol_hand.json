@@ -1,0 +1,37 @@
+{
+ "id": "mol_ethanol_hand",
+ "hand": true,
+ "size": [
+  816,
+  1056
+ ],
+ "lines": [
+  {
+   "text": "Alcohols",
+   "box": [
+    0.0907,
+    0.0707,
+    0.116,
+    0.0259
+   ]
+  },
+  {
+   "text": "bp 78 \u00b0C",
+   "box": [
+    0.1136,
+    0.5404,
+    0.0874,
+    0.0227
+   ]
+  },
+  {
+   "text": "found in drinks + hand sanitizer",
+   "box": [
+    0.1119,
+    0.577,
+    0.2966,
+    0.0196
+   ]
+  }
+ ]
+}

@@ -1,0 +1,2078 @@
+{
+ "version": 1,
+ "pages": [
+  "dia_cell_hand",
+  "dia_circuit_typed",
+  "dia_energy_typed",
+  "dia_fbd_hand",
+  "dia_phase_typed",
+  "dia_titration_typed",
+  "dia_triangle_hand",
+  "fn_decay_typed",
+  "fn_log_exp_hand",
+  "fn_projectile_typed",
+  "fn_quadratic_hand",
+  "fn_rational_hand",
+  "fn_sine_typed",
+  "mol_acetaminophen_hand",
+  "mol_acetic_acid_typed",
+  "mol_acetone_hand",
+  "mol_aspirin_typed",
+  "mol_benzaldehyde_hand",
+  "mol_ethanol_hand",
+  "mol_ethyl_acetate_hand",
+  "mol_glycine_typed",
+  "mol_phenol_typed",
+  "mol_two_carbonyls_typed",
+  "notes_equilibrium_typed",
+  "notes_kinematics_hand",
+  "notes_mitosis_hand",
+  "notes_thermo_typed",
+  "ws_arith_typed",
+  "ws_balance_hand",
+  "ws_calculus_typed",
+  "ws_chem_typed",
+  "ws_mcq_hand",
+  "ws_physics_hand",
+  "ws_units_hand",
+  "ws_vocab_typed"
+ ],
+ "cases": [
+  {
+   "id": "mol_ethanol_identify",
+   "page": "mol_ethanol_hand",
+   "category": "molecule",
+   "style": "handwritten",
+   "question": "what molecule is this? show me its functional group",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "insertMoleculeCard"
+     ],
+     "forbidden": [
+      "insertGraphCard",
+      "fillText"
+     ]
+    },
+    "molecule": {
+     "smiles": "CCO",
+     "groups": [
+      "[OX2H]"
+     ]
+    }
+   }
+  },
+  {
+   "id": "mol_acetic_highlight_acid",
+   "page": "mol_acetic_acid_typed",
+   "category": "molecule",
+   "style": "typed",
+   "question": "highlight the carboxylic acid group",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "highlight"
+     ],
+     "forbidden": [
+      "circle",
+      "insertGraphCard"
+     ]
+    },
+    "targets": [
+     {
+      "types": [
+       "highlight"
+      ],
+      "regions": [
+       [
+        0.3515,
+        0.2445,
+        0.1102,
+        0.1066
+       ]
+      ],
+      "minIoU": 0.3
+     }
+    ]
+   }
+  },
+  {
+   "id": "mol_aspirin_groups",
+   "page": "mol_aspirin_typed",
+   "category": "molecule",
+   "style": "typed",
+   "question": "identify the functional groups in this structure",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "insertMoleculeCard"
+     ],
+     "forbidden": [
+      "insertGraphCard",
+      "fillText"
+     ]
+    },
+    "molecule": {
+     "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+     "groups": [
+      "[CX3](=O)[OX2][#6]",
+      "C(=O)[OX2H1]"
+     ]
+    }
+   }
+  },
+  {
+   "id": "mol_acetone_circle",
+   "page": "mol_acetone_hand",
+   "category": "molecule",
+   "style": "handwritten",
+   "question": "circle the carbonyl",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "circle"
+     ],
+     "forbidden": [
+      "highlight",
+      "insertGraphCard"
+     ]
+    },
+    "targets": [
+     {
+      "types": [
+       "circle"
+      ],
+      "regions": [
+       [
+        0.3529,
+        0.2475,
+        0.0294,
+        0.0745
+       ]
+      ],
+      "minIoU": 0.3
+     }
+    ]
+   }
+  },
+  {
+   "id": "follow_acetone_undo",
+   "page": "mol_acetone_hand",
+   "category": "followup",
+   "style": "handwritten",
+   "question": "undo that",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [
+    {
+     "action": {
+      "type": "highlight",
+      "region": {
+       "x": 0.08489999999999999,
+       "y": 0.06319999999999999,
+       "width": 0.1293,
+       "height": 0.0346
+      },
+      "color": "yellow",
+      "note": null
+     },
+     "question": "highlight the title"
+    },
+    {
+     "action": {
+      "type": "circle",
+      "region": {
+       "x": 0.3529,
+       "y": 0.2475,
+       "width": 0.0294,
+       "height": 0.0745
+      },
+      "style": "solid"
+     },
+     "question": "circle the carbonyl"
+    }
+   ],
+   "history": [
+    {
+     "question": "highlight the title",
+     "actions": [
+      {
+       "type": "say",
+       "text": "Highlighted the title."
+      },
+      {
+       "type": "highlight",
+       "region": {
+        "x": 0.08489999999999999,
+        "y": 0.06319999999999999,
+        "width": 0.1293,
+        "height": 0.0346
+       },
+       "color": "yellow",
+       "note": null
+      }
+     ],
+     "created": [
+      0
+     ]
+    },
+    {
+     "question": "circle the carbonyl",
+     "actions": [
+      {
+       "type": "say",
+       "text": "Circled the C=O carbonyl."
+      },
+      {
+       "type": "circle",
+       "region": {
+        "x": 0.3529,
+        "y": 0.2475,
+        "width": 0.0294,
+        "height": 0.0745
+       },
+       "style": "solid"
+      }
+     ],
+     "created": [
+      1
+     ]
+    }
+   ],
+   "expect": {
+    "types": {
+     "required": [
+      "say"
+     ],
+     "forbidden": [
+      "highlight",
+      "circle",
+      "star",
+      "label",
+      "fillText",
+      "insertMoleculeCard",
+      "insertGraphCard"
+     ]
+    },
+    "remove": [
+     "m2"
+    ]
+   }
+  },
+  {
+   "id": "mol_benzaldehyde_card",
+   "page": "mol_benzaldehyde_hand",
+   "category": "molecule",
+   "style": "handwritten",
+   "question": "what is this compound? make it a molecule card",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "insertMoleculeCard"
+     ],
+     "forbidden": [
+      "insertGraphCard"
+     ]
+    },
+    "molecule": {
+     "smiles": "O=Cc1ccccc1",
+     "groups": [
+      "[CX3H1](=O)"
+     ]
+    }
+   }
+  },
+  {
+   "id": "mol_glycine_labels",
+   "page": "mol_glycine_typed",
+   "category": "molecule",
+   "style": "typed",
+   "question": "label the amine and the carboxylic acid",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "label"
+     ],
+     "forbidden": [
+      "insertGraphCard",
+      "fillText"
+     ]
+    },
+    "points": [
+     {
+      "types": [
+       "label"
+      ],
+      "region": [
+       0.2336,
+       0.2795,
+       0.1005,
+       0.064
+      ],
+      "keywords": [
+       "amin",
+       "nh"
+      ]
+     },
+     {
+      "types": [
+       "label"
+      ],
+      "region": [
+       0.3558,
+       0.2245,
+       0.1507,
+       0.1463
+      ],
+      "keywords": [
+       "acid",
+       "carbox",
+       "cooh"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "mol_ester_highlight",
+   "page": "mol_ethyl_acetate_hand",
+   "category": "molecule",
+   "style": "handwritten",
+   "question": "what functional group is in this molecule? highlight it",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "highlight"
+     ],
+     "forbidden": [
+      "insertGraphCard",
+      "fillText"
+     ]
+    },
+    "targets": [
+     {
+      "types": [
+       "highlight"
+      ],
+      "regions": [
+       [
+        0.2835,
+        0.2418,
+        0.1478,
+        0.1118
+       ],
+       [
+        0.3423,
+        0.2418,
+        0.089,
+        0.1118
+       ]
+      ],
+      "minIoU": 0.3
+     }
+    ],
+    "sayKeywords": [
+     "ester"
+    ]
+   }
+  },
+  {
+   "id": "mol_phenol_star",
+   "page": "mol_phenol_typed",
+   "category": "molecule",
+   "style": "typed",
+   "question": "star the hydroxyl group",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "star"
+     ],
+     "forbidden": [
+      "insertGraphCard"
+     ]
+    },
+    "points": [
+     {
+      "types": [
+       "star"
+      ],
+      "region": [
+       0.2107,
+       0.3114,
+       0.119,
+       0.094
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "mol_acetaminophen_amide",
+   "page": "mol_acetaminophen_hand",
+   "category": "molecule",
+   "style": "handwritten",
+   "question": "what molecule is this? show me where the amide is",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "insertMoleculeCard"
+     ],
+     "forbidden": [
+      "insertGraphCard"
+     ]
+    },
+    "molecule": {
+     "smiles": "CC(=O)Nc1ccc(O)cc1",
+     "groups": [
+      "C(=O)N"
+     ]
+    }
+   }
+  },
+  {
+   "id": "mol_lasso_ketone",
+   "page": "mol_two_carbonyls_typed",
+   "category": "molecule",
+   "style": "typed",
+   "question": "what is this one?",
+   "lasso": [
+    0.546,
+    0.1215,
+    0.2427,
+    0.2145
+   ],
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "insertMoleculeCard"
+     ],
+     "forbidden": [
+      "insertGraphCard"
+     ]
+    },
+    "molecule": {
+     "smiles": "CC(=O)C",
+     "groups": [
+      "[#6][CX3](=O)[#6]"
+     ]
+    }
+   }
+  },
+  {
+   "id": "fn_quadratic_graph",
+   "page": "fn_quadratic_hand",
+   "category": "graph",
+   "style": "handwritten",
+   "question": "graph this",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "insertGraphCard"
+     ],
+     "forbidden": [
+      "fillText"
+     ]
+    },
+    "graph": {
+     "fns": [
+      "x**2 - 4*x + 3"
+     ],
+     "mustShowX": [
+      1,
+      2,
+      3
+     ]
+    }
+   }
+  },
+  {
+   "id": "follow_quadratic_why_vertex",
+   "page": "fn_quadratic_hand",
+   "category": "followup",
+   "style": "handwritten",
+   "question": "how did you find the vertex? explain",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [
+    {
+     "action": {
+      "type": "insertGraphCard",
+      "spec": {
+       "title": "f(x) = x² − 4x + 3",
+       "xMin": -1,
+       "xMax": 5,
+       "yMin": -2,
+       "yMax": 8,
+       "functions": [
+        {
+         "expression": "x**2 - 4*x + 3",
+         "label": "f(x)",
+         "color": null
+        }
+       ],
+       "params": [],
+       "asymptotes": [],
+       "points": [
+        {
+         "x": 1,
+         "y": 0,
+         "label": "root",
+         "draggable": false
+        },
+        {
+         "x": 3,
+         "y": 0,
+         "label": "root",
+         "draggable": false
+        },
+        {
+         "x": 2,
+         "y": -1,
+         "label": "vertex",
+         "draggable": false
+        }
+       ],
+       "labels": []
+      },
+      "near": {
+       "x": 0.1,
+       "y": 0.3,
+       "width": 0.42,
+       "height": 0.28
+      }
+     },
+     "question": "graph this"
+    }
+   ],
+   "history": [
+    {
+     "question": "graph this",
+     "actions": [
+      {
+       "type": "say",
+       "text": "Here's f(x) with its roots and vertex."
+      },
+      {
+       "type": "insertGraphCard",
+       "spec": {
+        "title": "f(x) = x² − 4x + 3",
+        "xMin": -1,
+        "xMax": 5,
+        "yMin": -2,
+        "yMax": 8,
+        "functions": [
+         {
+          "expression": "x**2 - 4*x + 3",
+          "label": "f(x)",
+          "color": null
+         }
+        ],
+        "params": [],
+        "asymptotes": [],
+        "points": [
+         {
+          "x": 1,
+          "y": 0,
+          "label": "root",
+          "draggable": false
+         },
+         {
+          "x": 3,
+          "y": 0,
+          "label": "root",
+          "draggable": false
+         },
+         {
+          "x": 2,
+          "y": -1,
+          "label": "vertex",
+          "draggable": false
+         }
+        ],
+        "labels": []
+       },
+       "near": {
+        "x": 0.1,
+        "y": 0.3,
+        "width": 0.42,
+        "height": 0.28
+       }
+      }
+     ],
+     "created": [
+      0
+     ]
+    }
+   ],
+   "expect": {
+    "types": {
+     "required": [
+      "openSidebar"
+     ],
+     "forbidden": [
+      "insertMoleculeCard"
+     ]
+    },
+    "sidebarKeywords": [
+     "vertex",
+     "2"
+    ]
+   }
+  },
+  {
+   "id": "fn_sine_graph",
+   "page": "fn_sine_typed",
+   "category": "graph",
+   "style": "typed",
+   "question": "plot this so I can see the period",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "insertGraphCard"
+     ]
+    },
+    "graph": {
+     "fns": [
+      "2*sin(3*x)"
+     ],
+     "mustShowX": [
+      0,
+      2.0944
+     ]
+    }
+   }
+  },
+  {
+   "id": "fn_rational_asymptotes",
+   "page": "fn_rational_hand",
+   "category": "graph",
+   "style": "handwritten",
+   "question": "graph it and show the asymptotes",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "insertGraphCard"
+     ]
+    },
+    "graph": {
+     "fns": [
+      "1/(x-2)"
+     ],
+     "asymptotes": [
+      {
+       "orientation": "vertical",
+       "value": 2
+      },
+      {
+       "orientation": "horizontal",
+       "value": 0
+      }
+     ],
+     "mustShowX": [
+      2
+     ]
+    }
+   }
+  },
+  {
+   "id": "fn_decay_graph",
+   "page": "fn_decay_typed",
+   "category": "graph",
+   "style": "typed",
+   "question": "graph this decay curve",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "insertGraphCard"
+     ]
+    },
+    "graph": {
+     "fns": [
+      "100*exp(-0.5*x)"
+     ],
+     "mustShowX": [
+      0,
+      4
+     ]
+    }
+   }
+  },
+  {
+   "id": "fn_log_exp_two",
+   "page": "fn_log_exp_hand",
+   "category": "graph",
+   "style": "handwritten",
+   "question": "plot both of these on one graph",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "insertGraphCard"
+     ]
+    },
+    "graph": {
+     "fns": [
+      "log(x)",
+      "exp(x)"
+     ],
+     "mustShowX": [
+      1
+     ]
+    }
+   }
+  },
+  {
+   "id": "fn_projectile_graph",
+   "page": "fn_projectile_typed",
+   "category": "graph",
+   "style": "typed",
+   "question": "graph the trajectory",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "insertGraphCard"
+     ]
+    },
+    "graph": {
+     "fns": [
+      "x - 0.098*x**2"
+     ],
+     "mustShowX": [
+      0,
+      10.2
+     ]
+    }
+   }
+  },
+  {
+   "id": "dia_energy_highlight_ea",
+   "page": "dia_energy_typed",
+   "category": "diagram",
+   "style": "typed",
+   "question": "highlight the activation energy",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "highlight"
+     ],
+     "forbidden": [
+      "insertGraphCard"
+     ]
+    },
+    "targets": [
+     {
+      "types": [
+       "highlight"
+      ],
+      "regions": [
+       [
+        0.2892,
+        0.3914,
+        0.027,
+        0.0126
+       ],
+       [
+        0.2892,
+        0.3313,
+        0.049,
+        0.1618
+       ]
+      ],
+      "minIoU": 0.3
+     }
+    ]
+   }
+  },
+  {
+   "id": "dia_energy_star_ts",
+   "page": "dia_energy_typed",
+   "category": "diagram",
+   "style": "typed",
+   "question": "star the transition state on the curve",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "star"
+     ]
+    },
+    "points": [
+     {
+      "types": [
+       "star"
+      ],
+      "region": [
+       0.3748,
+       0.2671,
+       0.1532,
+       0.1148
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "dia_cell_circle_mito",
+   "page": "dia_cell_hand",
+   "category": "diagram",
+   "style": "handwritten",
+   "question": "circle the mitochondrion in the drawing",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "circle"
+     ],
+     "forbidden": [
+      "highlight"
+     ]
+    },
+    "targets": [
+     {
+      "types": [
+       "circle"
+      ],
+      "regions": [
+       [
+        0.5803,
+        0.3015,
+        0.1134,
+        0.0409
+       ]
+      ],
+      "minIoU": 0.3
+     }
+    ]
+   }
+  },
+  {
+   "id": "dia_circuit_bigger_r",
+   "page": "dia_circuit_typed",
+   "category": "diagram",
+   "style": "typed",
+   "question": "which resistor has the larger resistance? highlight it",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "highlight"
+     ]
+    },
+    "targets": [
+     {
+      "types": [
+       "highlight"
+      ],
+      "regions": [
+       [
+        0.7218,
+        0.3116,
+        0.027,
+        0.0777
+       ],
+       [
+        0.7659,
+        0.3393,
+        0.0899,
+        0.0126
+       ],
+       [
+        0.7218,
+        0.3116,
+        0.134,
+        0.0777
+       ]
+      ],
+      "minIoU": 0.3
+     }
+    ],
+    "sayKeywords": [
+     "r2",
+     "6"
+    ]
+   }
+  },
+  {
+   "id": "dia_fbd_circle_normal",
+   "page": "dia_fbd_hand",
+   "category": "diagram",
+   "style": "handwritten",
+   "question": "circle the normal force",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "circle"
+     ]
+    },
+    "targets": [
+     {
+      "types": [
+       "circle"
+      ],
+      "regions": [
+       [
+        0.4827,
+        0.2826,
+        0.0418,
+        0.116
+       ],
+       [
+        0.4827,
+        0.2826,
+        0.015,
+        0.116
+       ],
+       [
+        0.5065,
+        0.2967,
+        0.018,
+        0.0215
+       ]
+      ],
+      "minIoU": 0.3
+     }
+    ]
+   }
+  },
+  {
+   "id": "dia_fbd_label_friction",
+   "page": "dia_fbd_hand",
+   "category": "diagram",
+   "style": "handwritten",
+   "question": "label the friction force",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "label"
+     ]
+    },
+    "points": [
+     {
+      "types": [
+       "label"
+      ],
+      "region": [
+       0.2484,
+       0.3967,
+       0.1773,
+       0.0742
+      ],
+      "keywords": [
+       "fric"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "dia_titration_star_eq",
+   "page": "dia_titration_typed",
+   "category": "diagram",
+   "style": "typed",
+   "question": "star the equivalence point",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "star"
+     ]
+    },
+    "points": [
+     {
+      "types": [
+       "star"
+      ],
+      "region": [
+       0.4984,
+       0.3853,
+       0.0939,
+       0.0817
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "dia_triangle_label_hyp",
+   "page": "dia_triangle_hand",
+   "category": "diagram",
+   "style": "handwritten",
+   "question": "label the hypotenuse",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "label"
+     ]
+    },
+    "points": [
+     {
+      "types": [
+       "label"
+      ],
+      "region": [
+       0.1995,
+       0.2624,
+       0.4593,
+       0.2891
+      ],
+      "keywords": [
+       "hypot",
+       "c"
+      ],
+      "segment": [
+       0.2206,
+       0.2841,
+       0.6373,
+       0.5303
+      ],
+      "maxDist": 0.035
+     }
+    ]
+   }
+  },
+  {
+   "id": "dia_phase_star_triple",
+   "page": "dia_phase_typed",
+   "category": "diagram",
+   "style": "typed",
+   "question": "where is the triple point? star it",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "star"
+     ]
+    },
+    "points": [
+     {
+      "types": [
+       "star"
+      ],
+      "region": [
+       0.3475,
+       0.4132,
+       0.0894,
+       0.0827
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "ws_arith_fill",
+   "page": "ws_arith_typed",
+   "category": "worksheet",
+   "style": "typed",
+   "question": "fill in the blanks",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "fillText"
+     ],
+     "forbidden": [
+      "openSidebar"
+     ]
+    },
+    "fill": [
+     {
+      "box": [
+       0.3676,
+       0.1364,
+       0.1471,
+       0.0398
+      ],
+      "answers": [
+       "56"
+      ]
+     },
+     {
+      "box": [
+       0.3676,
+       0.2216,
+       0.1471,
+       0.0398
+      ],
+      "answers": [
+       "12"
+      ]
+     },
+     {
+      "box": [
+       0.3676,
+       0.3068,
+       0.1471,
+       0.0398
+      ],
+      "answers": [
+       "12"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "follow_arith_undo",
+   "page": "ws_arith_typed",
+   "category": "followup",
+   "style": "typed",
+   "question": "undo that",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [
+    {
+     "action": {
+      "type": "fillText",
+      "region": {
+       "x": 0.3676,
+       "y": 0.1364,
+       "width": 0.1471,
+       "height": 0.0398
+      },
+      "text": "56",
+      "handwritingStyle": true
+     },
+     "question": "fill in the blanks"
+    },
+    {
+     "action": {
+      "type": "fillText",
+      "region": {
+       "x": 0.3676,
+       "y": 0.2216,
+       "width": 0.1471,
+       "height": 0.0398
+      },
+      "text": "12",
+      "handwritingStyle": true
+     },
+     "question": "fill in the blanks"
+    },
+    {
+     "action": {
+      "type": "fillText",
+      "region": {
+       "x": 0.3676,
+       "y": 0.3068,
+       "width": 0.1471,
+       "height": 0.0398
+      },
+      "text": "12",
+      "handwritingStyle": true
+     },
+     "question": "fill in the blanks"
+    }
+   ],
+   "history": [
+    {
+     "question": "fill in the blanks",
+     "actions": [
+      {
+       "type": "say",
+       "text": "Filled in all three answers."
+      },
+      {
+       "type": "fillText",
+       "region": {
+        "x": 0.3676,
+        "y": 0.1364,
+        "width": 0.1471,
+        "height": 0.0398
+       },
+       "text": "56",
+       "handwritingStyle": true
+      },
+      {
+       "type": "fillText",
+       "region": {
+        "x": 0.3676,
+        "y": 0.2216,
+        "width": 0.1471,
+        "height": 0.0398
+       },
+       "text": "12",
+       "handwritingStyle": true
+      },
+      {
+       "type": "fillText",
+       "region": {
+        "x": 0.3676,
+        "y": 0.3068,
+        "width": 0.1471,
+        "height": 0.0398
+       },
+       "text": "12",
+       "handwritingStyle": true
+      }
+     ],
+     "created": [
+      0,
+      1,
+      2
+     ]
+    }
+   ],
+   "expect": {
+    "types": {
+     "required": [
+      "say"
+     ],
+     "forbidden": [
+      "fillText",
+      "highlight",
+      "circle",
+      "label",
+      "star"
+     ]
+    },
+    "remove": [
+     "m1",
+     "m2",
+     "m3"
+    ]
+   }
+  },
+  {
+   "id": "ws_balance_fill",
+   "page": "ws_balance_hand",
+   "category": "worksheet",
+   "style": "handwritten",
+   "question": "fill in the coefficients",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "fillText"
+     ]
+    },
+    "fill": [
+     {
+      "box": [
+       0.098,
+       0.142,
+       0.0613,
+       0.0417
+      ],
+      "answers": [
+       "2"
+      ]
+     },
+     {
+      "box": [
+       0.2819,
+       0.142,
+       0.0613,
+       0.0417
+      ],
+      "answers": [
+       "1"
+      ]
+     },
+     {
+      "box": [
+       0.5392,
+       0.142,
+       0.0613,
+       0.0417
+      ],
+      "answers": [
+       "2"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "ws_calculus_solve",
+   "page": "ws_calculus_typed",
+   "category": "worksheet",
+   "style": "typed",
+   "question": "solve these",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "fillText"
+     ]
+    },
+    "fill": [
+     {
+      "box": [
+       0.4044,
+       0.1345,
+       0.2083,
+       0.0417
+      ],
+      "answers": [
+       "3x^2",
+       "3x²",
+       "3*x^2",
+       "3x**2",
+       "3*x**2"
+      ]
+     },
+     {
+      "box": [
+       0.4044,
+       0.2197,
+       0.2083,
+       0.0417
+      ],
+      "answers": [
+       "cos x",
+       "cosx",
+       "cos(x)"
+      ]
+     },
+     {
+      "box": [
+       0.4044,
+       0.3049,
+       0.2083,
+       0.0417
+      ],
+      "answers": [
+       "x^2 + C",
+       "x² + C",
+       "x^2+c",
+       "x**2 + C"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "ws_units_fill",
+   "page": "ws_units_hand",
+   "category": "worksheet",
+   "style": "handwritten",
+   "question": "can you fill these in",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "fillText"
+     ]
+    },
+    "fill": [
+     {
+      "box": [
+       0.2819,
+       0.1383,
+       0.1593,
+       0.0436
+      ],
+      "answers": [
+       "1000",
+       "1,000"
+      ]
+     },
+     {
+      "box": [
+       0.2819,
+       0.2292,
+       0.1593,
+       0.0436
+      ],
+      "answers": [
+       "150"
+      ]
+     },
+     {
+      "box": [
+       0.2819,
+       0.3201,
+       0.1593,
+       0.0436
+      ],
+      "answers": [
+       "0.5",
+       ".5"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "ws_chem_lasso_one",
+   "page": "ws_chem_typed",
+   "category": "worksheet",
+   "style": "typed",
+   "question": "fill this one in",
+   "lasso": [
+    0.083,
+    0.2142,
+    0.655,
+    0.0698
+   ],
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "fillText"
+     ]
+    },
+    "fill": [
+     {
+      "box": [
+       0.6127,
+       0.2292,
+       0.1103,
+       0.0398
+      ],
+      "answers": [
+       "6"
+      ]
+     }
+    ],
+    "noFillIn": [
+     [
+      0.4044,
+      0.1345,
+      0.1348,
+      0.0398
+     ]
+    ]
+   }
+  },
+  {
+   "id": "follow_physics_next",
+   "page": "ws_physics_hand",
+   "category": "followup",
+   "style": "handwritten",
+   "question": "now do the second one too",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [
+    {
+     "action": {
+      "type": "fillText",
+      "region": {
+       "x": 0.1716,
+       "y": 0.1629,
+       "width": 0.1348,
+       "height": 0.0417
+      },
+      "text": "6",
+      "handwritingStyle": true
+     },
+     "question": "fill in the first one"
+    }
+   ],
+   "history": [
+    {
+     "question": "fill in the first one",
+     "actions": [
+      {
+       "type": "say",
+       "text": "F = 2 × 3 = 6 N."
+      },
+      {
+       "type": "fillText",
+       "region": {
+        "x": 0.1716,
+        "y": 0.1629,
+        "width": 0.1348,
+        "height": 0.0417
+       },
+       "text": "6",
+       "handwritingStyle": true
+      }
+     ],
+     "created": [
+      0
+     ]
+    }
+   ],
+   "expect": {
+    "types": {
+     "required": [
+      "fillText"
+     ]
+    },
+    "fill": [
+     {
+      "box": [
+       0.1716,
+       0.3144,
+       0.1348,
+       0.0417
+      ],
+      "answers": [
+       "5"
+      ]
+     }
+    ],
+    "remove": []
+   }
+  },
+  {
+   "id": "ws_vocab_fill",
+   "page": "ws_vocab_typed",
+   "category": "worksheet",
+   "style": "typed",
+   "question": "fill in the blanks",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "fillText"
+     ]
+    },
+    "fill": [
+     {
+      "box": [
+       0.5147,
+       0.1326,
+       0.2206,
+       0.0341
+      ],
+      "answers": [
+       "mitochondria",
+       "mitochondrion"
+      ],
+      "minIoU": 0.2
+     },
+     {
+      "box": [
+       0.5123,
+       0.2178,
+       0.223,
+       0.0341
+      ],
+      "answers": [
+       "chloroplast",
+       "chloroplasts"
+      ],
+      "minIoU": 0.2
+     }
+    ]
+   }
+  },
+  {
+   "id": "ws_mcq_circle",
+   "page": "ws_mcq_hand",
+   "category": "worksheet",
+   "style": "handwritten",
+   "question": "circle the right answer",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "circle"
+     ]
+    },
+    "targets": [
+     {
+      "types": [
+       "circle"
+      ],
+      "regions": [
+       [
+        0.3096,
+        0.1995,
+        0.0629,
+        0.0227
+       ]
+      ],
+      "minIoU": 0.3
+     }
+    ]
+   }
+  },
+  {
+   "id": "notes_title",
+   "page": "notes_equilibrium_typed",
+   "category": "notes",
+   "style": "typed",
+   "question": "highlight the title of this page",
+   "lasso": null,
+   "pdfText": true,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "highlight"
+     ],
+     "forbidden": [
+      "circle",
+      "openSidebar"
+     ]
+    },
+    "targets": [
+     {
+      "types": [
+       "highlight"
+      ],
+      "regions": [
+       [
+        0.0882,
+        0.0625,
+        0.5637,
+        0.0259
+       ]
+      ],
+      "minIoU": 0.5
+     }
+    ]
+   }
+  },
+  {
+   "id": "notes_definition",
+   "page": "notes_equilibrium_typed",
+   "category": "notes",
+   "style": "typed",
+   "question": "highlight the definition of Le Chatelier's principle",
+   "lasso": null,
+   "pdfText": true,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "highlight"
+     ],
+     "forbidden": [
+      "openSidebar"
+     ]
+    },
+    "targets": [
+     {
+      "types": [
+       "highlight"
+      ],
+      "regions": [
+       [
+        0.0882,
+        0.1357,
+        0.643,
+        0.0435
+       ],
+       [
+        0.0882,
+        0.1357,
+        0.5686,
+        0.017
+       ]
+      ],
+      "minIoU": 0.5
+     }
+    ]
+   }
+  },
+  {
+   "id": "follow_equilibrium_why",
+   "page": "notes_equilibrium_typed",
+   "category": "followup",
+   "style": "typed",
+   "question": "now explain why",
+   "lasso": null,
+   "pdfText": true,
+   "existing": [
+    {
+     "action": {
+      "type": "highlight",
+      "region": {
+       "x": 0.0832,
+       "y": 0.13069999999999998,
+       "width": 0.653,
+       "height": 0.05350000000000004
+      },
+      "color": "yellow",
+      "note": null
+     },
+     "question": "highlight the definition of Le Chatelier's principle"
+    }
+   ],
+   "history": [
+    {
+     "question": "highlight the definition of Le Chatelier's principle",
+     "actions": [
+      {
+       "type": "say",
+       "text": "Highlighted Le Chatelier's principle."
+      },
+      {
+       "type": "highlight",
+       "region": {
+        "x": 0.0832,
+        "y": 0.13069999999999998,
+        "width": 0.653,
+        "height": 0.05350000000000004
+       },
+       "color": "yellow",
+       "note": null
+      }
+     ],
+     "created": [
+      0
+     ]
+    }
+   ],
+   "expect": {
+    "types": {
+     "required": [
+      "openSidebar"
+     ],
+     "forbidden": [
+      "fillText",
+      "insertGraphCard"
+     ]
+    },
+    "sidebarKeywords": [
+     "equilibrium"
+    ],
+    "remove": []
+   }
+  },
+  {
+   "id": "notes_kinematics_no_time",
+   "page": "notes_kinematics_hand",
+   "category": "notes",
+   "style": "handwritten",
+   "question": "which equation doesn't have time in it? highlight it",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "highlight"
+     ]
+    },
+    "targets": [
+     {
+      "types": [
+       "highlight"
+      ],
+      "regions": [
+       [
+        0.1005,
+        0.2551,
+        0.1838,
+        0.0246
+       ]
+      ],
+      "minIoU": 0.5
+     }
+    ]
+   }
+  },
+  {
+   "id": "follow_kinematics_other_one",
+   "page": "notes_kinematics_hand",
+   "category": "followup",
+   "style": "handwritten",
+   "question": "no, the other one — the one without t",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [
+    {
+     "action": {
+      "type": "highlight",
+      "region": {
+       "x": 0.093,
+       "y": 0.1913,
+       "width": 0.1865,
+       "height": 0.0346
+      },
+      "color": "yellow",
+      "note": null
+     },
+     "question": "highlight the equation without time"
+    }
+   ],
+   "history": [
+    {
+     "question": "highlight the equation without time",
+     "actions": [
+      {
+       "type": "say",
+       "text": "Highlighted it."
+      },
+      {
+       "type": "highlight",
+       "region": {
+        "x": 0.093,
+        "y": 0.1913,
+        "width": 0.1865,
+        "height": 0.0346
+       },
+       "color": "yellow",
+       "note": null
+      }
+     ],
+     "created": [
+      0
+     ]
+    }
+   ],
+   "expect": {
+    "types": {
+     "required": [
+      "highlight"
+     ]
+    },
+    "targets": [
+     {
+      "types": [
+       "highlight"
+      ],
+      "regions": [
+       [
+        0.1005,
+        0.2551,
+        0.1838,
+        0.0246
+       ]
+      ],
+      "minIoU": 0.5
+     }
+    ],
+    "remove": [
+     "m1"
+    ]
+   }
+  },
+  {
+   "id": "notes_thermo_units",
+   "page": "notes_thermo_typed",
+   "category": "notes",
+   "style": "typed",
+   "question": "highlight the units of entropy",
+   "lasso": null,
+   "pdfText": true,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "highlight"
+     ]
+    },
+    "targets": [
+     {
+      "types": [
+       "highlight"
+      ],
+      "regions": [
+       [
+        0.3538,
+        0.1926,
+        0.0335,
+        0.017
+       ]
+      ],
+      "minIoU": 0.3
+     }
+    ]
+   }
+  },
+  {
+   "id": "notes_thermo_quick",
+   "page": "notes_thermo_typed",
+   "category": "notes",
+   "style": "typed",
+   "question": "what does a negative ΔG mean?",
+   "lasso": null,
+   "pdfText": true,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "say"
+     ],
+     "forbidden": [
+      "fillText",
+      "insertGraphCard",
+      "insertMoleculeCard"
+     ]
+    },
+    "sayKeywords": [
+     "spontaneous"
+    ]
+   }
+  },
+  {
+   "id": "notes_mitosis_lineup",
+   "page": "notes_mitosis_hand",
+   "category": "notes",
+   "style": "handwritten",
+   "question": "highlight the phase where the chromosomes line up",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "highlight"
+     ]
+    },
+    "targets": [
+     {
+      "types": [
+       "highlight"
+      ],
+      "regions": [
+       [
+        0.0989,
+        0.1951,
+        0.1724,
+        0.029
+       ],
+       [
+        0.0989,
+        0.1951,
+        0.5302,
+        0.0296
+       ]
+      ],
+      "minIoU": 0.3
+     }
+    ]
+   }
+  },
+  {
+   "id": "notes_mitosis_explain",
+   "page": "notes_mitosis_hand",
+   "category": "notes",
+   "style": "handwritten",
+   "question": "explain the difference between anaphase and telophase",
+   "lasso": null,
+   "pdfText": false,
+   "existing": [],
+   "history": [],
+   "expect": {
+    "types": {
+     "required": [
+      "openSidebar"
+     ],
+     "forbidden": [
+      "fillText"
+     ]
+    },
+    "sidebarKeywords": [
+     "anaphase",
+     "telophase"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,46 @@
+{
+ "id": "notes_thermo_typed",
+ "hand": false,
+ "size": [
+  816,
+  1056
+ ],
+ "lines": [
+  {
+   "text": "Gibbs free energy",
+   "box": [
+    0.0882,
+    0.0625,
+    0.3129,
+    0.0259
+   ]
+  },
+  {
+   "text": "\u0394G = \u0394H \u2212 T\u0394S",
+   "box": [
+    0.0874,
+    0.1376,
+    0.2263,
+    0.0177
+   ]
+  },
+  {
+   "text": "Entropy S is measured in J/K; enthalpy H in kJ/mol.",
+   "box": [
+    0.0882,
+    0.1926,
+    0.527,
+    0.017
+   ]
+  },
+  {
+   "text": "\u0394G < 0 : spontaneous      \u0394G > 0 : non-spontaneous",
+   "box": [
+    0.0874,
+    0.2304,
+    0.5392,
+    0.017
+   ]
+  }
+ ]
+}

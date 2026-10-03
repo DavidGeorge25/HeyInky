@@ -1,0 +1,28 @@
+{
+ "id": "mol_benzaldehyde_hand",
+ "hand": true,
+ "size": [
+  816,
+  1056
+ ],
+ "lines": [
+  {
+   "text": "Aromatic compounds",
+   "box": [
+    0.0899,
+    0.0713,
+    0.2933,
+    0.0347
+   ]
+  },
+  {
+   "text": "smells like almonds",
+   "box": [
+    0.1095,
+    0.5404,
+    0.174,
+    0.0177
+   ]
+  }
+ ]
+}

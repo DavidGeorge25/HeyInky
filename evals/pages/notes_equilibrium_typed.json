@@ -1,0 +1,73 @@
+{
+ "id": "notes_equilibrium_typed",
+ "hand": false,
+ "size": [
+  816,
+  1056
+ ],
+ "lines": [
+  {
+   "text": "Lecture 7: Chemical Equilibrium",
+   "box": [
+    0.0882,
+    0.0625,
+    0.5637,
+    0.0259
+   ]
+  },
+  {
+   "text": "Le Chatelier's principle: a system at equilibrium shifts to",
+   "box": [
+    0.0882,
+    0.1357,
+    0.5686,
+    0.017
+   ]
+  },
+  {
+   "text": "oppose any change in concentration, temperature or pressure.",
+   "box": [
+    0.0882,
+    0.1622,
+    0.643,
+    0.017
+   ]
+  },
+  {
+   "text": "Equilibrium constant:  K = [C]^c [D]^d / [A]^a [B]^b",
+   "box": [
+    0.0882,
+    0.221,
+    0.5114,
+    0.017
+   ]
+  },
+  {
+   "text": "\u2022 Adding reactant shifts the equilibrium to the right.",
+   "box": [
+    0.0882,
+    0.2778,
+    0.5188,
+    0.017
+   ]
+  },
+  {
+   "text": "\u2022 Raising T favors the endothermic direction.",
+   "box": [
+    0.0882,
+    0.3081,
+    0.4551,
+    0.017
+   ]
+  },
+  {
+   "text": "\u2022 A catalyst does not change K.",
+   "box": [
+    0.0882,
+    0.3384,
+    0.3235,
+    0.017
+   ]
+  }
+ ]
+}

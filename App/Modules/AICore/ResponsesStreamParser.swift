@@ -38,7 +38,14 @@ struct ResponsesStreamParser {
             let message = ((event["response"] as? [String: Any])?["error"] as? [String: Any])?["message"] as? String
             throw InkyClientError.modelFailed(message ?? "response failed")
         case "error":
-            throw InkyClientError.modelFailed((event["message"] as? String) ?? "stream error")
+            // Mid-stream errors carry the message at the top level or under `error`
+            // (e.g. rate limits: {"type":"error","error":{"code":"rate_limit_exceeded","message":…}}).
+            let nested = event["error"] as? [String: Any]
+            let code = (event["code"] as? String) ?? (nested?["code"] as? String)
+            if code == "rate_limit_exceeded" {
+                throw InkyClientError.server(status: 429, message: "Inky is getting too many questions right now. Try again in a moment.")
+            }
+            throw InkyClientError.modelFailed((event["message"] as? String) ?? (nested?["message"] as? String) ?? "stream error")
         case "response.refusal.delta", "response.refusal.done":
             if let refusal = (event["refusal"] as? String) ?? (event["delta"] as? String), type.hasSuffix("done") {
                 throw InkyClientError.modelFailed(refusal)

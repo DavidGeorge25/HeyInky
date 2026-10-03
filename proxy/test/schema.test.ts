@@ -53,7 +53,7 @@ test("`type` is the first property of every action (strict outputs follow key or
 });
 
 test("valid fixtures validate", () => {
-  for (const name of ["all_actions.json", "highlight_title.json"]) {
+  for (const name of ["all_actions.json", "highlight_title.json", "undo_last.json"]) {
     const data = JSON.parse(fs.readFileSync(path.join(fixturesDir, name), "utf8"));
     assert.ok(validate(data), `${name}: ${ajv.errorsText(validate.errors)}`);
   }
@@ -65,6 +65,22 @@ test("invalid fixture is rejected", () => {
 });
 
 test("out-of-range coordinates are rejected", () => {
-  const bad = { actions: [{ type: "star", point: { x: 1.4, y: 0.2 } }] };
+  const bad = { removeAnnotations: [], actions: [{ type: "star", point: { x: 1.4, y: 0.2 } }] };
   assert.equal(validate(bad), false);
+});
+
+test("root requires removeAnnotations before actions (generation order)", () => {
+  assert.deepEqual(Object.keys(schema.properties), ["removeAnnotations", "actions"]);
+  assert.equal(validate({ actions: [] }), false);
+  assert.ok(validate({ removeAnnotations: ["m1"], actions: [] }));
+});
+
+test("validation fixtures hold schema-valid actions", () => {
+  const file = JSON.parse(fs.readFileSync(path.join(fixturesDir, "validation/cases.json"), "utf8"));
+  for (const c of file.cases as Array<{ name: string; action: unknown }>) {
+    // Semantic problems (edges, SMILES, expressions) are beyond the schema; the shape must still be valid
+    // except where the schema itself bounds the value (0–1 coordinates).
+    const ok = validate({ removeAnnotations: [], actions: [c.action] });
+    if (!ok) assert.match(ajv.errorsText(validate.errors), /must be <= 1|must be >= 0/, c.name);
+  }
 });
