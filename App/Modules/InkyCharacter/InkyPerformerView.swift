@@ -30,7 +30,7 @@ struct InkyPerformerView: View {
     private var scale: CGFloat { viewSize.width / max(pageSize.width, 1) }
 
     /// Inky's size on screen: about a word tall on the page, within comfortable bounds.
-    private var characterSize: CGFloat { min(max(50 * scale, 38), 72) }
+    private var characterSize: CGFloat { min(max(64 * scale, 46), 84) }
 
     private func stage(_ frame: Frame) -> some View {
         let size = characterSize

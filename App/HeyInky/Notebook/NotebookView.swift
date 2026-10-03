@@ -125,7 +125,7 @@ struct NotebookView: View {
                 .animation(.snappy, value: session.toast)
 
                 if session.phase == .idle {
-                    InkyFloatingButton(state: session.characterState) { summon(at: nil) }
+                    InkyFloatingButton(state: session.characterState, isAway: editor.choreographer.isOnStage) { summon(at: nil) }
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                         .padding(.trailing, 24)
                         .padding(.bottom, 24)
@@ -290,11 +290,14 @@ struct NotebookView: View {
 /// Toolbar menu for the Inky layer: show/hide, per-annotation visibility, clear.
 struct InkyLayerMenu: View {
     @Bindable var editor: PageEditorModel
+    @AppStorage(InkyFeedback.soundsKey) private var soundsEnabled = true
 
     var body: some View {
         Menu {
             Toggle("Show Inky Layer", systemImage: "sparkles", isOn: $editor.showsInkyLayer)
                 .accessibilityIdentifier("inkyLayer.toggle")
+            Toggle("Inky Sounds", systemImage: "speaker.wave.2", isOn: $soundsEnabled)
+                .accessibilityIdentifier("inkyLayer.sounds")
             if !editor.annotations.isEmpty {
                 Section("On this page") {
                     ForEach(editor.annotations) { annotation in

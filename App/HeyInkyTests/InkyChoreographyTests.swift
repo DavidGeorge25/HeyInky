@@ -41,7 +41,9 @@ struct InkyChoreographyTests {
     @Test func circleStrokeGoesAllTheWayAround() throws {
         let region = NormRect(x: 0.2, y: 0.3, width: 0.3, height: 0.1)
         let s = try stroke(.circle(CircleAction(region: region, style: .solid)))
-        #expect(hypot(s.start.x - s.end.x, s.start.y - s.end.y) < 40, "loop closes (with the pen's overlap)")
+        // The pen overshoots by 8% like a real quick loop; one full turn comes back to the start.
+        let fullTurn = s.tip(at: 1 / 1.08)
+        #expect(hypot(s.start.x - fullTurn.x, s.start.y - fullTurn.y) < 6, "loop closes")
         let xs = stride(from: 0.0, through: 1, by: 0.05).map { s.tip(at: $0).x }
         #expect(xs.max()! - xs.min()! > s.bounds.width * 0.9, "covers the full width")
     }
