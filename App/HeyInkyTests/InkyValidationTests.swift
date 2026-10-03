@@ -222,6 +222,20 @@ struct InkyContextPacketTests {
         #expect(text.contains("Marks from that turn still on the page: m1"))
     }
 
+    @Test func wordPositionsAreListedUnderEachLine() {
+        var request = Fixtures.sampleRequest()
+        request.recognizedText = [
+            RecognizedTextLine(text: "Entropy is in J/K", box: NormRect(x: 0.1, y: 0.2, width: 0.4, height: 0.02)),
+            RecognizedTextLine(text: "v = u + at", box: NormRect(x: 0.1, y: 0.3, width: 0.2, height: 0.02), wordStarts: [0.1, 0.13, 0.15, 0.2, 0.23]),
+        ]
+        let text = InkyPromptBuilder.userText(for: request)
+        #expect(text.contains("Entropy@.100 is@"))
+        #expect(text.contains("v@.100 =@.130 u@.150 +@.200 at@.230"))
+        // Estimated starts are increasing and inside the line.
+        let xs = request.recognizedText[0].resolvedWordStarts.map(\.x)
+        #expect(xs == xs.sorted() && xs.last! < 0.5 && xs.count == 4)
+    }
+
     @Test func emptyContextSaysNone() {
         let text = InkyPromptBuilder.userText(for: Fixtures.sampleRequest())
         #expect(text.contains("Inky marks already on the page: none."))

@@ -47,9 +47,14 @@ enum InkyPromptBuilder {
         if request.recognizedText.isEmpty {
             lines.append("Recognized text: none (read the image).")
         } else {
-            lines.append("Recognized text lines [x, y, width, height] (OCR of handwriting may contain mistakes):")
+            lines.append("Recognized text lines [x, y, width, height] (OCR of handwriting may contain mistakes), each followed by where its words start (word@x):")
             for line in request.recognizedText.prefix(maxTextLines) {
                 lines.append("\(format(line.box)) \"\(line.text)\"")
+                let words = line.resolvedWordStarts
+                if words.count >= 2 && request.recognizedText.count <= maxLinesWithWords {
+                    let list = words.map { "\($0.word)@\(String(format: "%.3f", $0.x).replacingOccurrences(of: "0.", with: "."))" }
+                    lines.append("   " + list.joined(separator: " "))
+                }
             }
             if request.recognizedText.count > maxTextLines {
                 lines.append("… \(request.recognizedText.count - maxTextLines) more lines not listed.")
@@ -111,6 +116,8 @@ enum InkyPromptBuilder {
     }
 
     static let maxTextLines = 150
+    /// Word positions roughly double the text tokens; skip them on very dense pages.
+    static let maxLinesWithWords = 60
 
     /// Compact one-line description of an action for context lists.
     static func describe(_ action: InkyAction, long: Bool = false) -> String {
@@ -163,6 +170,8 @@ enum InkyPromptBuilder {
             ],
             "reasoning": ["effort": InkyConfig.reasoningEffort],
             "max_output_tokens": InkyConfig.maxOutputTokens,
+            // Same prefix (instructions + schema) on every request: route them to the same cache.
+            "prompt_cache_key": "inky-v2",
             "stream": true,
         ]
     }

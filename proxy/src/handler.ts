@@ -78,20 +78,28 @@ export async function handleRequest(request: Request, env: ProxyEnv): Promise<Re
   if ("error" in prepared) return jsonError(400, prepared.error);
 
   const doFetch = env.fetch ?? fetch;
+  const init: RequestInit = {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${env.OpenAI_API_Key}`,
+      "content-type": "application/json",
+      accept: prepared.body.stream ? "text/event-stream" : "application/json",
+    },
+    body: JSON.stringify(prepared.body),
+    signal: request.signal,
+  };
   let upstream: Response;
   try {
-    upstream = await doFetch(OPENAI_RESPONSES_URL, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${env.OpenAI_API_Key}`,
-        "content-type": "application/json",
-        accept: prepared.body.stream ? "text/event-stream" : "application/json",
-      },
-      body: JSON.stringify(prepared.body),
-      signal: request.signal,
-    });
-  } catch (err) {
-    return jsonError(502, `Could not reach OpenAI: ${(err as Error).message}`);
+    upstream = await doFetch(OPENAI_RESPONSES_URL, init);
+  } catch (first) {
+    // Connection-level failures (stale keep-alive socket, DNS blip) happen before anything
+    // was sent to the model, so one immediate retry is safe and invisible to the app.
+    if (request.signal.aborted) return jsonError(499, "Client closed request");
+    try {
+      upstream = await doFetch(OPENAI_RESPONSES_URL, init);
+    } catch (err) {
+      return jsonError(502, `Could not reach OpenAI: ${(err as Error).message}`);
+    }
   }
 
   if (!upstream.ok) {

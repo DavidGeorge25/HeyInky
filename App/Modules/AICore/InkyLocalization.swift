@@ -231,7 +231,20 @@ enum InkyLocalization {
                 guard let candidate = observation.topCandidates(1).first, candidate.confidence > 0.3 else { return nil }
                 let b = observation.boundingBox
                 let box = NormRect(x: b.minX, y: 1 - b.maxY, width: b.width, height: b.height)
-                return RecognizedTextLine(text: candidate.string, box: box)
+                // Per-word left edges (Vision gives exact boxes for substrings).
+                let string = candidate.string
+                var starts: [Double] = []
+                var index = string.startIndex
+                while index < string.endIndex {
+                    guard let start = string[index...].firstIndex(where: { !$0.isWhitespace }) else { break }
+                    let end = string[start...].firstIndex(where: \.isWhitespace) ?? string.endIndex
+                    if let wordBox = try? candidate.boundingBox(for: start..<end)?.boundingBox {
+                        starts.append(wordBox.minX)
+                    }
+                    index = end
+                }
+                let wordCount = string.split(whereSeparator: \.isWhitespace).count
+                return RecognizedTextLine(text: string, box: box, wordStarts: starts.count == wordCount ? starts : nil)
             }
             .sorted { ($0.box.y, $0.box.x) < ($1.box.y, $1.box.x) }
         }.value

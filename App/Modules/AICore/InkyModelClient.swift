@@ -85,6 +85,42 @@ struct InkyImage: Sendable, Hashable {
 struct RecognizedTextLine: Codable, Sendable, Hashable {
     var text: String
     var box: NormRect
+    /// Left edge (normalized page x) of each whitespace-separated word, when known (Vision OCR).
+    /// When nil, `InkyPromptBuilder` estimates them from character widths.
+    var wordStarts: [Double]? = nil
+
+    /// Word start positions: measured if available, else estimated proportionally by glyph width.
+    var resolvedWordStarts: [(word: String, x: Double)] {
+        let words = text.split(whereSeparator: \.isWhitespace).map(String.init)
+        if let wordStarts, wordStarts.count == words.count {
+            return Array(zip(words, wordStarts))
+        }
+        // Estimate: advance widths in em units for a typical proportional font.
+        func width(_ c: Character) -> Double {
+            if c == " " { return 0.28 }
+            if "iljI.,:;'|!".contains(c) { return 0.25 }
+            if "frt()[]/-".contains(c) { return 0.35 }
+            if "mwMW".contains(c) { return 0.85 }
+            if c.isUppercase { return 0.68 }
+            if c.isNumber { return 0.56 }
+            return 0.53
+        }
+        let total = text.reduce(0) { $0 + width($1) }
+        guard total > 0 else { return [] }
+        var result: [(String, Double)] = []
+        var offset = 0.0
+        var inWord = false
+        var wordIndex = 0
+        for c in text {
+            if !c.isWhitespace && !inWord, wordIndex < words.count {
+                result.append((words[wordIndex], box.x + box.width * offset / total))
+                wordIndex += 1
+            }
+            inWord = !c.isWhitespace
+            offset += width(c)
+        }
+        return result
+    }
 }
 
 enum InkyStreamEvent: Sendable {
