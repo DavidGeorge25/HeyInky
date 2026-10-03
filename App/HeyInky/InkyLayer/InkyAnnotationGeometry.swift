@@ -81,3 +81,13 @@ enum InkyAnnotationGeometry {
         return NormRect(x: minX, y: minY, width: max(a.maxX, b.maxX) - minX, height: max(a.maxY, b.maxY) - minY)
     }
 }
+
+extension InkyAction {
+    /// Molecule and graph cards: interactive views rather than marks.
+    var isCard: Bool {
+        switch self {
+        case .insertMoleculeCard, .insertGraphCard: true
+        default: false
+        }
+    }
+}

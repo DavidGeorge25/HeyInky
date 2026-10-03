@@ -27,6 +27,7 @@ struct InkyLayerView: View {
                     let isSelected = editor.selectedAnnotationID == annotation.id
                     let rect = InkyAnnotationGeometry.bounds(for: annotation, pageSize: pageSize).cgRect(in: geo.size)
                     InkyAnnotationView(annotation: annotation, pageSize: pageSize, scale: scale)
+                        .environment(\.moleculeCardContext, moleculeCardContext(for: annotation, pageSize: pageSize, scale: scale))
                         .frame(width: max(rect.width, 1), height: max(rect.height, 1))
                         .overlay {
                             if isSelected {
@@ -44,7 +45,8 @@ struct InkyLayerView: View {
                             editor.selectedAnnotationID = isSelected ? nil : annotation.id
                         }
                         .gesture(isSelected ? moveGesture(annotation, viewSize: geo.size) : nil)
-                        .accessibilityElement(children: .combine)
+                        // Cards are interactive: keep their controls reachable (VoiceOver, UI tests).
+                        .accessibilityElement(children: annotation.action.isCard ? .contain : .combine)
                         .accessibilityIdentifier("inky.annotation.\(annotation.action.type.rawValue)")
                         .accessibilityLabel(Self.accessibilityLabel(for: annotation.action))
                         .accessibilityAddTraits(.isButton)
@@ -70,6 +72,17 @@ struct InkyLayerView: View {
                 editing = nil
             }
         }
+    }
+
+    /// Lets a molecule card persist its edits (Ketcher, stars, highlight toggles) and resize itself.
+    private func moleculeCardContext(for annotation: InkyAnnotation, pageSize: CGSize, scale: CGFloat) -> MoleculeCardContext {
+        guard case .insertMoleculeCard = annotation.action else { return MoleculeCardContext(scale: scale) }
+        let id = annotation.id
+        return MoleculeCardContext(scale: scale, pageSize: pageSize, commit: { [editor] action in
+            guard var current = editor.annotations.first(where: { $0.id == id }) else { return }
+            current.action = .insertMoleculeCard(action)
+            editor.updateAnnotation(current)
+        })
     }
 
     private func moveGesture(_ annotation: InkyAnnotation, viewSize: CGSize) -> some Gesture {

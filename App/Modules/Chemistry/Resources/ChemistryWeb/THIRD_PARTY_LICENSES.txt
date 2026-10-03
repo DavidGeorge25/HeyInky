@@ -1,0 +1,10 @@
+Bundled third-party software (offline, no network access at runtime)
+
+RDKit MinimalLib (@rdkit/rdkit 2026.9.1) — rdkit/RDKit_minimal.js, rdkit/RDKit_minimal.wasm
+  BSD 3-Clause License. Copyright (c) 2006-2026, Rational Discovery LLC, Greg Landrum, and
+  Julie Penzotti and others. https://github.com/rdkit/rdkit/blob/master/license.txt
+
+Ketcher standalone 3.18.0 — ketcher/ (main entry only: index.html, static/js, static/css)
+  Apache License 2.0. Copyright (c) 2021 EPAM Systems, Inc. https://github.com/epam/ketcher
+  Includes Indigo (Apache 2.0, EPAM Systems). Bundled dependency notices are in
+  ketcher/static/js/*.LICENSE.txt.
