@@ -83,7 +83,26 @@ struct NormPoint: Codable, Hashable, Sendable {
 
 /// Root object the model returns.
 struct InkyResponse: Codable, Hashable, Sendable {
+    /// Existing marks to delete ("undo that"). The model answers with the short ids it was
+    /// shown ("m2"); `ValidatingInkyModelClient` rewrites them to annotation UUID strings.
+    var removeAnnotations: [String]
     var actions: [InkyAction]
+
+    init(removeAnnotations: [String] = [], actions: [InkyAction]) {
+        self.removeAnnotations = removeAnnotations
+        self.actions = actions
+    }
+
+    private enum CodingKeys: String, CodingKey { case removeAnnotations, actions }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        removeAnnotations = try container.decodeIfPresent([String].self, forKey: .removeAnnotations) ?? []
+        actions = try container.decode([InkyAction].self, forKey: .actions)
+    }
+
+    /// `removeAnnotations` as annotation ids (after the client resolved short ids).
+    var removedAnnotationIDs: [UUID] { removeAnnotations.compactMap(UUID.init(uuidString:)) }
 }
 
 enum HighlightColor: String, Codable, CaseIterable, Sendable {

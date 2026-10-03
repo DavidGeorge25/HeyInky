@@ -1,0 +1,1 @@
+{ "removeAnnotations": ["m2", "m3"], "actions": [ { "type": "say", "text": "Removed that highlight and label." } ] }

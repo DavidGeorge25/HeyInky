@@ -13,6 +13,7 @@ enum InkyLocalization {
         var gridLineAlpha: CGFloat = 0.28
         var gridLabelAlpha: CGFloat = 0.8
         var lassoColor = UIColor(red: 0.45, green: 0.25, blue: 0.95, alpha: 0.9)
+        var markColor = UIColor(red: 0.95, green: 0.5, blue: 0.1, alpha: 0.85)
     }
 
     @MainActor static var tuning = Tuning()
@@ -20,11 +21,17 @@ enum InkyLocalization {
     /// THE localization function. `pageImage` is the page rendered without grid at any
     /// resolution with the page's aspect ratio. Returns images in the order they are sent.
     @MainActor
-    static func modelImages(pageImage: UIImage, lasso: NormRect?, lassoPath: [NormPoint] = []) -> [InkyImage] {
+    static func modelImages(
+        pageImage: UIImage, lasso: NormRect?, lassoPath: [NormPoint] = [], annotations: [InkyPageAnnotation] = []
+    ) -> [InkyImage] {
         var images: [InkyImage] = []
+        let marks = annotations.enumerated().compactMap { index, mark -> (id: String, bounds: NormRect)? in
+            guard !mark.isHidden, mark.bounds.width > 0 || mark.bounds.height > 0 else { return nil }
+            return ("m\(index + 1)", mark.bounds)
+        }
         let full = renderWithGrid(
             source: pageImage, visible: .unit, longEdge: tuning.fullPageLongEdge, step: 0.1,
-            lasso: lasso, lassoPath: lassoPath
+            lasso: lasso, lassoPath: lassoPath, marks: marks
         )
         if let png = full.pngData() {
             images.append(InkyImage(pngData: png, caption: "Full page with coordinate grid:"))
@@ -36,7 +43,7 @@ enum InkyLocalization {
             let step = span < 0.25 ? 0.02 : (span < 0.5 ? 0.05 : 0.1)
             let crop = renderWithGrid(
                 source: pageImage, visible: visible, longEdge: tuning.cropLongEdge, step: step,
-                lasso: lasso, lassoPath: lassoPath
+                lasso: lasso, lassoPath: lassoPath, marks: marks
             )
             if let png = crop.pngData() {
                 images.append(InkyImage(pngData: png, caption: "Zoomed view of the lassoed area (grid labels are full-page coordinates):"))
@@ -50,7 +57,7 @@ enum InkyLocalization {
     @MainActor
     static func renderWithGrid(
         source: UIImage, visible: NormRect, longEdge: CGFloat, step: Double,
-        lasso: NormRect?, lassoPath: [NormPoint]
+        lasso: NormRect?, lassoPath: [NormPoint], marks: [(id: String, bounds: NormRect)] = []
     ) -> UIImage {
         let pageSize = source.size
         let visiblePts = visible.cgRect(in: pageSize)
@@ -109,6 +116,27 @@ enum InkyLocalization {
                 label.draw(at: CGPoint(x: 2, y: py(y) - size.height / 2), withAttributes: attrs)
             }
 
+            // Existing Inky marks: thin outline + id tag, so the model can refer to them.
+            if !marks.isEmpty {
+                let tagAttrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: fontSize * 0.9, weight: .bold),
+                    .foregroundColor: UIColor.white,
+                    .backgroundColor: t.markColor,
+                ]
+                for mark in marks {
+                    let b = mark.bounds
+                    let rect = CGRect(x: px(b.minX), y: py(b.minY), width: max(4, px(b.maxX) - px(b.minX)), height: max(4, py(b.maxY) - py(b.minY)))
+                    cg.setStrokeColor(t.markColor.cgColor)
+                    cg.setLineWidth(max(1.5, outSize.width / 600))
+                    cg.setLineDash(phase: 0, lengths: [4, 3])
+                    cg.stroke(rect)
+                    let tag = " \(mark.id) " as NSString
+                    let size = tag.size(withAttributes: tagAttrs)
+                    tag.draw(at: CGPoint(x: rect.minX, y: max(0, rect.minY - size.height)), withAttributes: tagAttrs)
+                }
+                cg.setLineDash(phase: 0, lengths: [])
+            }
+
             // Lasso outline.
             if lasso != nil || !lassoPath.isEmpty {
                 cg.setStrokeColor(t.lassoColor.cgColor)
@@ -146,5 +174,34 @@ enum InkyLocalization {
             }
             .sorted { ($0.box.y, $0.box.x) < ($1.box.y, $1.box.x) }
         }.value
+    }
+}
+
+/// One call that turns what the app knows about the page into a model request
+/// (the "context packet"): grid-overlaid page image, lasso crop, text with boxes,
+/// existing Inky marks, and the conversation so far.
+enum InkyContextBuilder {
+    @MainActor
+    static func makeRequest(
+        question: String,
+        pageImage: UIImage,
+        recognizedText: [RecognizedTextLine],
+        lassoRegion: NormRect?,
+        lassoPath: [NormPoint] = [],
+        pageAspectRatio: Double,
+        notebookTitle: String?,
+        annotations: [InkyPageAnnotation] = [],
+        history: [InkyTurn] = []
+    ) -> InkyRequest {
+        InkyRequest(
+            question: question,
+            images: InkyLocalization.modelImages(pageImage: pageImage, lasso: lassoRegion, lassoPath: lassoPath, annotations: annotations),
+            recognizedText: recognizedText,
+            lassoRegion: lassoRegion,
+            pageAspectRatio: pageAspectRatio,
+            notebookTitle: notebookTitle,
+            pageAnnotations: annotations,
+            history: history
+        )
     }
 }

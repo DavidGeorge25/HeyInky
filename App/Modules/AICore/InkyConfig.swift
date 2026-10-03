@@ -29,10 +29,11 @@ enum InkyConfig {
 }
 
 enum InkyClientFactory {
+    /// Every client is wrapped in `ValidatingInkyModelClient` (checks + one retry).
     static func makeDefault() -> any InkyModelClient {
         if InkyConfig.useMockClient {
-            return MockInkyModelClient()
+            return ValidatingInkyModelClient(base: MockInkyModelClient())
         }
-        return ProxyInkyModelClient(baseURL: InkyConfig.proxyURL, token: InkyConfig.proxyToken)
+        return ValidatingInkyModelClient(base: ProxyInkyModelClient(baseURL: InkyConfig.proxyURL, token: InkyConfig.proxyToken))
     }
 }

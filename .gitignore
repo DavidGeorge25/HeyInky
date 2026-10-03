@@ -13,3 +13,8 @@ DerivedData/
 xcuserdata/
 
 .DS_Store
+
+# Evals
+evals/.venv/
+evals/out/
+__pycache__/
