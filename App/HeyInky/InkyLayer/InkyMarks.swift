@@ -1,15 +1,19 @@
 import SwiftUI
+import UIKit
 
 // Renderers for page annotations. Each mark draws inside its own frame (the annotation's
 // bounds converted to view points); `scale` is view points per page point.
 
+// Every mark takes a `progress` (0…1) for the stroke-reveal while Inky draws it; 1 = done.
+
 struct HighlightMark: View {
     let action: HighlightAction
     let scale: CGFloat
+    var progress: CGFloat = 1
 
     var body: some View {
         let color = Theme.highlightColor(action.color)
-        RoundedRectangle(cornerRadius: 3 * scale, style: .continuous)
+        MarkerSwipe(scale: scale)
             .fill(color.opacity(0.38))
             .overlay(alignment: .topTrailing) {
                 if let note = action.note, !note.isEmpty {
@@ -21,8 +25,56 @@ struct HighlightMark: View {
                         .background(Capsule().fill(color))
                         .fixedSize()
                         .offset(y: -16 * scale)
+                        .opacity(progress >= 1 ? 1 : 0)
                 }
             }
+            .revealed(progress)
+    }
+}
+
+/// A chisel-marker swipe: straight body, faintly uneven edges, slightly slanted ends.
+struct MarkerSwipe: Shape {
+    var scale: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let slant = min(3 * scale, rect.width * 0.05, rect.height * 0.2)
+        let wave = min(0.8 * scale, rect.height * 0.04)
+        let steps = max(2, Int(rect.width / max(6 * scale, 1)))
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX + slant, y: rect.minY))
+        for i in 1...steps {
+            let t = CGFloat(i) / CGFloat(steps)
+            let x = rect.minX + slant + (rect.width - 2 * slant) * t
+            path.addLine(to: CGPoint(x: x, y: rect.minY + wave * sin(t * 13 + 1)))
+        }
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        for i in stride(from: steps, through: 0, by: -1) {
+            let t = CGFloat(i) / CGFloat(steps)
+            let x = rect.minX + (rect.width - 2 * slant) * t
+            path.addLine(to: CGPoint(x: x, y: rect.maxY - wave * sin(t * 11 + 2)))
+        }
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// Reveals content left to right; keeps overflow (notes, flourishes) above and below.
+struct LeadingReveal: Shape {
+    var progress: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        Path(CGRect(x: rect.minX - 2000, y: rect.minY - 2000, width: 2000 + rect.width * progress, height: rect.height + 4000))
+    }
+}
+
+extension View {
+    /// Masks the view to its first `progress` of width while it's being drawn.
+    @ViewBuilder func revealed(_ progress: CGFloat, widthFraction: CGFloat = 1) -> some View {
+        if progress >= 1 {
+            self
+        } else {
+            mask(LeadingReveal(progress: max(0, progress) * widthFraction))
+        }
     }
 }
 
@@ -30,9 +82,16 @@ struct CircleMark: View {
     let action: CircleAction
     let scale: CGFloat
     let seed: Int
+    var progress: CGFloat = 1
+
+    /// Stable per-annotation variation of the loop.
+    nonisolated static func seed(for id: UUID) -> Int {
+        Int(id.uuid.0) * 31 + Int(id.uuid.1)
+    }
 
     var body: some View {
         HandDrawnLoop(seed: seed)
+            .trim(from: 0, to: min(max(progress, 0), 1))
             .stroke(
                 Theme.accent,
                 style: StrokeStyle(
@@ -47,45 +106,79 @@ struct CircleMark: View {
 struct HandDrawnLoop: Shape {
     var seed: Int
 
+    static let steps = 90
+
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        let phase = Double(abs(seed % 628)) / 100
-        let steps = 90
-        let sweep = 2 * Double.pi * 1.08
-        for i in 0...steps {
-            let t = Double(i) / Double(steps)
-            let theta = -Double.pi / 2 + phase * 0.1 + t * sweep
-            let wobble = 1 + 0.035 * sin(3 * theta + phase) + 0.02 * t
-            let x = rect.midX + rect.width / 2 * wobble * cos(theta)
-            let y = rect.midY + rect.height / 2 * wobble * sin(theta)
-            if i == 0 { path.move(to: CGPoint(x: x, y: y)) } else { path.addLine(to: CGPoint(x: x, y: y)) }
+        for i in 0...Self.steps {
+            let p = Self.point(at: CGFloat(i) / CGFloat(Self.steps), in: rect, seed: seed)
+            if i == 0 { path.move(to: p) } else { path.addLine(to: p) }
         }
         return path
+    }
+
+    /// Point on the loop at `t` (0…1) of the way along it.
+    static func point(at t: CGFloat, in rect: CGRect, seed: Int) -> CGPoint {
+        let phase = Double(abs(seed % 628)) / 100
+        let sweep = 2 * Double.pi * 1.08
+        let theta = -Double.pi / 2 + phase * 0.1 + Double(t) * sweep
+        let wobble: Double = 1 + 0.035 * sin(3 * theta + phase) + 0.02 * Double(t)
+        let rx = Double(rect.width) / 2 * wobble, ry = Double(rect.height) / 2 * wobble
+        return CGPoint(x: Double(rect.midX) + rx * cos(theta), y: Double(rect.midY) + ry * sin(theta))
     }
 }
 
 struct StarMark: View {
+    var progress: CGFloat = 1
+
+    /// Outline first, then the fill flows in and the star pops.
+    static let outlineShare: CGFloat = 0.7
+
     var body: some View {
-        StarShape()
-            .fill(Theme.accent)
-            .overlay(StarShape().stroke(.white.opacity(0.9), lineWidth: 1))
+        let outline = min(1, progress / Self.outlineShare)
+        let fill = max(0, (progress - Self.outlineShare) / (1 - Self.outlineShare))
+        ZStack {
+            StarShape()
+                .fill(Theme.accent)
+                .opacity(fill)
+            StarShape()
+                .trim(from: 0, to: outline)
+                .stroke(progress >= 1 ? Color.white.opacity(0.9) : Theme.accent,
+                        style: StrokeStyle(lineWidth: progress >= 1 ? 1 : 1.6, lineCap: .round, lineJoin: .round))
+        }
+        .scaleEffect(progress >= 1 ? 1 : 1 + 0.18 * sin(fill * .pi))
     }
 }
 
 struct StarShape: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        let outer = min(rect.width, rect.height) / 2
-        let inner = outer * 0.45
-        for i in 0..<10 {
-            let r = i.isMultiple(of: 2) ? outer : inner
-            let angle = -Double.pi / 2 + Double(i) * Double.pi / 5
-            let p = CGPoint(x: center.x + r * cos(angle), y: center.y + r * sin(angle))
+        for (i, p) in Self.vertices(in: rect).enumerated() {
             if i == 0 { path.move(to: p) } else { path.addLine(to: p) }
         }
         path.closeSubpath()
         return path
+    }
+
+    static func vertices(in rect: CGRect) -> [CGPoint] {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let outer = min(rect.width, rect.height) / 2
+        let inner = outer * 0.45
+        return (0..<10).map { i in
+            let r = i.isMultiple(of: 2) ? outer : inner
+            let angle = -Double.pi / 2 + Double(i) * Double.pi / 5
+            return CGPoint(x: center.x + r * cos(angle), y: center.y + r * sin(angle))
+        }
+    }
+
+    /// Point `t` (0…1) of the way around the outline, starting at the top point.
+    static func outlinePoint(at t: CGFloat, in rect: CGRect) -> CGPoint {
+        let v = vertices(in: rect)
+        let position = min(max(t, 0), 1) * 10
+        let i = min(Int(position), 9)
+        let u = position - CGFloat(i)
+        let a = v[i], b = v[(i + 1) % 10]
+        return CGPoint(x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u)
     }
 }
 
@@ -96,8 +189,12 @@ struct LabelMark: View {
     /// Bounds of the whole annotation (text + anchor), normalized, before user offset.
     let bounds: NormRect
     let scale: CGFloat
+    var progress: CGFloat = 1
 
     var body: some View {
+        let textShare = action.arrow ? InkyStroke.labelTextShare : 1
+        let textProgress = min(1, progress / textShare)
+        let arrowProgress = action.arrow ? max(0, (progress - textShare) / (1 - textShare)) : 0
         let textRect = InkyAnnotationGeometry.labelTextRect(action, pageSize: pageSize)
         let local = { (p: NormPoint) -> CGPoint in
             CGPoint(x: (p.x - bounds.x) * pageSize.width * scale, y: (p.y - bounds.y) * pageSize.height * scale)
@@ -110,6 +207,7 @@ struct LabelMark: View {
             if action.arrow {
                 let start = Self.edgePoint(of: CGRect(origin: textOrigin, size: textSize), toward: anchor)
                 ArrowShape(from: start, to: anchor, headLength: 8 * scale)
+                    .trim(from: 0, to: progress >= 1 ? 1 : arrowProgress)
                     .stroke(Theme.accent, style: StrokeStyle(lineWidth: 1.8 * scale, lineCap: .round, lineJoin: .round))
             }
             Text(action.text)
@@ -124,12 +222,13 @@ struct LabelMark: View {
                         .fill(Color.white.opacity(0.92))
                         .overlay(RoundedRectangle(cornerRadius: 6 * scale, style: .continuous).strokeBorder(Theme.accent.opacity(0.35), lineWidth: 1))
                 )
+                .revealed(textProgress)
                 .offset(x: textOrigin.x, y: textOrigin.y)
         }
     }
 
     /// Point on `rect`'s border along the segment from its center to `target`.
-    static func edgePoint(of rect: CGRect, toward target: CGPoint) -> CGPoint {
+    nonisolated static func edgePoint(of rect: CGRect, toward target: CGPoint) -> CGPoint {
         let c = CGPoint(x: rect.midX, y: rect.midY)
         let dx = target.x - c.x, dy = target.y - c.y
         guard dx != 0 || dy != 0 else { return c }
@@ -145,12 +244,23 @@ struct ArrowShape: Shape {
     var to: CGPoint
     var headLength: CGFloat
 
+    /// Gentle curve, like a hand-drawn arrow.
+    static func control(from: CGPoint, to: CGPoint) -> CGPoint {
+        let mid = CGPoint(x: (from.x + to.x) / 2, y: (from.y + to.y) / 2)
+        return CGPoint(x: mid.x - (to.y - from.y) * 0.15, y: mid.y + (to.x - from.x) * 0.15)
+    }
+
+    /// Point `t` (0…1) along the arrow's shaft.
+    static func point(at t: CGFloat, from: CGPoint, to: CGPoint) -> CGPoint {
+        let c = control(from: from, to: to)
+        let u = 1 - t
+        return CGPoint(x: u * u * from.x + 2 * u * t * c.x + t * t * to.x,
+                       y: u * u * from.y + 2 * u * t * c.y + t * t * to.y)
+    }
+
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        // Gentle curve, like a hand-drawn arrow.
-        let mid = CGPoint(x: (from.x + to.x) / 2, y: (from.y + to.y) / 2)
-        let normal = CGPoint(x: -(to.y - from.y) * 0.15, y: (to.x - from.x) * 0.15)
-        let control = CGPoint(x: mid.x + normal.x, y: mid.y + normal.y)
+        let control = Self.control(from: from, to: to)
         path.move(to: from)
         path.addQuadCurve(to: to, control: control)
         let angle = atan2(to.y - control.y, to.x - control.x)
@@ -166,16 +276,33 @@ struct ArrowShape: Shape {
 struct FillTextMark: View {
     let action: FillTextAction
     let scale: CGFloat
+    var progress: CGFloat = 1
 
     var body: some View {
         GeometryReader { geo in
-            let fontSize = min(22 * scale, max(10 * scale, geo.size.height * 0.75))
             Text(action.text)
-                .font(action.handwritingStyle ? Theme.handwriting(size: fontSize) : .system(size: fontSize * 0.85, weight: .regular, design: .rounded))
+                .font(action.handwritingStyle ? Theme.handwriting(size: Self.fontSize(for: geo.size.height, scale: scale)) : .system(size: Self.fontSize(for: geo.size.height, scale: scale) * 0.85, weight: .regular, design: .rounded))
                 .foregroundStyle(Theme.accent)
                 .minimumScaleFactor(0.25)
                 .frame(width: geo.size.width, height: geo.size.height, alignment: .leading)
+                .revealed(progress, widthFraction: Self.textWidthFraction(action, size: geo.size, scale: scale))
         }
+    }
+
+    nonisolated static func fontSize(for height: CGFloat, scale: CGFloat) -> CGFloat {
+        min(22 * scale, max(10 * scale, height * 0.75))
+    }
+
+    /// Roughly how much of the region's width the text covers, so the reveal (and Inky's nib)
+    /// stop where the writing ends.
+    nonisolated static func textWidthFraction(_ action: FillTextAction, size: CGSize, scale: CGFloat) -> CGFloat {
+        guard size.width > 0 else { return 1 }
+        let fontSize = fontSize(for: size.height, scale: scale)
+        let font = action.handwritingStyle
+            ? (UIFont(name: "Noteworthy-Bold", size: fontSize) ?? .systemFont(ofSize: fontSize))
+            : .systemFont(ofSize: fontSize * 0.85)
+        let width = (action.text as NSString).size(withAttributes: [.font: font]).width
+        return min(1, max(0.15, (width + 4 * scale) / size.width))
     }
 }
 
@@ -198,5 +325,18 @@ struct InkyCardContainer<Content: View>: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .inkySurface(cornerRadius: 12 * scale)
+    }
+}
+
+extension View {
+    /// Cards pop in under Inky's nib.
+    @ViewBuilder func cardReveal(_ progress: CGFloat) -> some View {
+        if progress >= 1 {
+            self
+        } else {
+            let p = max(0, progress)
+            scaleEffect(0.86 + 0.14 * (1 - (1 - p) * (1 - p)), anchor: .bottom)
+                .opacity(Double(min(1, p * 2)))
+        }
     }
 }

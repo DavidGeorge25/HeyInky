@@ -23,10 +23,10 @@ struct InkyLayerView: View {
                         }
                 }
 
-                ForEach(editor.visibleAnnotations) { annotation in
+                ForEach(editor.visibleAnnotations.filter { !editor.choreographer.isPending($0.id) }) { annotation in
                     let isSelected = editor.selectedAnnotationID == annotation.id
                     let rect = InkyAnnotationGeometry.bounds(for: annotation, pageSize: pageSize).cgRect(in: geo.size)
-                    InkyAnnotationView(annotation: annotation, pageSize: pageSize, scale: scale)
+                    InkyRevealingAnnotationView(annotation: annotation, pageSize: pageSize, scale: scale, choreographer: editor.choreographer)
                         .frame(width: max(rect.width, 1), height: max(rect.height, 1))
                         .overlay {
                             if isSelected {
@@ -48,7 +48,10 @@ struct InkyLayerView: View {
                         .accessibilityIdentifier("inky.annotation.\(annotation.action.type.rawValue)")
                         .accessibilityLabel(Self.accessibilityLabel(for: annotation.action))
                         .accessibilityAddTraits(.isButton)
+                        .transition(.opacity)
                 }
+
+                InkyPerformerView(choreographer: editor.choreographer, pageSize: pageSize, viewSize: geo.size)
 
                 if let id = editor.selectedAnnotationID, let annotation = editor.annotations.first(where: { $0.id == id }) {
                     let rect = InkyAnnotationGeometry.bounds(for: annotation, pageSize: pageSize).cgRect(in: geo.size)
@@ -152,33 +155,57 @@ struct InkyLayerView: View {
 }
 
 /// Picks the renderer for an annotation. The view fills the annotation's bounds.
+/// `progress` < 1 while Inky is drawing it (stroke-reveal).
 struct InkyAnnotationView: View {
     let annotation: InkyAnnotation
     let pageSize: CGSize
     let scale: CGFloat
+    var progress: CGFloat = 1
 
     var body: some View {
         switch annotation.action {
         case .highlight(let a):
-            HighlightMark(action: a, scale: scale)
+            HighlightMark(action: a, scale: scale, progress: progress)
         case .circle(let a):
-            CircleMark(action: a, scale: scale, seed: Int(annotation.id.uuid.0) * 31 + Int(annotation.id.uuid.1))
+            CircleMark(action: a, scale: scale, seed: CircleMark.seed(for: annotation.id), progress: progress)
         case .star:
-            StarMark()
+            StarMark(progress: progress)
         case .label(let a):
-            LabelMark(action: a, pageSize: pageSize, bounds: InkyAnnotationGeometry.baseBounds(for: annotation.action, pageSize: pageSize), scale: scale)
+            LabelMark(action: a, pageSize: pageSize, bounds: InkyAnnotationGeometry.baseBounds(for: annotation.action, pageSize: pageSize), scale: scale, progress: progress)
         case .fillText(let a):
-            FillTextMark(action: a, scale: scale)
+            FillTextMark(action: a, scale: scale, progress: progress)
         case .insertMoleculeCard(let a):
             InkyCardContainer(title: a.caption ?? "Molecule", systemImage: "atom", scale: scale) {
                 MoleculeCardView(action: a)
             }
+            .cardReveal(progress)
         case .insertGraphCard(let a):
             InkyCardContainer(title: a.spec.title ?? "Graph", systemImage: "chart.xyaxis.line", scale: scale) {
                 GraphCardView(action: a)
             }
+            .cardReveal(progress)
         case .openSidebar, .say:
             EmptyView()
+        }
+    }
+}
+
+/// An annotation on the layer. While Inky is drawing it, re-renders every frame with the
+/// choreographer's progress; otherwise renders once, fully drawn.
+struct InkyRevealingAnnotationView: View {
+    let annotation: InkyAnnotation
+    let pageSize: CGSize
+    let scale: CGFloat
+    let choreographer: InkyChoreographer
+
+    var body: some View {
+        if choreographer.isDrawing(annotation.id) {
+            TimelineView(.animation) { timeline in
+                InkyAnnotationView(annotation: annotation, pageSize: pageSize, scale: scale,
+                                   progress: choreographer.drawProgress(at: timeline.date))
+            }
+        } else {
+            InkyAnnotationView(annotation: annotation, pageSize: pageSize, scale: scale)
         }
     }
 }
