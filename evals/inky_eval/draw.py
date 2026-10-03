@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import math
 import random
+import zlib
 from dataclasses import dataclass, field
 
 from PIL import Image, ImageDraw, ImageFont
@@ -57,7 +58,7 @@ class Page:
     lines: list = field(default_factory=list)  # text layer: {"text", "box"}
 
     def __post_init__(self):
-        self.rng = random.Random(self.seed or hash(self.id) & 0xFFFF)
+        self.rng = random.Random(self.seed or zlib.crc32(self.id.encode()))
         self.img = Image.new("RGB", (int(PAGE_W * SCALE), int(PAGE_H * SCALE)), "white")
         self.d = ImageDraw.Draw(self.img)
         self.ink = self.rng.choice(INK_HAND) if self.hand else INK_TYPED
@@ -138,8 +139,8 @@ class Page:
         hw = width / 2
         return rnd(self.norm(min(xs) - hw, min(ys) - hw, max(xs) + hw, max(ys) + hw))
 
-    def line(self, x0, y0, x1, y1, width=2.0, color=None) -> Box:
-        return self.stroke([(x0, y0), (x1, y1)], width, color)
+    def line(self, x0, y0, x1, y1, width=2.0, color=None, wobble=1.2) -> Box:
+        return self.stroke([(x0, y0), (x1, y1)], width, color, wobble)
 
     def arrow(self, x0, y0, x1, y1, width=2.0, color=None, head=10) -> Box:
         b = self.line(x0, y0, x1, y1, width, color)
@@ -220,7 +221,7 @@ def draw_molecule(page: Page, smiles: str, cx: float, cy: float, bond_len: float
         order = bond.GetBondTypeAsDouble()
         nx, ny = -uy, ux
         if order == 1:
-            boxes.append(page.line(x0s, y0s, x1s, y1s, 2))
+            boxes.append(page.line(x0s, y0s, x1s, y1s, 2, wobble=0.35))
         elif order == 2:
             if ring_info.NumBondRings(bond.GetIdx()):
                 # inner line toward ring center
@@ -229,14 +230,14 @@ def draw_molecule(page: Page, smiles: str, cx: float, cy: float, bond_len: float
                 rcy = sum(pos[i][1] for i in ring) / len(ring)
                 side = 1 if (rcx - x0) * nx + (rcy - y0) * ny > 0 else -1
                 o = 6 * side
-                boxes.append(page.line(x0s, y0s, x1s, y1s, 2))
-                boxes.append(page.line(x0s + nx * o + ux * 5, y0s + ny * o + uy * 5, x1s + nx * o - ux * 5, y1s + ny * o - uy * 5, 2))
+                boxes.append(page.line(x0s, y0s, x1s, y1s, 2, wobble=0.35))
+                boxes.append(page.line(x0s + nx * o + ux * 5, y0s + ny * o + uy * 5, x1s + nx * o - ux * 5, y1s + ny * o - uy * 5, 2, wobble=0.35))
             else:
                 for o in (-3.5, 3.5):
-                    boxes.append(page.line(x0s + nx * o, y0s + ny * o, x1s + nx * o, y1s + ny * o, 2))
+                    boxes.append(page.line(x0s + nx * o, y0s + ny * o, x1s + nx * o, y1s + ny * o, 2, wobble=0.35))
         else:
             for o in (-5, 0, 5):
-                boxes.append(page.line(x0s + nx * o, y0s + ny * o, x1s + nx * o, y1s + ny * o, 2))
+                boxes.append(page.line(x0s + nx * o, y0s + ny * o, x1s + nx * o, y1s + ny * o, 2, wobble=0.35))
 
     atom_boxes = {}
     for i, (x, y) in pos.items():

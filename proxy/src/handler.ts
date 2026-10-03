@@ -98,7 +98,9 @@ export async function handleRequest(request: Request, env: ProxyEnv): Promise<Re
     try {
       upstream = await doFetch(OPENAI_RESPONSES_URL, init);
     } catch (err) {
-      return jsonError(502, `Could not reach OpenAI: ${(err as Error).message}`);
+      const cause = (err as Error & { cause?: { code?: string; message?: string } }).cause;
+      const detail = cause ? ` (${cause.code ?? cause.message ?? cause})` : "";
+      return jsonError(502, `Could not reach OpenAI: ${(err as Error).message}${detail}`);
     }
   }
 

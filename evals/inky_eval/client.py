@@ -159,6 +159,7 @@ def run_packet(proxy, body, n_marks, model=None, instructions=None, reasoning=No
         body["instructions"] = instructions
     if reasoning:
         body["reasoning"] = {"effort": reasoning}
+    pace()
     t0 = time.time()
     timeline = {}
     forwarded, removals, all_problems, usages, raw_responses = [], [], [], [], []
@@ -214,11 +215,6 @@ def _with_rate_limit_backoff(fn, tries=3):
     """Rate limits are an eval-harness concern, not model retries. Every rejected request
     still counts against the account's daily cap, so pace requests and retry sparingly."""
     for i in range(tries):
-        with _pace_lock:
-            wait = _last_start[0] + MIN_INTERVAL[0] - time.time()
-            if wait > 0:
-                time.sleep(wait)
-            _last_start[0] = time.time()
         try:
             return fn()
         except StreamError as e:
@@ -228,6 +224,16 @@ def _with_rate_limit_backoff(fn, tries=3):
             if ("rate_limit" not in msg and "proxy 429" not in msg) or i == tries - 1:
                 raise
             time.sleep(20 * (i + 1))
+
+
+def pace():
+    """Waits until MIN_INTERVAL has passed since the previous case started (TPM pacing).
+    Called before a case's clock starts so latencies exclude it."""
+    with _pace_lock:
+        wait = _last_start[0] + MIN_INTERVAL[0] - time.time()
+        if wait > 0:
+            time.sleep(wait)
+        _last_start[0] = time.time()
 
 
 def _accept(action, attempt, forwarded, problems, timeline, t0):
