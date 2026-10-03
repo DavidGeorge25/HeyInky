@@ -104,6 +104,18 @@ final class PageEditorModel {
         saveAnnotations()
     }
 
+    /// Replaces an annotation (a flattened card) with a placed image at the same frame.
+    func replaceAnnotationWithImage(_ id: UUID, image: UIImage) {
+        guard let annotation = annotations.first(where: { $0.id == id }), let data = image.pngData() else { return }
+        let frame = InkyAnnotationGeometry.bounds(for: annotation, pageSize: page.size)
+        guard var placed = try? store.addImage(data, to: page.id, in: notebookID, center: frame.center) else { return }
+        placed.frame = frame
+        imageInsertedExternally(placed)
+        updateImage(placed)
+        selectedImageID = nil
+        deleteAnnotation(id)
+    }
+
     private func saveAnnotations() {
         store.saveAnnotations(annotations, for: page.id, in: notebookID)
     }

@@ -175,12 +175,15 @@ struct GraphSpec: Codable, Hashable, Sendable {
     }
 
     enum Orientation: String, Codable, Hashable, Sendable {
-        case vertical, horizontal
+        case vertical, horizontal, oblique
     }
 
     struct Asymptote: Codable, Hashable, Sendable {
         var orientation: Orientation
+        /// x for vertical, y for horizontal, y-intercept for oblique.
         var value: Double
+        /// Slope for oblique; nil otherwise.
+        var slope: Double? = nil
         var label: String?
     }
 
@@ -202,6 +205,9 @@ struct GraphSpec: Codable, Hashable, Sendable {
     var xMax: Double
     var yMin: Double
     var yMax: Double
+    /// Axis labels (nil = "x" / "y" or the preset's).
+    var xLabel: String? = nil
+    var yLabel: String? = nil
     var functions: [Function]
     var params: [Param]
     var asymptotes: [Asymptote]

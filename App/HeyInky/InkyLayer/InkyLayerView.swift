@@ -28,6 +28,7 @@ struct InkyLayerView: View {
                     let rect = InkyAnnotationGeometry.bounds(for: annotation, pageSize: pageSize).cgRect(in: geo.size)
                     InkyAnnotationView(annotation: annotation, pageSize: pageSize, scale: scale)
                         .environment(\.moleculeCardContext, moleculeCardContext(for: annotation, pageSize: pageSize, scale: scale))
+                        .environment(\.graphCardHost, graphCardHost(for: annotation, pageSize: pageSize))
                         .frame(width: max(rect.width, 1), height: max(rect.height, 1))
                         .overlay {
                             if isSelected {
@@ -83,6 +84,21 @@ struct InkyLayerView: View {
             current.action = .insertMoleculeCard(action)
             editor.updateAnnotation(current)
         })
+    }
+
+    /// Lets a graph card persist its edits, resize itself and flatten into an image.
+    private func graphCardHost(for annotation: InkyAnnotation, pageSize: CGSize) -> GraphCardHost? {
+        guard case .insertGraphCard = annotation.action else { return nil }
+        let id = annotation.id
+        return GraphCardHost(
+            pageSize: pageSize,
+            update: { [editor] action in
+                guard var current = editor.annotations.first(where: { $0.id == id }) else { return }
+                current.action = .insertGraphCard(action)
+                editor.updateAnnotation(current)
+            },
+            flatten: { [editor] image in editor.replaceAnnotationWithImage(id, image: image) }
+        )
     }
 
     private func moveGesture(_ annotation: InkyAnnotation, viewSize: CGSize) -> some Gesture {

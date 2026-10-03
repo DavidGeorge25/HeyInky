@@ -136,13 +136,15 @@
       "type": "object",
       "description": "JSXGraph-friendly graph description. Expressions are JavaScript math in x and the param names (e.g. 'a*Math.sin(b*x)').",
       "additionalProperties": false,
-      "required": ["title", "xMin", "xMax", "yMin", "yMax", "functions", "params", "asymptotes", "points", "labels"],
+      "required": ["title", "xMin", "xMax", "yMin", "yMax", "xLabel", "yLabel", "functions", "params", "asymptotes", "points", "labels"],
       "properties": {
         "title": { "type": ["string", "null"] },
         "xMin": { "type": "number" },
         "xMax": { "type": "number" },
         "yMin": { "type": "number" },
         "yMax": { "type": "number" },
+        "xLabel": { "type": ["string", "null"], "description": "Axis label, e.g. \"[S] (mM)\" or \"t (s)\". Null = x." },
+        "yLabel": { "type": ["string", "null"], "description": "Axis label. Null = y." },
         "functions": {
           "type": "array",
           "items": {
@@ -176,10 +178,11 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["orientation", "value", "label"],
+            "required": ["orientation", "value", "slope", "label"],
             "properties": {
-              "orientation": { "type": "string", "enum": ["vertical", "horizontal"] },
-              "value": { "type": "number" },
+              "orientation": { "type": "string", "enum": ["vertical", "horizontal", "oblique"] },
+              "value": { "type": "number", "description": "x for vertical, y for horizontal, y-intercept for oblique." },
+              "slope": { "type": ["number", "null"], "description": "Slope for oblique; null otherwise." },
               "label": { "type": ["string", "null"] }
             }
           }

@@ -118,4 +118,25 @@ struct InkyLayerRendererTests {
         #expect(l.text == "new")
         #expect(InkyLayerView.editableText(of: .star(StarAction(point: NormPoint(x: 0, y: 0)))) == nil)
     }
+
+    @Test func flatteningACardReplacesItWithAnImageAtTheSameFrameAndPersists() throws {
+        let spec = GraphSpec(title: "f", xMin: -1, xMax: 1, yMin: -1, yMax: 1,
+                             functions: [.init(expression: "x", label: nil, color: nil)], params: [], asymptotes: [], points: [], labels: [])
+        let near = NormRect(x: 0.1, y: 0.5, width: 0.4, height: 0.28)
+        let editor = makeEditor([.insertGraphCard(InsertGraphCardAction(spec: spec, near: near))])
+        let annotation = editor.annotations[0]
+        let frame = InkyAnnotationGeometry.bounds(for: annotation, pageSize: editor.page.size)
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 28)).image { ctx in
+            UIColor.blue.setFill(); ctx.fill(CGRect(x: 0, y: 0, width: 40, height: 28))
+        }
+
+        editor.replaceAnnotationWithImage(annotation.id, image: image)
+
+        #expect(editor.annotations.isEmpty)
+        let placed = try #require(editor.page.images.first)
+        #expect(abs(placed.frame.x - frame.x) < 1e-9 && abs(placed.frame.width - frame.width) < 1e-9)
+        let reloaded = try #require(editor.store.notebook(id: editor.notebookID)?.pages.first)
+        #expect(reloaded.images.map(\.frame) == [placed.frame])
+        #expect(editor.store.annotations(for: reloaded.id, in: editor.notebookID).isEmpty)
+    }
 }

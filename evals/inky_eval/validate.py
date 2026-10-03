@@ -149,6 +149,11 @@ def graph_problem(spec):
         return "yMin must be less than yMax"
     if not spec["functions"]:
         return "add at least one function"
+    for a in spec["asymptotes"]:
+        if not math.isfinite(a["value"]):
+            return "asymptote value must be a number"
+        if a["orientation"] == "oblique" and not (isinstance(a.get("slope"), (int, float)) and math.isfinite(a["slope"])):
+            return "an oblique asymptote needs a slope"
     names = {p["name"] for p in spec["params"]}
     for p in spec["params"]:
         if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", p["name"]):

@@ -546,7 +546,7 @@
        "xMax": 5,
        "yMin": -2,
        "yMax": 8,
-       "functions": [
+       "xLabel": null, "yLabel": null, "functions": [
         {
          "expression": "x**2 - 4*x + 3",
          "label": "f(x)",
@@ -603,7 +603,7 @@
         "xMax": 5,
         "yMin": -2,
         "yMax": 8,
-        "functions": [
+        "xLabel": null, "yLabel": null, "functions": [
          {
           "expression": "x**2 - 4*x + 3",
           "label": "f(x)",

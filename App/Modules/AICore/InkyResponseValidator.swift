@@ -174,6 +174,10 @@ enum InkyResponseValidator {
         if spec.xMin >= spec.xMax { return "xMin must be less than xMax" }
         if spec.yMin >= spec.yMax { return "yMin must be less than yMax" }
         if spec.functions.isEmpty { return "add at least one function" }
+        for a in spec.asymptotes {
+            if !a.value.isFinite { return "asymptote value must be a number" }
+            if a.orientation == .oblique && !(a.slope.map(\.isFinite) ?? false) { return "an oblique asymptote needs a slope" }
+        }
         let paramNames = Set(spec.params.map(\.name))
         for p in spec.params {
             if p.name.isEmpty || !p.name.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "_" }) || p.name.first!.isNumber {

@@ -208,11 +208,11 @@ def function_pages():
         "types": {"required": ["openSidebar"], "forbidden": ["insertMoleculeCard"]},
         "sidebarKeywords": ["vertex", "2"],
     }, category="followup", existing=[
-        {"action": {"type": "insertGraphCard", "spec": {"title": "f(x) = x² − 4x + 3", "xMin": -1, "xMax": 5, "yMin": -2, "yMax": 8,
+        {"action": {"type": "insertGraphCard", "spec": {"title": "f(x) = x² − 4x + 3", "xMin": -1, "xMax": 5, "yMin": -2, "yMax": 8, "xLabel": None, "yLabel": None,
                     "functions": [{"expression": "x**2 - 4*x + 3", "label": "f(x)", "color": None}], "params": [], "asymptotes": [],
                     "points": [{"x": 1, "y": 0, "label": "root", "draggable": False}, {"x": 3, "y": 0, "label": "root", "draggable": False}, {"x": 2, "y": -1, "label": "vertex", "draggable": False}], "labels": []},
                     "near": {"x": 0.1, "y": 0.3, "width": 0.42, "height": 0.28}}, "question": "graph this"},
-    ], history=[{"question": "graph this", "actions": [say("Here's f(x) with its roots and vertex."), {"type": "insertGraphCard", "spec": {"title": "f(x) = x² − 4x + 3", "xMin": -1, "xMax": 5, "yMin": -2, "yMax": 8,
+    ], history=[{"question": "graph this", "actions": [say("Here's f(x) with its roots and vertex."), {"type": "insertGraphCard", "spec": {"title": "f(x) = x² − 4x + 3", "xMin": -1, "xMax": 5, "yMin": -2, "yMax": 8, "xLabel": None, "yLabel": None,
                     "functions": [{"expression": "x**2 - 4*x + 3", "label": "f(x)", "color": None}], "params": [], "asymptotes": [],
                     "points": [{"x": 1, "y": 0, "label": "root", "draggable": False}, {"x": 3, "y": 0, "label": "root", "draggable": False}, {"x": 2, "y": -1, "label": "vertex", "draggable": False}], "labels": []},
                     "near": {"x": 0.1, "y": 0.3, "width": 0.42, "height": 0.28}}], "created": [0]}])

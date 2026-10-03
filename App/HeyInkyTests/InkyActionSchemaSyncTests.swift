@@ -30,7 +30,7 @@ struct InkyActionSchemaSyncTests {
         .label(LabelAction(anchor: NormPoint(x: 0.5, y: 0.5), text: "t", arrow: true)),
         .fillText(FillTextAction(region: .unit, text: "t", handwritingStyle: false)),
         .insertMoleculeCard(InsertMoleculeCardAction(smiles: "C", near: .unit, highlightGroups: [], starGroups: [], caption: "c")),
-        .insertGraphCard(InsertGraphCardAction(spec: GraphSpec(title: "t", xMin: 0, xMax: 1, yMin: 0, yMax: 1, functions: [], params: [], asymptotes: [], points: [], labels: []), near: .unit)),
+        .insertGraphCard(InsertGraphCardAction(spec: GraphSpec(title: "t", xMin: 0, xMax: 1, yMin: 0, yMax: 1, xLabel: "x", yLabel: "y", functions: [], params: [], asymptotes: [], points: [], labels: []), near: .unit)),
         .openSidebar(OpenSidebarAction(markdown: "m", speakable: true)),
         .say(SayAction(text: "s")),
     ]
@@ -58,9 +58,16 @@ struct InkyActionSchemaSyncTests {
     @Test func sharedPrimitivesMatch() throws {
         #expect(properties("region") == ["x", "y", "width", "height"])
         #expect(properties("point") == ["x", "y"])
-        let spec = GraphSpec(title: "t", xMin: 0, xMax: 1, yMin: 0, yMax: 1, functions: [], params: [], asymptotes: [], points: [], labels: [])
+        let spec = GraphSpec(title: "t", xMin: 0, xMax: 1, yMin: 0, yMax: 1, xLabel: "x", yLabel: "y", functions: [], params: [], asymptotes: [], points: [], labels: [])
         let keys = Set((try JSONSerialization.jsonObject(with: JSONEncoder().encode(spec)) as? [String: Any] ?? [:]).keys)
         #expect(keys == properties("graphSpec"))
+        let graphProperties = defs["graphSpec"]?["properties"] as? [String: Any] ?? [:]
+        let asymptoteItem = (graphProperties["asymptotes"] as? [String: Any])?["items"] as? [String: Any] ?? [:]
+        let asymptote = GraphSpec.Asymptote(orientation: .oblique, value: 0, slope: 1, label: "l")
+        let asymptoteKeys = Set((try JSONSerialization.jsonObject(with: JSONEncoder().encode(asymptote)) as? [String: Any] ?? [:]).keys)
+        #expect(asymptoteKeys == Set((asymptoteItem["properties"] as? [String: Any] ?? [:]).keys))
+        let orientations = ((asymptoteItem["properties"] as? [String: Any])?["orientation"] as? [String: Any])?["enum"] as? [String]
+        #expect(orientations == ["vertical", "horizontal", "oblique"])
     }
 
     @Test func bundledSchemaIsAnObjectRoot() {
