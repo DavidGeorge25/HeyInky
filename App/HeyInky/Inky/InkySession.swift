@@ -131,7 +131,10 @@ final class InkySession {
         var applied = 0
         var actions: [InkyAction] = []
         var removed: [UUID] = []
-        let before = Set(editor.annotations.map(\.id))
+        let snapshot = editor.annotations
+        let before = Set(snapshot.map(\.id))
+        // One undo step per Inky turn (all of its marks and removals), however it ends.
+        defer { editor.registerAnnotationUndo(restoring: snapshot, actionName: "Inky") }
         do {
             for try await event in client.respond(to: request) {
                 switch event {
@@ -146,7 +149,7 @@ final class InkySession {
                         applied += 1
                     }
                     removed = response.removedAnnotationIDs
-                    for id in removed { editor.deleteAnnotation(id) }
+                    for id in removed { editor.deleteAnnotation(id, undoable: false) }
                 case .textDelta:
                     break
                 }

@@ -49,7 +49,7 @@ struct InkyStroke: Equatable, Sendable {
             duration = 0.5
         case .label(let a):
             kind = .label
-            let text = InkyAnnotationGeometry.labelTextRect(a, pageSize: pageSize).cgRect(in: pageSize).offsetBy(dx: offset.x, dy: offset.y)
+            let text = InkyAnnotationGeometry.labelTextRect(a, pageSize: pageSize, placement: annotation.labelPlacement ?? 0).cgRect(in: pageSize).offsetBy(dx: offset.x, dy: offset.y)
             let anchor = a.anchor.cgPoint(in: pageSize)
             label = LabelGeometry(textRect: text, anchor: CGPoint(x: anchor.x + offset.x, y: anchor.y + offset.y), arrow: a.arrow)
             duration = min(1.0, 0.35 + 0.025 * Double(a.text.count)) + (a.arrow ? 0.35 : 0)

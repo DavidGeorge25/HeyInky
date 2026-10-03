@@ -18,7 +18,7 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
     /// from the Pencil (squeeze) or the tool picker.
     var onSummon: ((CGPoint?) -> Void)?
 
-    let canvas = PKCanvasView()
+    let canvas = PageInkCanvasView()
     private let backgroundView = PageBackgroundView()
     private let overlayContainer = PassthroughView()
     private let lassoView = LassoCaptureView()
@@ -49,6 +49,7 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
         canvas.alwaysBounceVertical = true
         canvas.contentInsetAdjustmentBehavior = .never
         canvas.delegate = self
+        canvas.pageUndoManager = editor.undoManager
         canvas.drawing = editor.drawing
         canvas.accessibilityIdentifier = "page.canvas"
         view.addSubview(canvas)
@@ -173,8 +174,6 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
         backgroundView.setNeedsDisplay()
     }
 
-    func undo() { canvas.undoManager?.undo() }
-    func redo() { canvas.undoManager?.redo() }
 
     /// Where on screen (this view's coordinates) a normalized page point is.
     func viewPoint(for point: NormPoint) -> CGPoint {
@@ -238,6 +237,13 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
 }
 
 /// Paper / PDF / images, redrawn at the current zoom for crisp output.
+/// PencilKit registers stroke undo on the canvas's `undoManager`. Each page uses its editor's
+/// manager (shared with Inky annotation changes) instead of the window's.
+final class PageInkCanvasView: PKCanvasView {
+    weak var pageUndoManager: UndoManager?
+    override var undoManager: UndoManager? { pageUndoManager ?? super.undoManager }
+}
+
 final class PageBackgroundView: UIView {
     private weak var editor: PageEditorModel?
 

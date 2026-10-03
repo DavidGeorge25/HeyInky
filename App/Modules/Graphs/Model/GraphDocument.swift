@@ -181,7 +181,37 @@ struct GraphDocument: Hashable, Sendable {
                 result.asymptotes.append(line)
             }
         }
+        // A model-given line was right for the parameters Inky chose; once a slider moves the
+        // curve's own asymptote (detected above) is the truth. Drop a given line the curve now
+        // contradicts: same kind detected elsewhere, nothing detected at the given value.
+        // (One curve only: with several, a different curve's line proves nothing.)
+        if !spec.params.isEmpty, spec.functions.count == 1 {
+            let detected = result.asymptotes.filter(\.isAuto)
+            result.asymptotes.removeAll { given in
+                guard !given.isAuto else { return false }
+                let sameKind = detected.filter { $0.kind == given.kind }
+                return !sameKind.isEmpty && !sameKind.contains { $0.isSameLine(as: given, tolerance: Self.lineTolerance(given, w)) }
+            }
+        }
         return result
+    }
+
+    /// Fixed points Inky marked on a curve (roots, intercepts, vertex) stop being true once a
+    /// slider moves; the detected features follow the curve instead. With sliders, a fixed point
+    /// that no curve passes through any more is hidden. (Draggable points are the student's.)
+    func stalePointIndices() -> [Int] {
+        guard !spec.params.isEmpty else { return [] }
+        let evaluators = spec.functions.indices.compactMap { evaluator(at: $0) }
+        guard !evaluators.isEmpty else { return [] }
+        let tolerance = (spec.yMax - spec.yMin) * 0.01
+        return spec.points.indices.filter { i in
+            let p = spec.points[i]
+            guard !p.draggable else { return false }
+            return !evaluators.contains { f in
+                let y = f(p.x)
+                return y.isFinite && abs(y - p.y) <= tolerance
+            }
+        }
     }
 
     private static func lineTolerance(_ line: GraphAsymptoteLine, _ w: GraphAnalysis.Window) -> Double {

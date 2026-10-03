@@ -253,6 +253,7 @@ struct InkySidebarView: View {
                     .buttonStyle(InkyPressStyle())
                     .sensoryFeedback(.selection, trigger: isPlaying)
                     .accessibilityLabel(isPlaying ? "Pause" : "Read aloud")
+                    .accessibilityValue(speech.isSpeaking ? "\(Int(speech.progress * 100))% read" : "")
                     .accessibilityIdentifier("inky.sidebar.play")
                 }
                 Button(action: onClose) {

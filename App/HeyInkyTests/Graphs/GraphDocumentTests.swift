@@ -147,6 +147,41 @@ struct GraphPresetTests {
         #expect(r.asymptotes.contains { $0.kind == .vertical && abs($0.value) < 1e-6 })
     }
 
+    @Test func modelAsymptotesFollowTheSliders() {
+        let spec = GraphSpec(
+            title: nil, xMin: -10, xMax: 14, yMin: -10, yMax: 14,
+            functions: [.init(expression: "(a*x + 1)/(x - 3)", label: nil, color: nil)],
+            params: [.init(name: "a", min: 0.5, max: 4, value: 2, step: 0.1)],
+            asymptotes: [.init(orientation: .vertical, value: 3, label: "x = 3"), .init(orientation: .horizontal, value: 2, label: "y = 2")],
+            points: [], labels: []
+        )
+        var doc = GraphDocument(spec: spec)
+        #expect(doc.analysis().asymptotes.filter { $0.kind == .horizontal }.map(\.label) == ["y = 2"], "Inky's label at Inky's values")
+        doc.setParamValue(3.8, named: "a")
+        let r = doc.analysis()
+        #expect(r.asymptotes.filter { $0.kind == .horizontal }.map(\.value) == [3.8], "the stale y = 2 is gone")
+        #expect(r.asymptotes.contains { $0.kind == .vertical && $0.label == "x = 3" }, "still-true lines keep Inky's label")
+    }
+
+    @Test func inkysPointsHideWhenASliderMovesThemOffTheCurve() {
+        var spec = GraphSpec(
+            title: nil, xMin: -10, xMax: 14, yMin: -10, yMax: 14,
+            functions: [.init(expression: "(a*x + 1)/(x - 3)", label: nil, color: nil)],
+            params: [.init(name: "a", min: 0.5, max: 5, value: 2, step: 0.1)],
+            asymptotes: [], points: [], labels: []
+        )
+        spec.points = [
+            .init(x: -0.5, y: 0, label: "x-int", draggable: false),
+            .init(x: 0, y: -1.0 / 3, label: "y-int", draggable: false),
+            .init(x: 5, y: 5, label: "drag me", draggable: true),
+        ]
+        var doc = GraphDocument(spec: spec)
+        #expect(doc.stalePointIndices().isEmpty, "all true at Inky's values")
+        doc.setParamValue(4.8, named: "a")
+        #expect(doc.stalePointIndices() == [0], "the x-intercept moved; the y-intercept didn't; draggable points stay")
+        #expect(GraphScene(document: doc, theme: .light).patch.hiddenPoints == [0])
+    }
+
     @Test func michaelisMentenSaturatesAtVmax() {
         let (_, r) = analysis(GraphPresets.michaelisMenten)
         #expect(r.asymptotes.contains { $0.kind == .horizontal && $0.value == 10 })

@@ -14,7 +14,10 @@ final class PageEditorModel {
     private(set) var drawing: PKDrawing
     private(set) var annotations: [InkyAnnotation]
 
-    var showsInkyLayer = true
+    /// Whole-layer visibility, persisted per notebook.
+    var showsInkyLayer = true {
+        didSet { if showsInkyLayer != oldValue { store.setInkyLayerHidden(!showsInkyLayer, in: notebookID) } }
+    }
     /// Plays Inky hopping over and drawing each new annotation (InkyCharacter module).
     let choreographer = InkyChoreographer()
     var selectedAnnotationID: UUID?
@@ -38,6 +41,7 @@ final class PageEditorModel {
         self.store = store
         self.drawing = store.drawing(for: page.id, in: notebookID)
         self.annotations = store.annotations(for: page.id, in: notebookID)
+        self.showsInkyLayer = !(store.notebook(id: notebookID)?.inkyLayerHidden ?? false)
     }
 
     // MARK: Ink
@@ -60,8 +64,13 @@ final class PageEditorModel {
         hasUnsavedInk = false
     }
 
-    func undo() { canvasController?.undo() }
-    func redo() { canvasController?.redo() }
+    /// This page's undo history, shared by ink (the canvas returns it as its `undoManager`, so
+    /// PencilKit registers strokes here) and Inky annotation changes. Per page, so undo never
+    /// reaches into another page.
+    @ObservationIgnored let undoManager = UndoManager()
+
+    func undo() { undoManager.undo() }
+    func redo() { undoManager.redo() }
 
     // MARK: Inky layer
 
@@ -71,38 +80,87 @@ final class PageEditorModel {
 
     func addAnnotation(_ action: InkyAction, question: String?) {
         guard action.isPageAnnotation else { return }
-        annotations.append(InkyAnnotation(action: action, question: question))
+        var annotation = InkyAnnotation(action: action, question: question)
+        if case .label(let label) = action { annotation.labelPlacement = freeLabelPlacement(for: label) }
+        annotations.append(annotation)
         saveAnnotations()
     }
 
-    func updateAnnotation(_ annotation: InkyAnnotation) {
+    /// The first label placement whose text box doesn't overlap another visible label's (nil = default).
+    private func freeLabelPlacement(for label: LabelAction) -> Int? {
+        let taken = visibleAnnotations.compactMap { other -> NormRect? in
+            guard case .label(let l) = other.action else { return nil }
+            return InkyAnnotationGeometry.labelTextRect(l, pageSize: page.size, placement: other.labelPlacement ?? 0)
+                .offsetBy(dx: other.offset.x, dy: other.offset.y)
+        }
+        let margin = 4 / page.width
+        for placement in InkyAnnotationGeometry.labelPlacements {
+            let rect = InkyAnnotationGeometry.labelTextRect(label, pageSize: page.size, placement: placement).insetBy(dx: -margin, dy: -margin)
+            if !taken.contains(where: { $0.intersects(rect) }) { return placement == 0 ? nil : placement }
+        }
+        return nil
+    }
+
+    /// Cards call this for every slider/expression edit, so it isn't undoable by default;
+    /// user edits from the selection toolbar pass `undoable: true`.
+    func updateAnnotation(_ annotation: InkyAnnotation, undoable: Bool = false) {
         guard let index = annotations.firstIndex(where: { $0.id == annotation.id }) else { return }
+        let before = annotations
         annotations[index] = annotation
         saveAnnotations()
+        if undoable { registerAnnotationUndo(restoring: before, actionName: "Edit") }
     }
 
     func moveAnnotation(_ id: UUID, by delta: NormPoint) {
         guard let index = annotations.firstIndex(where: { $0.id == id }) else { return }
+        let before = annotations
         annotations[index].offset = annotations[index].offset.offsetBy(dx: delta.x, dy: delta.y)
         saveAnnotations()
+        registerAnnotationUndo(restoring: before, actionName: "Move")
     }
 
     func setHidden(_ id: UUID, _ hidden: Bool) {
         guard let index = annotations.firstIndex(where: { $0.id == id }) else { return }
+        let before = annotations
         annotations[index].isHidden = hidden
         if hidden, selectedAnnotationID == id { selectedAnnotationID = nil }
         saveAnnotations()
+        registerAnnotationUndo(restoring: before, actionName: hidden ? "Hide" : "Show")
     }
 
-    func deleteAnnotation(_ id: UUID) {
+    /// `undoable: false` when the deletion is part of a larger undoable change (an Inky turn, flatten).
+    func deleteAnnotation(_ id: UUID, undoable: Bool = true) {
+        let before = annotations
         annotations.removeAll { $0.id == id }
         if selectedAnnotationID == id { selectedAnnotationID = nil }
         saveAnnotations()
+        if undoable { registerAnnotationUndo(restoring: before, actionName: "Delete") }
     }
 
     func clearAnnotations() {
+        let before = annotations
         annotations.removeAll()
         selectedAnnotationID = nil
+        saveAnnotations()
+        registerAnnotationUndo(restoring: before, actionName: "Clear Inky Layer")
+    }
+
+    /// Makes the change from `before` to the current annotations one undo step (redo re-applies it).
+    func registerAnnotationUndo(restoring before: [InkyAnnotation], actionName: String) {
+        guard before != annotations else { return }
+        undoManager.registerUndo(withTarget: self) { editor in
+            MainActor.assumeIsolated {
+                let current = editor.annotations
+                editor.restoreAnnotations(before)
+                editor.registerAnnotationUndo(restoring: current, actionName: actionName)
+            }
+        }
+        undoManager.setActionName(actionName)
+    }
+
+    private func restoreAnnotations(_ list: [InkyAnnotation]) {
+        annotations = list
+        if let id = selectedAnnotationID, !list.contains(where: { $0.id == id }) { selectedAnnotationID = nil }
         saveAnnotations()
     }
 
@@ -115,7 +173,7 @@ final class PageEditorModel {
         imageInsertedExternally(placed)
         updateImage(placed)
         selectedImageID = nil
-        deleteAnnotation(id)
+        deleteAnnotation(id, undoable: false)
     }
 
     private func saveAnnotations() {

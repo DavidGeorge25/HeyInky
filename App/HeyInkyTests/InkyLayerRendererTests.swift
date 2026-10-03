@@ -139,4 +139,20 @@ struct InkyLayerRendererTests {
         #expect(reloaded.images.map(\.frame) == [placed.frame])
         #expect(editor.store.annotations(for: reloaded.id, in: editor.notebookID).isEmpty)
     }
+
+    @Test func labelsWithNearbyAnchorsDontCoverEachOther() {
+        // What the model did on the asymptotes slide: two arrow labels pointing at the same spot.
+        let first = LabelAction(anchor: NormPoint(x: 0.35, y: 0.45), text: "vertical asymptote: x = 3", arrow: true)
+        let second = LabelAction(anchor: NormPoint(x: 0.36, y: 0.45), text: "horizontal asymptote: y = 2", arrow: true)
+        let editor = makeEditor([.label(first), .label(second)])
+        let rects = editor.annotations.map { annotation -> NormRect in
+            guard case .label(let l) = annotation.action else { return .zero }
+            return InkyAnnotationGeometry.labelTextRect(l, pageSize: pageSize, placement: annotation.labelPlacement ?? 0)
+        }
+        #expect(editor.annotations[0].labelPlacement == nil, "the first keeps the default spot")
+        #expect(!rects[0].intersects(rects[1]))
+        // Placement survives a reload.
+        let reloaded = editor.store.annotations(for: editor.page.id, in: editor.notebookID)
+        #expect(reloaded.map(\.labelPlacement) == editor.annotations.map(\.labelPlacement))
+    }
 }

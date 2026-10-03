@@ -1,79 +1,85 @@
 # Progress
 
-_Last updated: 2026-10-03 (foundation session)._
+_Last updated: 2026-10-03 (integration + end-to-end QA session)._
 
-## Status: foundation complete ✅
-- App builds with **zero warnings** (Swift 6, strict concurrency) and runs on the iPad simulator.
-- **Unit tests:** 49 Swift Testing tests green (schema decoding, schema⇄Swift sync, stream parsing,
-  prompt builder, proxy client, mock client, store/persistence, PDF import + text extraction, image
-  insert, renderers, Inky layer placement/move/hide, session apply/error paths, localization, markdown).
-- **UI tests:** 3 XCUITests green (mock client): summon Inky → ask → highlight/circle/star/label/fillText
-  + toast appear → select & delete one annotation; "explain" opens the sidebar with a play button;
-  create notebook → draw → add page.
-- **Proxy:** 14 Node tests green (handler, streaming server, token, error passthrough, strict-schema
-  rules, `type`-first ordering, fixtures validate with Ajv). `npm run smoke` passes against real OpenAI.
-- **Live end-to-end** (`LiveProxyIntegrationTests`, opt-in): the real app pipeline renders the sample
-  lecture page, sends it through the proxy, and "highlight the title of this page" lands on the title
-  (IoU 0.75–0.79 vs. the true title box) in ~1.5–3 s.
+## Status: all modules integrated on `main` ✅
+Merged in order (PRs #4, #2, #3, #1): **AICore** → **Chemistry** → **Graphs** → **InkyCharacter**. Every
+request in `INTERFACE_REQUESTS.md` is fulfilled (status line on each). After each merge the app built with
+zero warnings and the full suite passed.
 
-## What's built
-| Area | Done |
+- **Unit tests:** Swift Testing, all green (schema⇄Swift sync, AICore context/validation/retry, chemistry
+  RDKit groups on 77 molecules + snapshots, graphs parser/analysis/presets/web bridge + snapshots, Inky
+  character snapshots + choreography, store/persistence, undo, renderers, session).
+- **UI tests (mock client, offline):** basic flows, molecule card + Ketcher, graph card (sliders, expression
+  editor, pan, flatten), choreography, and `EndToEndUITests` (6 flows below). All green.
+- **Proxy:** `npm run check` green. **Evals:** see `evals/RESULTS.md`.
+
+## End-to-end QA (iPad Pro 11" M5 simulator, iOS 26.3, real proxy + OpenAI)
+`TEST_RUNNER_INKY_LIVE=1 xcodebuild test … -only-testing:HeyInkyUITests/EndToEndUITests` runs these against
+the real model; the same tests run offline with the mock client by default.
+
+| Flow | Live result |
 |---|---|
-| Project | XcodeGen `App/project.yml`; app + unit + UI test targets; module folders globbed in |
-| Library | Notebook grid with live thumbnails, new notebook (blank/lined/grid/dotted), import PDF as notebook, rename/delete, sample notebook on first launch |
-| Notebook | PencilKit canvas with zoom, tool picker, undo/redo, page strip, prev/next, add page (paper styles), delete page, import PDF into notebook, insert image (Photos/Files) with move/resize/delete, autosave (debounced + on background/page switch) |
-| Inky summon | Floating Inky button, Pencil Pro squeeze (anchored at hover), custom Inky tool-picker item, lasso a region for context, minimal ask popover (text + on-device voice), thinking state, cancel |
-| AI | `InkyModelClient` protocol, `ProxyInkyModelClient` (SSE, incremental actions), `MockInkyModelClient`, prompt builder, grid-overlay localization + PDF text + Vision OCR |
-| Inky layer | Renderers for highlight, circle, star, label (+arrow), fillText (handwriting font); stub cards for molecule/graph; select → edit / hide / delete; drag to move; layer menu with per-annotation visibility and clear; persisted per page |
-| Replies | `say` toast; `openSidebar` Markdown explainer with play/pause TTS |
-| Proxy | Node/TS server + Worker entry, `.env` loading, optional shared token, field allow-list, `store:false` |
+| Handwritten acetaminophen (image on a grid page) → "what functional groups are here?" | ✅ molecule card, RDKit structure correct, 2° amide + phenol highlighted, aromatic ring detected |
+| Imported PDF slide `f(x) = (2x + 1)/(x − 3)` → "label the asymptotes" | ✅ graph card, asymptotes x = 3 and y = 2 labeled by Inky, slider moves the curve and its asymptote (after the prompt fix below) |
+| Worksheet PDF with 4 empty boxes → "fill these in" | ✅ 56 · 12 · 12 · 18, each inside its box |
+| "explain SN1 vs SN2" | ✅ sidebar with a Markdown explanation; Listen → TTS speaks (word progress observed) and pauses |
+| Voice question ("highlight the title", scripted transcript in the simulator) | ✅ transcript streams into the field, send, title highlighted |
+| Undo / redo / delete / hide layer, relaunch | ✅ toolbar Undo removes the whole Inky turn, Redo restores; deleted mark stays deleted; hidden layer stays hidden after relaunch; marks persist |
 
-## InkyCharacter (feat/character) ✅
-- **Inky** is an original vector pen character (Canvas): ink-drop cowlick, big eyes, nib. States:
-  idle, listening, thinking, speaking, happy, hopping, writing — each with its own motion; state
-  changes blend; Reduce Motion holds reference poses and cross-fades.
-- **Acting on the page:** for each annotation Inky drops/hops (parabolic arc, squash & stretch,
-  shadow) to where it goes, draws it with a stroke-reveal under its nib (highlight swipe, circle loop,
-  star outline → fill, label text → arrow, handwriting, card pop), then a happy bounce, the reply
-  toast, and Inky hops away. Reduce Motion: annotations fade in one by one.
-- **Polish:** ask popover, floating button (ink-drop "seat" while Inky is out), toasts, sidebar;
-  haptics (incl. Apple Pencil Pro); subtle synthesized sounds with an "Inky Sounds" toggle.
-- **App icon + launch screen** featuring Inky, rendered from SwiftUI art.
-- **Tests:** 72 unit tests (character snapshots per state + small sizes, choreography, artwork sync),
-  4 UI tests incl. `InkyChoreographyUITests` (hop-to-target order, annotation hidden until Inky
-  arrives, nib on the target, celebrate, reply, leave). All green; zero warnings.
-- Shell touch-points are listed in `INTERFACE_REQUESTS.md`.
+Live runs used `gpt-5.4` and `gpt-5.5` via `TEST_RUNNER_INKY_MODEL`: the org's 50 requests/day cap for the
+default `gpt-5.4-mini` was already used up that day (the app then shows "Inky is getting too many questions
+right now"). The worksheet and undo/relaunch flows passed live on `gpt-5.4`, before the last prompt/label
+changes; the final `gpt-5.5` run passed molecule, asymptotes, explanation and voice, then hit that model's
+daily cap too. **To do:** re-run the whole live suite on the default model once the quota resets.
 
-### Screen recording: Inky in action
-1. Build & install on a simulator (or device): `xcodebuild build … -destination 'platform=iOS Simulator,name=iPad Pro 11-inch (M5)'`
-   (or run from Xcode with the launch arguments below in the scheme).
-2. Launch with the mock client and slightly slower motion so it reads well on video:
-   `xcrun simctl launch booted com.heyinky.app -InkyUITestReset YES -InkyUseMockClient YES -InkyMotionScale 1.5`
-   (drop `-InkyMotionScale` for real speed; use the proxy instead of the mock for a real answer).
-3. Start recording: `xcrun simctl io booted recordVideo --codec h264 inky.mp4`
-   (on device: Control Center → Screen Recording).
-4. Open **Welcome to Hey Inky**, tap Inky (bottom right), type **highlight the title**, send.
-   Inky drops onto the title, swipes the highlight, hops to the circle, star, label and answer
-   text, bounces, and the reply toast appears.
-5. Tap Inky again, ask **explain this page** → sidebar opens; tap **Listen** (Inky talks).
-6. Tap the mic in the ask popover to show the listening pose (needs mic permission).
-7. Optional: Settings → Accessibility → Motion → Reduce Motion on, repeat step 4 (annotations fade in).
-8. Stop recording with Ctrl-C.
+### Bugs found and fixed in this session
+- **Asymptotes stayed put when a slider moved** (Inky's `y = 2` stayed next to the true `y = a`). Given
+  lines the curve now contradicts are dropped (single-curve graphs); detected ones follow the slider.
+- **Inky's fixed points (intercepts, vertex) stayed put when a slider moved** → hidden once no curve passes
+  through them (`GraphDocument.stalePointIndices`, sent with every slider patch).
+- **"label the asymptotes" put two overlapping page labels over the equation** instead of a graph card →
+  prompt: graph features of a function written only as an equation go on a graph card, with a slider.
+- **Overlapping / truncated labels:** a new label picks the first side of its anchor that doesn't cover
+  another label (`InkyAnnotation.labelPlacement`); label boxes got width slack so text isn't cut off.
+- **Undo didn't cover Inky** and ink undo used the window's shared undo manager (could act across pages) →
+  per-page `UndoManager` shared by ink and Inky; an Inky turn is one step; delete/hide/move/clear/edit undoable.
+- **Hiding the Inky layer didn't persist** (lost on page change and relaunch) → stored per notebook.
+- **Graph cards were cramped** on landscape slides → minimum card size 320×260 pt.
+- Fill-in answers sat on the box's left border → small inset.
+- Integration: duplicate `Snapshot` test helper (renamed Chemistry's); character reveal view rebuilt card
+  web views when the reveal ended (now one stable structure).
+- Rate-limit toast no longer shows a raw HTTP status.
 
-## Known gaps / follow-ups for the lead
-- Simulator can't test real Pencil squeeze / hover; verify on device (`-InkyProxyURL http://<mac-ip>:8787`,
-  proxy with `INKY_PROXY_HOST=0.0.0.0`).
-- PDF pages with rotation: rendered correctly, but text-layer boxes are skipped (OCR covers them).
-- One page on screen at a time (no continuous vertical scroll yet).
-- Annotations don't scale with the page if a page's size changes (not currently possible).
-- No iCloud sync, search, or export yet.
+### Added for QA
+- DEBUG launch arguments `-InkyUITestScenario`, `-InkyUITestImage`, `-InkyUITestLibrary`, `-InkyUITestSpeech`
+  (see README); fixture `App/HeyInkyUITests/Fixtures/acetaminophen_hand.png`.
+- Accessibility: graph cards announce their asymptotes (`inky.graph.asymptotes`); the Listen button reports
+  how much has been read.
 
-## Next steps per module agent
-- **AICore** (`App/Modules/AICore/README.md`): "Sign in with ChatGPT" client (one file + factory switch),
-  follow-up turns/conversation memory, an IoU eval set for localization tuning, image cost/latency tuning.
-- **Chemistry** (`App/Modules/Chemistry/README.md`): replace `MoleculeCardView` stub with bundled RDKit.js
-  rendering + SMARTS highlight/star, Ketcher editing, offline assets, tests.
-- **Graphs** (`App/Modules/Graphs/README.md`): replace `GraphCardView` stub with bundled JSXGraph,
-  sliders/draggable points, safe expression compilation, persist interactive state, tests.
-- **InkyCharacter** (`App/Modules/InkyCharacter/README.md`): done; next: hop back to the floating
-  button (needs its page-space position, see `INTERFACE_REQUESTS.md`), Pencil Pro haptics at hover.
+## Needs a human on a real iPad + Apple Pencil
+The simulator draws with a mouse/touch and has no Pencil, so these can't be verified here:
+- **Pencil feel:** stroke latency and prediction with the Inky layer and cards on screen; palm rejection
+  while a card or the ask popover is up; pressure/tilt with each tool.
+- **Latency:** time from lifting the Pencil to ink saved; Inky summon → first mark on a real network
+  (Mac proxy over Wi-Fi with `-InkyProxyURL`); scroll/zoom smoothness on long PDF notebooks.
+- **Squeeze (Pencil Pro):** squeeze summons Inky at the hover point; haptic on summon/land; squeeze while
+  zoomed in/scrolled; double-tap still follows the system setting.
+- **Hover (M2+ iPad / Pencil Pro):** squeeze anchor follows hover; no stray lasso from hover.
+- **Lasso with Pencil:** circling a region while Inky is summoned, then asking; two-finger scroll during lasso.
+- **Touches on cards:** slider dragging, graph panning and molecule tapping never leave ink; drawing right
+  next to a card still inks.
+- **Voice:** real microphone + on-device recognition (permission prompts, STEM words like "carbonyl",
+  "asymptote"), stopping with the mic button; TTS volume/route with headphones and with the silent switch.
+- **Ketcher** editing with Pencil (fine taps on atoms/bonds) and the on-screen keyboard.
+- **Performance:** many cards on one page (one RDKit engine, one web view per graph card), memory after
+  opening several notebooks; thermal on long sessions.
+- **Visuals:** Inky's hop/draw choreography timing on a 120 Hz display; app icon and launch screen on device.
+
+## Known gaps / next steps
+- Stale-asymptote/point logic is heuristic for multi-curve graphs (only single-curve graphs drop given lines).
+- PDF pages with rotation: rendered, but text-layer boxes are skipped (OCR covers them).
+- One page on screen at a time (no continuous vertical scroll); no iCloud sync, search or export yet.
+- AICore: "Sign in with ChatGPT" client, eval re-run on the latest prompt (`evals/run_evals.py`).
+- Chemistry: offline IUPAC names only for ~90 known molecules.
+- InkyCharacter: Pencil Pro haptics at the hover point.

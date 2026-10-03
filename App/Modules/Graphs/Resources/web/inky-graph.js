@@ -286,11 +286,18 @@
       }
       state.points.push(p);
     });
+    applyHiddenPoints(scene.hiddenPoints);
     scene.labels.forEach(function (l) {
       board.create('text', [l.x, l.y, escapeText(l.text)], {
         fontSize: px(11), strokeColor: theme.text, fixed: true, highlight: false
       });
     });
+  }
+
+  function applyHiddenPoints(hidden) {
+    var set = {};
+    (hidden || []).forEach(function (i) { set[i] = true; });
+    state.points.forEach(function (p, i) { p.setAttribute({ visible: !set[i] }); });
   }
 
   function setParams(values) {
@@ -329,6 +336,8 @@
         state.scene.features = patch.features;
         state.scene.options = patch.options || state.scene.options;
         buildOverlay(state.scene);
+        state.scene.hiddenPoints = patch.hiddenPoints || [];
+        applyHiddenPoints(state.scene.hiddenPoints);
         board.unsuspendUpdate();
       } catch (err) {
         post({ type: 'error', message: String(err && err.message || err) });

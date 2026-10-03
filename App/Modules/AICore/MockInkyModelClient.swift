@@ -10,6 +10,7 @@ struct MockInkyModelClient: InkyModelClient {
     func respond(to request: InkyRequest) -> AsyncThrowingStream<InkyStreamEvent, Error> {
         let actions = fixedActions ?? Self.cannedActions(for: request)
         let delay = self.delay
+        let removals = fixedActions == nil ? Self.cannedRemovals(for: request) : []
         return AsyncThrowingStream { continuation in
             let task = Task {
                 try? await Task.sleep(for: delay)
@@ -18,15 +19,56 @@ struct MockInkyModelClient: InkyModelClient {
                     return
                 }
                 for action in actions { continuation.yield(.action(action)) }
-                continuation.yield(.completed(InkyResponse(actions: actions)))
+                continuation.yield(.completed(InkyResponse(removeAnnotations: removals, actions: actions)))
                 continuation.finish()
             }
             continuation.onTermination = { _ in task.cancel() }
         }
     }
 
+    /// "undo that" removes the marks the previous turn created.
+    static func cannedRemovals(for request: InkyRequest) -> [String] {
+        guard request.question.lowercased().contains("undo") else { return [] }
+        return (request.history.last?.createdAnnotationIDs ?? []).map(\.uuidString)
+    }
+
     static func cannedActions(for request: InkyRequest) -> [InkyAction] {
         let q = request.question.lowercased()
+        if q.contains("undo") {
+            return [.say(SayAction(text: "Okay, I took that back."))]
+        }
+        if q.contains("functional group") {
+            return [
+                .say(SayAction(text: "An amide and a phenol, highlighted on the card.")),
+                .insertMoleculeCard(InsertMoleculeCardAction(
+                    smiles: "CC(=O)Nc1ccc(O)cc1", near: NormRect(x: 0.55, y: 0.5, width: 0.4, height: 0.28),
+                    highlightGroups: ["amide", "phenol"], starGroups: [], caption: "Acetaminophen"
+                )),
+            ]
+        }
+        if q.contains("asymptote") {
+            return [
+                .say(SayAction(text: "Vertical at x = 3, horizontal at y = 2.")),
+                .insertGraphCard(InsertGraphCardAction(
+                    spec: GraphSpec(
+                        title: "f(x) = (2x + 1)/(x − 3)", xMin: -10, xMax: 14, yMin: -10, yMax: 14,
+                        functions: [.init(expression: "(a*x + 1)/(x - 3)", label: "f", color: nil)],
+                        params: [.init(name: "a", min: 0.5, max: 4, value: 2, step: 0.1)],
+                        asymptotes: [
+                            .init(orientation: .vertical, value: 3, label: "x = 3"),
+                            .init(orientation: .horizontal, value: 2, label: "y = 2"),
+                        ],
+                        points: [], labels: []
+                    ),
+                    near: NormRect(x: 0.5, y: 0.45, width: 0.45, height: 0.45)
+                )),
+            ]
+        }
+        if q.contains("fill") {
+            return [.say(SayAction(text: "Filled in every box."))] + request.blanks.enumerated().map { i, box in
+                .fillText(FillTextAction(region: box, text: "\(i + 1)", handwritingStyle: true))
+            }
+        }
         let target = request.lassoRegion
             ?? request.recognizedText.first?.box.insetBy(dx: -0.005, dy: -0.005)
             ?? NormRect(x: 0.1, y: 0.06, width: 0.6, height: 0.05)

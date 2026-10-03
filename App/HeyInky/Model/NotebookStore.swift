@@ -90,6 +90,12 @@ final class NotebookStore {
         sortNotebooks()
     }
 
+    func setInkyLayerHidden(_ hidden: Bool, in id: UUID) {
+        guard var notebook = notebook(id: id), (notebook.inkyLayerHidden ?? false) != hidden else { return }
+        notebook.inkyLayerHidden = hidden
+        save(notebook)
+    }
+
     func rename(_ id: UUID, to title: String) {
         guard var notebook = notebook(id: id) else { return }
         notebook.title = title

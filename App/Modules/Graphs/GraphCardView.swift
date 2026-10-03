@@ -77,8 +77,25 @@ struct GraphCardView: View {
         }
         .background(GraphTheme.color(theme.background))
         .environment(\.colorScheme, theme.dark ? .dark : .light)
+        .overlay(alignment: .bottomLeading) { asymptoteSummary }
         .overlay(alignment: .topLeading) { resizePreview(size: size, k: k) }
         .overlay(alignment: .bottomTrailing) { resizeHandle(size: size, k: k) }
+    }
+
+    /// The board is a canvas to VoiceOver; this names its asymptotes ("x = 3, y = 2") and says how
+    /// many came from Inky (vs. detected on the curve).
+    @ViewBuilder private var asymptoteSummary: some View {
+        let lines = model.analysis.asymptotes
+        if model.options.asymptotes, !lines.isEmpty {
+            Rectangle()
+                .fill(Color.clear)
+                .frame(width: 1, height: 1)
+                .allowsHitTesting(false)
+                .accessibilityElement()
+                .accessibilityLabel("Asymptotes: " + lines.map(\.label).joined(separator: ", "))
+                .accessibilityValue("\(lines.filter { !$0.isAuto }.count) from Inky")
+                .accessibilityIdentifier("inky.graph.asymptotes")
+        }
     }
 
     private var board: some View {

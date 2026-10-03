@@ -207,7 +207,7 @@ struct GraphPlotRenderer {
 
     private func drawPointsAndLabels(_ context: inout GraphicsContext) {
         let theme = scene.theme
-        for p in scene.points {
+        for (i, p) in scene.points.enumerated() where !scene.hiddenPoints.contains(i) {
             let r = (p.draggable ? 5 : 3.5) * s
             let c = point(p.x, p.y)
             let dot = Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))

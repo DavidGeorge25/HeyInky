@@ -96,6 +96,9 @@ and `xcrun simctl erase <udid>`.
 `-InkyUseMockClient YES` (canned answers) · `-InkyUITestReset YES` (fresh temp library + sample)
 · `-InkyProxyURL http://<mac-ip>:8787` (device → Mac; start proxy with `INKY_PROXY_HOST=0.0.0.0`)
 · `-InkyProxyToken <t>` (if `INKY_PROXY_TOKEN` is set in `.env`) · `-InkySkipSample YES`.
+DEBUG-only QA seeding (`UITestScenarios`): `-InkyUITestScenario molecule,asymptotes,worksheet`
+· `-InkyUITestImage <png>` · `-InkyUITestLibrary <name>` (survives relaunch) · `-InkyUITestSpeech "<text>"`.
+Live end-to-end UI flows: `TEST_RUNNER_INKY_LIVE=1 [TEST_RUNNER_INKY_MODEL=…] … -only-testing:HeyInkyUITests/EndToEndUITests`.
 
 ## Conventions
 - Swift 6 strict concurrency, zero warnings. UI/model types are `@MainActor`; `@Observable` for state.

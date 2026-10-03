@@ -78,6 +78,7 @@ struct GraphScene: Hashable, Sendable, Encodable {
         var asymptotes: [Asymptote]
         var features: [Feature]
         var options: Options
+        var hiddenPoints: [Int]
     }
 
     var view: View
@@ -86,6 +87,8 @@ struct GraphScene: Hashable, Sendable, Encodable {
     var asymptotes: [Asymptote]
     var features: [Feature]
     var points: [GraphSpec.Point]
+    /// Indices into `points` no longer on their curve (`GraphDocument.stalePointIndices`).
+    var hiddenPoints: [Int]
     var labels: [GraphSpec.Label]
     var axes: Axes
     var theme: GraphTheme
@@ -93,7 +96,7 @@ struct GraphScene: Hashable, Sendable, Encodable {
     var scale: Double
     var options: Options
 
-    var patch: Patch { Patch(params: params, asymptotes: asymptotes, features: features, options: options) }
+    var patch: Patch { Patch(params: params, asymptotes: asymptotes, features: features, options: options, hiddenPoints: hiddenPoints) }
 
     init(document: GraphDocument, theme: GraphTheme, scale: Double = 1, options: Options = Options(), analysis: GraphAnalysis.Result? = nil) {
         let spec = document.spec
@@ -115,6 +118,7 @@ struct GraphScene: Hashable, Sendable, Encodable {
         }
         features = result.features.map { Feature(kind: $0.kind, x: $0.x, y: $0.y, function: $0.function, label: $0.label) }
         points = spec.points
+        hiddenPoints = document.stalePointIndices()
         labels = spec.labels
         let axisLabels = document.axisLabels
         axes = Axes(x: axisLabels.x, y: axisLabels.y)

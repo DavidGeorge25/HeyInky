@@ -72,7 +72,7 @@ struct InkyLayerView: View {
             TextField("Text", text: $editText)
             Button("Cancel", role: .cancel) { editing = nil }
             Button("Save") {
-                if let annotation = editing { editor.updateAnnotation(Self.replacingText(in: annotation, with: editText)) }
+                if let annotation = editing { editor.updateAnnotation(Self.replacingText(in: annotation, with: editText), undoable: true) }
                 editing = nil
             }
         }
@@ -200,7 +200,10 @@ struct InkyAnnotationView: View {
         case .star:
             StarMark(progress: progress)
         case .label(let a):
-            LabelMark(action: a, pageSize: pageSize, bounds: InkyAnnotationGeometry.baseBounds(for: annotation.action, pageSize: pageSize), scale: scale, progress: progress)
+            let placement = annotation.labelPlacement ?? 0
+            LabelMark(action: a, pageSize: pageSize, placement: placement,
+                      bounds: InkyAnnotationGeometry.baseBounds(for: annotation.action, pageSize: pageSize, labelPlacement: placement),
+                      scale: scale, progress: progress)
         case .fillText(let a):
             FillTextMark(action: a, scale: scale, progress: progress)
         case .insertMoleculeCard(let a):

@@ -141,6 +141,7 @@ enum InkyClientError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
+        case .server(429, let message): message
         case .server(let status, let message): "Inky couldn't answer (\(status)): \(message)"
         case .network(let message): "Inky can't reach the server. \(message)"
         case .modelFailed(let message): "Inky got confused: \(message)"

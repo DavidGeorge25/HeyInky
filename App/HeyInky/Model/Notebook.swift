@@ -11,6 +11,8 @@ struct Notebook: Codable, Identifiable, Hashable, Sendable {
     var pages: [Page]
     /// Paper used for new pages.
     var defaultPaper: PaperStyle
+    /// The whole Inky layer is hidden (toolbar menu). Optional so older notebook.json files decode.
+    var inkyLayerHidden: Bool?
 
     init(id: UUID = UUID(), title: String, pages: [Page] = [], defaultPaper: PaperStyle = .lined, now: Date = .now) {
         self.id = id
@@ -73,6 +75,9 @@ struct InkyAnnotation: Codable, Identifiable, Hashable, Sendable {
     var createdAt: Date
     /// The question that produced it, for context in the layer list.
     var question: String?
+    /// Labels only: which side of the anchor the text sits on (`InkyAnnotationGeometry.labelPlacements`),
+    /// picked so labels don't cover each other. nil = default.
+    var labelPlacement: Int?
 
     init(id: UUID = UUID(), action: InkyAction, offset: NormPoint = NormPoint(x: 0, y: 0), isHidden: Bool = false, createdAt: Date = .now, question: String? = nil) {
         self.id = id

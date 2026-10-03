@@ -186,6 +186,7 @@ struct StarShape: Shape {
 struct LabelMark: View {
     let action: LabelAction
     let pageSize: CGSize
+    var placement: Int = 0
     /// Bounds of the whole annotation (text + anchor), normalized, before user offset.
     let bounds: NormRect
     let scale: CGFloat
@@ -195,7 +196,7 @@ struct LabelMark: View {
         let textShare = action.arrow ? InkyStroke.labelTextShare : 1
         let textProgress = min(1, progress / textShare)
         let arrowProgress = action.arrow ? max(0, (progress - textShare) / (1 - textShare)) : 0
-        let textRect = InkyAnnotationGeometry.labelTextRect(action, pageSize: pageSize)
+        let textRect = InkyAnnotationGeometry.labelTextRect(action, pageSize: pageSize, placement: placement)
         let local = { (p: NormPoint) -> CGPoint in
             CGPoint(x: (p.x - bounds.x) * pageSize.width * scale, y: (p.y - bounds.y) * pageSize.height * scale)
         }
@@ -214,6 +215,7 @@ struct LabelMark: View {
                 .font(Font(InkyAnnotationGeometry.labelFont(scale: scale)))
                 .foregroundStyle(Theme.accent)
                 .multilineTextAlignment(.leading)
+                .minimumScaleFactor(0.75)
                 .padding(.horizontal, InkyAnnotationGeometry.labelPadding.width * scale)
                 .padding(.vertical, InkyAnnotationGeometry.labelPadding.height * scale)
                 .frame(width: textSize.width, height: textSize.height, alignment: .leading)
@@ -284,9 +286,15 @@ struct FillTextMark: View {
                 .font(action.handwritingStyle ? Theme.handwriting(size: Self.fontSize(for: geo.size.height, scale: scale)) : .system(size: Self.fontSize(for: geo.size.height, scale: scale) * 0.85, weight: .regular, design: .rounded))
                 .foregroundStyle(Theme.accent)
                 .minimumScaleFactor(0.25)
+                // Off the box's left border, like a person writing inside it.
+                .padding(.leading, Self.leadingInset(width: geo.size.width, scale: scale))
                 .frame(width: geo.size.width, height: geo.size.height, alignment: .leading)
                 .revealed(progress, widthFraction: Self.textWidthFraction(action, size: geo.size, scale: scale))
         }
+    }
+
+    nonisolated static func leadingInset(width: CGFloat, scale: CGFloat) -> CGFloat {
+        min(8 * scale, width * 0.08)
     }
 
     nonisolated static func fontSize(for height: CGFloat, scale: CGFloat) -> CGFloat {
@@ -302,7 +310,7 @@ struct FillTextMark: View {
             ? (UIFont(name: "Noteworthy-Bold", size: fontSize) ?? .systemFont(ofSize: fontSize))
             : .systemFont(ofSize: fontSize * 0.85)
         let width = (action.text as NSString).size(withAttributes: [.font: font]).width
-        return min(1, max(0.15, (width + 4 * scale) / size.width))
+        return min(1, max(0.15, (width + leadingInset(width: size.width, scale: scale) + 4 * scale) / size.width))
     }
 }
 

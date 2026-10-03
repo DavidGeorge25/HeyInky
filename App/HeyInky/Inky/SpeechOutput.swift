@@ -7,6 +7,8 @@ import Observation
 final class SpeechOutput {
     private(set) var isSpeaking = false
     private(set) var isPaused = false
+    /// 0…1: how far the synthesizer has actually got (word callbacks), so "it's playing" is observable.
+    private(set) var progress: Double = 0
 
     @ObservationIgnored private let synthesizer = AVSpeechSynthesizer()
     @ObservationIgnored private let delegate = Delegate()
@@ -19,6 +21,10 @@ final class SpeechOutput {
             self.isSpeaking = false
             self.isPaused = false
         }
+        delegate.onProgress = { [weak self] fraction in
+            guard let self, self.isSpeaking else { return }
+            self.progress = fraction
+        }
     }
 
     func speak(markdown: String) {
@@ -30,6 +36,7 @@ final class SpeechOutput {
         synthesizer.speak(utterance)
         isSpeaking = true
         isPaused = false
+        progress = 0
     }
 
     /// Play/pause button behaviour.
@@ -55,6 +62,13 @@ final class SpeechOutput {
 
     private final class Delegate: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendable {
         @MainActor var onFinish: (() -> Void)?
+        @MainActor var onProgress: ((Double) -> Void)?
+
+        nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, willSpeakRangeOfSpeechString characterRange: NSRange, utterance: AVSpeechUtterance) {
+            let total = max((utterance.speechString as NSString).length, 1)
+            let fraction = Double(characterRange.location + characterRange.length) / Double(total)
+            Task { @MainActor in self.onProgress?(fraction) }
+        }
 
         nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
             Task { @MainActor in self.onFinish?() }

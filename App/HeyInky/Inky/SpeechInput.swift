@@ -19,6 +19,12 @@ final class SpeechInput {
         self.onText = onText
         errorMessage = nil
         isListening = true
+        #if DEBUG
+        if let scripted = UserDefaults.standard.string(forKey: "InkyUITestSpeech"), !scripted.isEmpty {
+            simulate(scripted)
+            return
+        }
+        #endif
         Task {
             guard await Self.requestPermissions() else {
                 fail("Allow microphone and speech recognition in Settings to ask out loud.")
@@ -72,6 +78,21 @@ final class SpeechInput {
         self.request = request
         task = recognizer.recognitionTask(with: request, resultHandler: Self.makeResultHandler(owner: self))
     }
+
+    #if DEBUG
+    /// UI tests: "hear" a transcript word by word (partial results), then stay listening until stopped,
+    /// like the real recognizer.
+    private func simulate(_ transcript: String) {
+        let words = transcript.split(separator: " ").map(String.init)
+        Task {
+            for count in 1...max(words.count, 1) {
+                try? await Task.sleep(for: .milliseconds(150))
+                guard isListening else { return }
+                handle(text: words.prefix(count).joined(separator: " "), isFinal: false, failed: false)
+            }
+        }
+    }
+    #endif
 
     private func handle(text: String?, isFinal: Bool, failed: Bool) {
         guard isListening else { return }

@@ -54,6 +54,25 @@ struct NotebookStoreTests {
         #expect(loaded.first?.action == annotation.action)
     }
 
+    @Test func inkyLayerVisibilityPersistsPerNotebook() throws {
+        let root = Fixtures.tempDirectory()
+        let store = NotebookStore(rootURL: root)
+        let notebook = store.createNotebook(title: "N")
+        let page = notebook.pages[0]
+        let editor = PageEditorModel(notebookID: notebook.id, page: page, store: store)
+        #expect(editor.showsInkyLayer)
+        editor.showsInkyLayer = false
+
+        let reloaded = NotebookStore(rootURL: root)
+        #expect(!PageEditorModel(notebookID: notebook.id, page: page, store: reloaded).showsInkyLayer, "survives relaunch")
+        // Older notebook.json files without the key still decode (layer shown).
+        let url = reloaded.directory(for: notebook.id).appendingPathComponent("notebook.json")
+        var json = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        json["inkyLayerHidden"] = nil
+        try JSONSerialization.data(withJSONObject: json).write(to: url)
+        #expect(NotebookStore(rootURL: root).notebook(id: notebook.id)?.inkyLayerHidden == nil)
+    }
+
     @Test func editorAutosavesInkAfterDelay() async throws {
         let store = NotebookStore(rootURL: Fixtures.tempDirectory())
         let notebook = store.createNotebook(title: "N")
