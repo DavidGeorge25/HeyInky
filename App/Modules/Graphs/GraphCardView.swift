@@ -59,14 +59,19 @@ struct GraphCardView: View {
                 board
                 legend(k: k)
                     .padding(8 * k)
+                    // A popover stays clear of the keyboard wherever the card sits on the page.
+                    .popover(isPresented: Binding(
+                        get: { model.editingFunction != nil },
+                        set: { if !$0 { model.finishEditing() } }
+                    ), arrowEdge: .top) {
+                        GraphExpressionEditor(model: model)
+                    }
             }
             .overlay(alignment: .topTrailing) { toolbar(k: k).padding(6 * k) }
             .overlay(alignment: .bottom) { errorBanner(k: k) }
             .clipped()
 
-            if model.editingFunction != nil {
-                GraphExpressionEditor(model: model, k: k)
-            } else if let spec = model.spec, !spec.params.isEmpty {
+            if let spec = model.spec, !spec.params.isEmpty {
                 GraphParamSliders(model: model, k: k, maxHeight: size.height * 0.42)
             }
         }
@@ -122,6 +127,7 @@ struct GraphCardView: View {
                     .frame(maxWidth: 260 * k, alignment: .leading)
                     .accessibilityIdentifier("inky.graph.function.\(i)")
                     .accessibilityLabel("Edit \(doc.functionName(at: i))")
+                    .accessibilityValue(doc.spec.functions[i].expression)
                 }
             }
         }

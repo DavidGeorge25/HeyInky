@@ -47,6 +47,9 @@ struct GraphWebBridgeTests {
         try await waitUntil("rendered") { inbox.messages.contains { if case .rendered = $0 { true } else if case .error = $0 { true } else { false } } }
         for m in inbox.messages { if case .error(let e) = m { Issue.record("board error: \(e)") } }
         let info = try await controller.evaluate("return inkyGraph.info()") as? [String: Any]
+        // Every curve must actually be plotted (an eval-dependent JSXGraph path once left them empty).
+        let points = (info?["curvePoints"] as? [NSNumber])?.map(\.intValue) ?? []
+        #expect(points.allSatisfy { $0 > 50 }, "curve point counts \(points)")
         return (info?["curves"] as? NSNumber)?.intValue ?? -1
     }
 
@@ -122,7 +125,9 @@ struct GraphWebBridgeTests {
         let (controller, inbox, window) = try await makeBoard()
         defer { window.isHidden = true }
         let doc = GraphDocument(spec: GraphPresets.harmonic.spec)
-        _ = try await render(controller, inbox, GraphScene(document: doc, theme: .light))
+        // Curves only, so key-point dots can't stand in for a missing curve.
+        let scene = GraphScene(document: doc, theme: .light, options: .init(asymptotes: false, features: false))
+        _ = try await render(controller, inbox, scene)
         try await Task.sleep(for: .milliseconds(300))
         let config = WKSnapshotConfiguration()
         let image = try await controller.webView.takeSnapshot(configuration: config)

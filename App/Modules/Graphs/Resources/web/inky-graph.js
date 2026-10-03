@@ -203,7 +203,15 @@
       }
       state.fns.push(fn);
       if (!fn) { return; }
-      var curve = board.create('functiongraph', [function (x) { return fn(x, state.params); }], {
+      // A plain curve with function parents: JSXGraph's 'functiongraph' builds its x(t) from a
+      // string via JessieCode (eval), which the page's CSP forbids.
+      var curve = board.create('curve', [
+        function (t) { return t; },
+        function (t) { return fn(t, state.params); },
+        function () { return board.getBoundingBox()[0]; },
+        function () { return board.getBoundingBox()[2]; }
+      ], {
+        curveType: 'functiongraph',
         strokeColor: f.color, strokeWidth: px(2.2), highlight: false, fixed: true, name: '', withLabel: false,
         lineCap: 'round'
       });
@@ -350,7 +358,7 @@
 
     info: function () {
       var bb = state.board ? state.board.getBoundingBox() : null;
-      return { curves: state.curves.length, overlay: state.overlay.length, points: state.points.length, view: bb };
+      return { curves: state.curves.length, curvePoints: state.curves.map(function (c) { return c.numberPoints; }), overlay: state.overlay.length, points: state.points.length, view: bb };
     }
   };
 

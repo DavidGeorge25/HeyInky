@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// Minimal inline field for one function's expression. Valid input redraws live; invalid
-/// input shows a calm message and keeps the last good curve.
+/// Minimal field for one function's expression (shown in a popover from the legend). Valid
+/// input redraws live; invalid input shows a calm message and keeps the last good curve.
 struct GraphExpressionEditor: View {
     @Bindable var model: GraphCardModel
-    let k: Double
+    private let k: Double = 1.25
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -59,9 +59,8 @@ struct GraphExpressionEditor: View {
                 }
             }
         }
-        .padding(.horizontal, 10 * k)
-        .padding(.vertical, 7 * k)
-        .overlay(alignment: .top) { Divider().opacity(0.5) }
+        .padding(12)
+        .frame(width: 380)
         .onAppear { focused = true }
     }
 }
