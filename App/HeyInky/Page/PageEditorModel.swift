@@ -15,6 +15,8 @@ final class PageEditorModel {
     private(set) var annotations: [InkyAnnotation]
 
     var showsInkyLayer = true
+    /// Plays Inky hopping over and drawing each new annotation (InkyCharacter module).
+    let choreographer = InkyChoreographer()
     var selectedAnnotationID: UUID?
     var selectedImageID: UUID?
 

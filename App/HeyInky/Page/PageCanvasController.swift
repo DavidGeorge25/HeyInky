@@ -182,6 +182,14 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
         return overlayContainer.convert(p, to: view)
     }
 
+    /// The page point (page points, may lie outside the page) under a point in this view.
+    func pagePoint(forViewPoint point: CGPoint) -> CGPoint {
+        let p = view.convert(point, to: overlayContainer)
+        let bounds = overlayContainer.bounds.size
+        guard bounds.width > 0, bounds.height > 0 else { return .zero }
+        return CGPoint(x: p.x / bounds.width * editor.page.width, y: p.y / bounds.height * editor.page.height)
+    }
+
     // MARK: PKCanvasViewDelegate
 
     func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {

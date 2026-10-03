@@ -1,87 +1,84 @@
 import SwiftUI
 
 /// What Inky is doing; drives the character's pose and animation.
-enum InkyCharacterState: Equatable, Sendable {
+enum InkyCharacterState: Equatable, Sendable, CaseIterable {
     case idle
+    /// Mic is on: wide eyes, ink-drop "ear" wiggle, sound arcs.
     case listening
+    /// Waiting for the model: looks up, sways, thought dots.
     case thinking
+    /// Reading an explanation aloud: talking mouth.
     case speaking
+    /// Done: happy eyes, bounce, ink splashes.
     case happy
+    /// In the air between two spots on the page.
+    case hopping
+    /// Drawing an annotation: leaning like a held pen, scribbling, tongue out.
+    case writing
 }
 
-/// Inky, the pen character. PLACEHOLDER art owned by the InkyCharacter module agent
-/// (see README.md). Keep the type name and initializer; it is used by the floating
-/// button, the ask popover, toasts and the sidebar at sizes from 20 to 64 pt.
+/// Inky, the pen character. Always exactly `size × size`; reads from 20 to 64 pt and up.
+///
+/// Motion is a pure function of time (`InkyMotion`), rendered with a `TimelineView`.
+/// State changes blend over a quarter second. With Reduce Motion (or `isAnimated: false`)
+/// Inky holds each state's reference pose and state changes cross-fade.
 struct InkyCharacterView: View {
     var state: InkyCharacterState = .idle
     var size: CGFloat = 32
+    var isAnimated = true
 
-    @State private var animate = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var previous: InkyCharacterState?
+    @State private var changedAt = Date.distantPast
+
+    static let blendDuration: TimeInterval = 0.25
 
     var body: some View {
-        ZStack {
-            // Pen body: a rounded nib tilted slightly.
-            NibShape()
-                .fill(Theme.accent)
-                .frame(width: size * 0.62, height: size * 0.9)
-            // Eyes
-            HStack(spacing: size * 0.1) {
-                eye
-                eye
+        Group {
+            if isAnimated && !reduceMotion {
+                TimelineView(.animation(minimumInterval: 1.0 / 40)) { timeline in
+                    InkyFigure(pose: pose(at: timeline.date), size: size)
+                }
+            } else {
+                InkyFigure(pose: InkyMotion.reference(state), size: size)
+                    .id(state)
+                    .transition(.opacity)
             }
-            .offset(y: -size * 0.12)
         }
         .frame(width: size, height: size)
-        .rotationEffect(.degrees(state == .thinking ? (animate ? 8 : -8) : -6))
-        .offset(y: state == .listening && animate ? -size * 0.04 : 0)
-        .scaleEffect(state == .happy && animate ? 1.08 : 1)
-        .animation(isAnimating ? .easeInOut(duration: 0.6).repeatForever(autoreverses: true) : .default, value: animate)
-        .onAppear { animate = isAnimating }
-        .onChange(of: state) { _, _ in animate = isAnimating }
+        .animation(isAnimated && !reduceMotion ? nil : .easeInOut(duration: 0.25), value: state)
+        .onChange(of: state) { old, _ in
+            previous = old
+            changedAt = .now
+        }
         .accessibilityHidden(true)
     }
 
-    private var isAnimating: Bool {
-        state != .idle
-    }
-
-    private var eye: some View {
-        Capsule()
-            .fill(.white)
-            .frame(width: size * 0.09, height: state == .happy ? size * 0.05 : size * 0.13)
-    }
-}
-
-/// A fountain-pen nib silhouette: round shoulders tapering to a point.
-struct NibShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        let w = rect.width, h = rect.height
-        p.move(to: CGPoint(x: rect.minX + w * 0.5, y: rect.maxY))
-        p.addCurve(
-            to: CGPoint(x: rect.minX, y: rect.minY + h * 0.35),
-            control1: CGPoint(x: rect.minX + w * 0.2, y: rect.minY + h * 0.75),
-            control2: CGPoint(x: rect.minX, y: rect.minY + h * 0.55)
-        )
-        p.addArc(
-            center: CGPoint(x: rect.midX, y: rect.minY + h * 0.35),
-            radius: w * 0.5, startAngle: .degrees(180), endAngle: .degrees(0), clockwise: false
-        )
-        p.addCurve(
-            to: CGPoint(x: rect.minX + w * 0.5, y: rect.maxY),
-            control1: CGPoint(x: rect.maxX, y: rect.minY + h * 0.55),
-            control2: CGPoint(x: rect.minX + w * 0.8, y: rect.minY + h * 0.75)
-        )
-        p.closeSubpath()
-        return p
+    private func pose(at date: Date) -> InkyPose {
+        let t = date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 10_000)
+        let current = InkyMotion.pose(for: state, at: t)
+        let blend = date.timeIntervalSince(changedAt) / Self.blendDuration
+        guard let previous, blend < 1 else { return current }
+        let eased = blend * blend * (3 - 2 * blend)
+        return InkyPose.mix(InkyMotion.pose(for: previous, at: t), current, CGFloat(eased))
     }
 }
 
-#Preview {
-    HStack(spacing: 24) {
-        InkyCharacterView(state: .idle, size: 64)
-        InkyCharacterView(state: .thinking, size: 64)
-        InkyCharacterView(state: .happy, size: 64)
+#Preview("States") {
+    VStack(spacing: 28) {
+        HStack(spacing: 28) {
+            ForEach(InkyCharacterState.allCases, id: \.self) { state in
+                VStack {
+                    InkyCharacterView(state: state, size: 64)
+                    Text(String(describing: state)).font(.caption)
+                }
+            }
+        }
+        HStack(spacing: 20) {
+            ForEach([20, 26, 34, 48, 64] as [CGFloat], id: \.self) { size in
+                InkyCharacterView(state: .idle, size: size)
+            }
+        }
     }
-    .padding()
+    .padding(40)
 }

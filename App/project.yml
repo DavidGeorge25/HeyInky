@@ -39,7 +39,9 @@ targets:
       path: HeyInky/Info.plist
       properties:
         CFBundleDisplayName: Hey Inky
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIImageName: LaunchInky
+          UIColorName: LaunchBackground
         UIApplicationSupportsIndirectInputEvents: true
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false

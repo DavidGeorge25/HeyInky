@@ -217,3 +217,29 @@ Mention in `inky_system_prompt.md` that graph expressions may also use `^`, `ln`
 multiplication, `?:` for piecewise, and that preset titles ("Michaelis–Menten",
 "Lineweaver–Burk", "Logistic growth", "Dose–response", "Exponential growth",
 "Projectile motion", "Simple harmonic motion") get subject-specific axis labels.
+
+## From InkyCharacter (feat/character)
+
+Small shell edits were needed to wire the character in; they are already made on
+`feat/character` and kept minimal. **Status:** 1–5 ✅ accepted in the merge (the reveal view now keeps one
+view structure — a paused `TimelineView` — so cards aren't rebuilt when their reveal ends); 6–7 ✅ done.
+
+1. **`PageEditorModel.choreographer`** (`let choreographer = InkyChoreographer()`) — one per page,
+   so the Inky layer can hide annotations until Inky draws them. *Done on branch.*
+2. **`InkySession.apply`**: after `editor.addAnnotation`, call
+   `editor.choreographer.perform(added, pageSize:)`; `say` toasts go through
+   `editor.choreographer.afterPerformance { … }` so Inky replies when it has finished drawing
+   (immediate when nothing is queued or no page is on screen, so `InkySessionTests` are unchanged).
+   Feedback cues `InkyFeedback.play(.summon/.send/.error)`. *Done on branch.*
+3. **`InkyLayerView`**: filters `choreographer.isPending` annotations, renders through
+   `InkyRevealingAnnotationView` (stroke-reveal), adds `InkyPerformerView` on top, `.transition(.opacity)`
+   on annotations (Reduce Motion fade). *Done on branch.*
+4. **`NotebookView`**: `InkyFloatingButton(isAway: editor.choreographer.isOnStage)` and an
+   "Inky Sounds" toggle in `InkyLayerMenu`. *Done on branch.*
+5. **`project.yml`**: `UILaunchScreen` → `UIImageName: LaunchInky`, `UIColorName: LaunchBackground`.
+   *Done on branch.*
+6. ✅ **Done:** `InkyChoreographer.homeLocator` (page points; `NotebookView.setInkyHome` converts the button
+   center with `PageCanvasController.pagePoint(forViewPoint:)`); Inky hops home, then slips into the button. Was: expose the floating button's frame in page coordinates (or a
+   "home" point) so Inky can hop back to the button instead of fading out at the last annotation.
+7. ✅ **Done:** `InkySession.characterState(on: editor)` (floating button + ask card). Was: `InkySession` could expose `characterState = .writing` while
+   `choreographer.isOnStage`, if other surfaces should reflect that Inky is busy drawing.

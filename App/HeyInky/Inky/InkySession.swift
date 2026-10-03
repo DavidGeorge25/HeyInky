@@ -56,6 +56,13 @@ final class InkySession {
         }
     }
 
+    /// `characterState`, but `.writing` while Inky is out drawing on this page (and not listening/thinking).
+    func characterState(on editor: PageEditorModel?) -> InkyCharacterState {
+        let state = characterState
+        guard state == .idle, editor?.choreographer.isOnStage == true else { return state }
+        return .writing
+    }
+
     // MARK: Flow
 
     func summon(editor: PageEditorModel, anchor: CGPoint? = nil) {
@@ -65,6 +72,7 @@ final class InkySession {
         editor.selectedImageID = nil
         editor.isInkyMode = true
         phase = .composing
+        InkyFeedback.play(.summon)
     }
 
     func dismiss(editor: PageEditorModel?) {
@@ -92,6 +100,7 @@ final class InkySession {
         speechInput.stop()
         phase = .thinking
         appliedActionCount = 0
+        InkyFeedback.play(.send)
 
         task = Task { [weak self] in
             guard let self else { return }
@@ -159,6 +168,7 @@ final class InkySession {
             guard !Task.isCancelled else { return }
             appliedActionCount = applied
             phase = .composing
+            InkyFeedback.play(.error)
             showToast((error as? LocalizedError)?.errorDescription ?? error.localizedDescription, isError: true)
         }
     }
@@ -166,12 +176,16 @@ final class InkySession {
     func apply(_ action: InkyAction, editor: PageEditorModel, question: String?) {
         switch action {
         case .say(let say):
-            showToast(say.text, isError: false)
+            // Inky replies once it has finished drawing on the page.
+            editor.choreographer.afterPerformance { [weak self] in self?.showToast(say.text, isError: false) }
         case .openSidebar(let sidebar):
             self.sidebar = SidebarContent(markdown: sidebar.markdown, speakable: sidebar.speakable, question: question ?? "")
         default:
             editor.showsInkyLayer = true
             editor.addAnnotation(action, question: question)
+            if let added = editor.annotations.last, added.action == action {
+                editor.choreographer.perform(added, pageSize: editor.page.size)
+            }
         }
     }
 

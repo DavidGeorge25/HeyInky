@@ -110,7 +110,9 @@ struct NotebookView: View {
                 .ignoresSafeArea(.container, edges: .bottom)
                 .onAppear {
                     tools.onInkyDeselected = { [weak session] in session?.dismiss(editor: editor) }
+                    setInkyHome(editor, areaSize: geo.size)
                 }
+                .onChange(of: geo.size) { _, size in setInkyHome(editor, areaSize: size) }
 
                 VStack {
                     if let toast = session.toast {
@@ -125,10 +127,10 @@ struct NotebookView: View {
                 .animation(.snappy, value: session.toast)
 
                 if session.phase == .idle {
-                    InkyFloatingButton(state: session.characterState) { summon(at: nil) }
+                    InkyFloatingButton(state: session.characterState(on: editor), isAway: editor.choreographer.isOnStage) { summon(at: nil) }
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                        .padding(.trailing, 24)
-                        .padding(.bottom, 24)
+                        .padding(.trailing, Self.floatingButtonInset)
+                        .padding(.bottom, Self.floatingButtonInset)
                         .transition(.scale.combined(with: .opacity))
                 } else {
                     InkyAskCard(session: session, editor: editor)
@@ -226,6 +228,18 @@ struct NotebookView: View {
 
     // MARK: Actions
 
+    static let floatingButtonInset: CGFloat = 24
+    static let floatingButtonSize: CGFloat = 60
+
+    /// After drawing, Inky hops back into the floating button (bottom-right of the page area).
+    private func setInkyHome(_ editor: PageEditorModel, areaSize: CGSize) {
+        let offset = Self.floatingButtonInset + Self.floatingButtonSize / 2
+        let center = CGPoint(x: areaSize.width - offset, y: areaSize.height - offset)
+        editor.choreographer.homeLocator = { [weak editor] in
+            editor?.canvasController?.pagePoint(forViewPoint: center)
+        }
+    }
+
     private func summon(at location: CGPoint?) {
         guard let editor else { return }
         session.summon(editor: editor, anchor: location)
@@ -290,11 +304,14 @@ struct NotebookView: View {
 /// Toolbar menu for the Inky layer: show/hide, per-annotation visibility, clear.
 struct InkyLayerMenu: View {
     @Bindable var editor: PageEditorModel
+    @AppStorage(InkyFeedback.soundsKey) private var soundsEnabled = true
 
     var body: some View {
         Menu {
             Toggle("Show Inky Layer", systemImage: "sparkles", isOn: $editor.showsInkyLayer)
                 .accessibilityIdentifier("inkyLayer.toggle")
+            Toggle("Inky Sounds", systemImage: "speaker.wave.2", isOn: $soundsEnabled)
+                .accessibilityIdentifier("inkyLayer.sounds")
             if !editor.annotations.isEmpty {
                 Section("On this page") {
                     ForEach(editor.annotations) { annotation in
