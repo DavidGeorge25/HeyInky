@@ -26,6 +26,11 @@ targets:
       - path: Modules
         excludes:
           - "**/*.md"
+          - "Chemistry/Resources/ChemistryWeb/**"
+      # Chemistry: RDKit.js + Ketcher, bundled offline as a folder (keeps relative paths).
+      - path: Modules/Chemistry/Resources/ChemistryWeb
+        type: folder
+        buildPhase: resources
       - path: ../shared/inky_actions.schema.json
         buildPhase: resources
       - path: ../shared/inky_system_prompt.md

@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Hey Inky chemistry engine</title>
+<!-- Headless: hosts RDKit MinimalLib for MoleculeEngine.swift. Nothing here is ever shown. -->
+<script src="rdkit/RDKit_minimal.js"></script>
+<script src="chem-core.js"></script>
+<script>
+  window.inkyChem = {
+    ready: (async () => {
+      const [RDKit, library] = await Promise.all([
+        initRDKitModule({ locateFile: () => 'rdkit/RDKit_minimal.wasm' }),
+        fetch('functional-groups.json').then((r) => r.json()),
+      ]);
+      window.inkyChem.core = InkyChemCore.create(RDKit, library);
+      return window.inkyChem.core.version;
+    })(),
+    // Called from Swift via callAsyncJavaScript; returns a JSON string.
+    async analyze(params) {
+      await window.inkyChem.ready;
+      try {
+        return JSON.stringify(window.inkyChem.core.analyze(params));
+      } catch (e) {
+        return JSON.stringify({ ok: false, input: params.smiles, error: String(e && e.message || e), molecules: [], arrowAfter: null, agents: [] });
+      }
+    },
+  };
+</script>
+</head>
+<body></body>
+</html>

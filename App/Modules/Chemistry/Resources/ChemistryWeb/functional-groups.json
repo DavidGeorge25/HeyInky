@@ -1,0 +1,193 @@
+{
+  "description": "Curated functional-group SMARTS library for Hey Inky molecule cards. RDKit substructure matching decides every highlight. `smarts` lists alternative patterns (matches are unioned). `core` lists the SMARTS atom positions that are highlighted (default: all). A match of group B is dropped when B appears in another group's `supersedes` and B's core atoms are a subset of that group's matched atoms (e.g. a lactone hides the ester it is made of). Order is display order.",
+  "version": 1,
+  "groups": [
+    {
+      "id": "carboxylicAcid", "name": "Carboxylic acid",
+      "description": "C(=O)OH — acidic proton; loses H⁺ to form a carboxylate.",
+      "smarts": ["[CX3](=[OX1])[OX2H1]", "[CX3](=[OX1])[OX1-]"],
+      "supersedes": ["alcohol1", "alcohol2", "alcohol3"]
+    },
+    {
+      "id": "anhydride", "name": "Anhydride",
+      "description": "Two acyl groups sharing one oxygen — a reactive acylating agent.",
+      "smarts": ["[#6X3](=[OX1])[#8X2][#6X3]=[OX1]"],
+      "supersedes": ["ester", "lactone", "ether"]
+    },
+    {
+      "id": "acylHalide", "name": "Acyl halide",
+      "description": "C(=O)X — the most reactive carboxylic-acid derivative.",
+      "smarts": ["[CX3](=[OX1])[F,Cl,Br,I]"],
+      "supersedes": ["alkylHalide"]
+    },
+    {
+      "id": "lactone", "name": "Lactone",
+      "description": "A cyclic ester: the ester C–O bond is part of a ring.",
+      "smarts": ["[#6X3](=[OX1])@[#8X2]"],
+      "supersedes": ["ester", "ether"]
+    },
+    {
+      "id": "ester", "name": "Ester",
+      "description": "C(=O)O–R — made from an acid and an alcohol; hydrolyzes back to them.",
+      "smarts": ["[#6X3](=[OX1])[OX2H0][#6]"],
+      "core": [0, 1, 2],
+      "supersedes": ["ether"]
+    },
+    {
+      "id": "lactam", "name": "Lactam",
+      "description": "A cyclic amide: the amide C–N bond is part of a ring.",
+      "smarts": ["[#6X3](=[OX1])@[#7X3]"],
+      "supersedes": ["amide1", "amide2", "amide3"]
+    },
+    {
+      "id": "amide1", "name": "Primary amide",
+      "description": "C(=O)NH₂ — planar, resonance-stabilized C–N bond.",
+      "smarts": ["[#6X3](=[OX1])[NX3H2]"]
+    },
+    {
+      "id": "amide2", "name": "Secondary amide",
+      "description": "C(=O)NH–R — the peptide bond in proteins.",
+      "smarts": ["[#6X3](=[OX1])[#7X3H1][#6]"],
+      "core": [0, 1, 2]
+    },
+    {
+      "id": "amide3", "name": "Tertiary amide",
+      "description": "C(=O)NR₂ — an amide nitrogen with no N–H.",
+      "smarts": ["[#6X3](=[OX1])[#7X3H0]([#6])[#6]"],
+      "core": [0, 1, 2]
+    },
+    {
+      "id": "aldehyde", "name": "Aldehyde",
+      "description": "CHO at the end of a chain — easily oxidized to a carboxylic acid.",
+      "smarts": ["[CX3H1](=[OX1])[#6]", "[CX3H2]=[OX1]"],
+      "core": [0, 1]
+    },
+    {
+      "id": "ketone", "name": "Ketone",
+      "description": "C=O flanked by two carbons — polar, accepts H-bonds.",
+      "smarts": ["[#6][#6X3](=[OX1])[#6]"],
+      "core": [1, 2]
+    },
+    {
+      "id": "nitrile", "name": "Nitrile",
+      "description": "C≡N — linear; hydrolyzes to an amide, then an acid.",
+      "smarts": ["[CX2]#[NX1]"]
+    },
+    {
+      "id": "nitro", "name": "Nitro",
+      "description": "NO₂ — strongly electron-withdrawing.",
+      "smarts": ["[$([NX3](=O)=O),$([NX3+](=O)[O-])](~[OX1])~[OX1]"]
+    },
+    {
+      "id": "imine", "name": "Imine",
+      "description": "C=N — a Schiff base; forms from a carbonyl and an amine.",
+      "smarts": ["[CX3;!$(C(=N)[#7X3,#8X2,#16X2])]=[NX2;!$(N[#7,#8])]"]
+    },
+    {
+      "id": "amine1", "name": "Primary amine",
+      "description": "R–NH₂ — basic; a lone pair that accepts a proton.",
+      "smarts": ["[$([NX3H2]),$([NX4+H3])]([#6;!$([#6]=[#7,#8,#16]);!$([#6]#*)])"],
+      "core": [0]
+    },
+    {
+      "id": "amine2", "name": "Secondary amine",
+      "description": "R₂NH — basic nitrogen bonded to two carbons.",
+      "smarts": ["[$([NX3H1]),$([NX4+H2])]([#6;!$([#6]=[#7,#8,#16]);!$([#6]#*)])[#6;!$([#6]=[#7,#8,#16]);!$([#6]#*)]"],
+      "core": [0]
+    },
+    {
+      "id": "amine3", "name": "Tertiary amine",
+      "description": "R₃N — basic nitrogen with no N–H.",
+      "smarts": ["[$([NX3H0]),$([NX4+H1])]([#6;!$([#6]=[#7,#8,#16]);!$([#6]#*)])([#6;!$([#6]=[#7,#8,#16]);!$([#6]#*)])[#6;!$([#6]=[#7,#8,#16]);!$([#6]#*)]"],
+      "core": [0]
+    },
+    {
+      "id": "hemiacetal", "name": "Hemiacetal",
+      "description": "One carbon bearing both –OH and –OR — the ring form of sugars.",
+      "smarts": ["[CX4]([OX2H])[OX2][#6;!$([#6]=[O,S,N])]"],
+      "core": [0, 1, 2],
+      "supersedes": ["alcohol1", "alcohol2", "alcohol3", "ether"]
+    },
+    {
+      "id": "acetal", "name": "Acetal",
+      "description": "One carbon bearing two –OR groups — a protected carbonyl; glycosidic bonds.",
+      "smarts": ["[CX4]([OX2][#6;!$([#6]=[O,S,N])])[OX2][#6;!$([#6]=[O,S,N])]"],
+      "core": [0, 1, 3],
+      "supersedes": ["ether"]
+    },
+    {
+      "id": "epoxide", "name": "Epoxide",
+      "description": "A strained three-membered C–O–C ring — opens readily.",
+      "smarts": ["[CX4]1[OX2][CX4]1"],
+      "supersedes": ["ether"]
+    },
+    {
+      "id": "phenol", "name": "Phenol",
+      "description": "–OH on an aromatic ring — more acidic than an alcohol.",
+      "smarts": ["c[OX2H]"]
+    },
+    {
+      "id": "alcohol1", "name": "Primary alcohol",
+      "description": "–OH on a carbon bonded to at most one other carbon.",
+      "smarts": ["[CX4;!$(C([OX2H])([#6])[#6])][OX2H]"]
+    },
+    {
+      "id": "alcohol2", "name": "Secondary alcohol",
+      "description": "–OH on a carbon bonded to two other carbons.",
+      "smarts": ["[CX4;$(C([OX2H])([#6])[#6]);!$(C([OX2H])([#6])([#6])[#6])][OX2H]"]
+    },
+    {
+      "id": "alcohol3", "name": "Tertiary alcohol",
+      "description": "–OH on a carbon bonded to three other carbons.",
+      "smarts": ["[CX4]([#6])([#6])([#6])[OX2H]"],
+      "core": [0, 4]
+    },
+    {
+      "id": "ether", "name": "Ether",
+      "description": "C–O–C — fairly unreactive; H-bond acceptor only.",
+      "smarts": ["[#6;!$([#6]=[O,S,N])][OX2][#6;!$([#6]=[O,S,N])]"]
+    },
+    {
+      "id": "thiol", "name": "Thiol",
+      "description": "R–SH — the sulfur analog of an alcohol; forms disulfides.",
+      "smarts": ["[#6][SX2H]"],
+      "core": [1]
+    },
+    {
+      "id": "sulfide", "name": "Sulfide",
+      "description": "C–S–C — a thioether; the sulfur analog of an ether.",
+      "smarts": ["[#6][SX2][#6]"]
+    },
+    {
+      "id": "sulfonamide", "name": "Sulfonamide",
+      "description": "S(=O)₂N — the core of sulfa antibiotics.",
+      "smarts": ["[SX4](=[OX1])(=[OX1])[NX3]"],
+      "supersedes": ["amine1", "amine2", "amine3"]
+    },
+    {
+      "id": "alkylHalide", "name": "Alkyl halide",
+      "description": "Halogen on an sp³ carbon — undergoes SN1/SN2 and elimination.",
+      "smarts": ["[CX4][F,Cl,Br,I]"]
+    },
+    {
+      "id": "arylHalide", "name": "Aryl halide",
+      "description": "Halogen on an aromatic ring — resists SN1/SN2.",
+      "smarts": ["c[F,Cl,Br,I]"]
+    },
+    {
+      "id": "alkene", "name": "Alkene",
+      "description": "C=C — a π bond that undergoes addition reactions.",
+      "smarts": ["[CX3]=[CX3]"]
+    },
+    {
+      "id": "alkyne", "name": "Alkyne",
+      "description": "C≡C — two π bonds; linear sp carbons.",
+      "smarts": ["[CX2]#[CX2]"]
+    },
+    {
+      "id": "aromaticRing", "name": "Aromatic ring",
+      "description": "A flat ring with 4n+2 delocalized π electrons — unusually stable.",
+      "smarts": ["a1aaaaa1", "a1aaaa1", "a1aaaaaa1"]
+    }
+  ]
+}
