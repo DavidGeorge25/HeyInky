@@ -79,9 +79,9 @@ struct KetcherEditorView: View {
 @Observable
 final class KetcherBridge {
     var isReady = false
-    fileprivate var webView: WKWebView?
+    private var webView: WKWebView?
 
-    fileprivate func makeWebView() -> WKWebView {
+    func makeWebView() -> WKWebView {
         if let webView { return webView }
         let config = ChemistryWebResources.configuration()
         if let url = ChemistryWebResources.root?.appendingPathComponent("ketcher-bridge.js"),
