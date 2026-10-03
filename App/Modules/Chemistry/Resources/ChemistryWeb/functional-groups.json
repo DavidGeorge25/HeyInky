@@ -1,5 +1,5 @@
 {
-  "description": "Curated functional-group SMARTS library for Hey Inky molecule cards. RDKit substructure matching decides every highlight. `smarts` lists alternative patterns (matches are unioned). `core` lists the SMARTS atom positions that are highlighted (default: all). A match of group B is dropped when B appears in another group's `supersedes` and B's core atoms are a subset of that group's matched atoms (e.g. a lactone hides the ester it is made of). Order is display order.",
+  "description": "Curated functional-group SMARTS library for Hey Inky molecule cards. RDKit substructure matching decides every highlight. `smarts` lists alternative patterns (matches are unioned). `short` is the on-structure label (defaults to `name`). `core` lists the SMARTS atom positions that are highlighted (default: all). A match of group B is dropped when B appears in another group's `supersedes` and B's core atoms are a subset of that group's matched atoms (e.g. a lactone hides the ester it is made of). Order is display order.",
   "version": 1,
   "groups": [
     {
@@ -40,18 +40,18 @@
       "supersedes": ["amide1", "amide2", "amide3"]
     },
     {
-      "id": "amide1", "name": "Primary amide",
+      "id": "amide1", "name": "Primary amide", "short": "1° amide",
       "description": "C(=O)NH₂ — planar, resonance-stabilized C–N bond.",
       "smarts": ["[#6X3](=[OX1])[NX3H2]"]
     },
     {
-      "id": "amide2", "name": "Secondary amide",
+      "id": "amide2", "name": "Secondary amide", "short": "2° amide",
       "description": "C(=O)NH–R — the peptide bond in proteins.",
       "smarts": ["[#6X3](=[OX1])[#7X3H1][#6]"],
       "core": [0, 1, 2]
     },
     {
-      "id": "amide3", "name": "Tertiary amide",
+      "id": "amide3", "name": "Tertiary amide", "short": "3° amide",
       "description": "C(=O)NR₂ — an amide nitrogen with no N–H.",
       "smarts": ["[#6X3](=[OX1])[#7X3H0]([#6])[#6]"],
       "core": [0, 1, 2]
@@ -84,19 +84,19 @@
       "smarts": ["[CX3;!$(C(=N)[#7X3,#8X2,#16X2])]=[NX2;!$(N[#7,#8])]"]
     },
     {
-      "id": "amine1", "name": "Primary amine",
+      "id": "amine1", "name": "Primary amine", "short": "1° amine",
       "description": "R–NH₂ — basic; a lone pair that accepts a proton.",
       "smarts": ["[$([NX3H2]),$([NX4+H3])]([#6;!$([#6]=[#7,#8,#16]);!$([#6]#*)])"],
       "core": [0]
     },
     {
-      "id": "amine2", "name": "Secondary amine",
+      "id": "amine2", "name": "Secondary amine", "short": "2° amine",
       "description": "R₂NH — basic nitrogen bonded to two carbons.",
       "smarts": ["[$([NX3H1]),$([NX4+H2])]([#6;!$([#6]=[#7,#8,#16]);!$([#6]#*)])[#6;!$([#6]=[#7,#8,#16]);!$([#6]#*)]"],
       "core": [0]
     },
     {
-      "id": "amine3", "name": "Tertiary amine",
+      "id": "amine3", "name": "Tertiary amine", "short": "3° amine",
       "description": "R₃N — basic nitrogen with no N–H.",
       "smarts": ["[$([NX3H0]),$([NX4+H1])]([#6;!$([#6]=[#7,#8,#16]);!$([#6]#*)])([#6;!$([#6]=[#7,#8,#16]);!$([#6]#*)])[#6;!$([#6]=[#7,#8,#16]);!$([#6]#*)]"],
       "core": [0]
@@ -127,17 +127,17 @@
       "smarts": ["c[OX2H]"]
     },
     {
-      "id": "alcohol1", "name": "Primary alcohol",
+      "id": "alcohol1", "name": "Primary alcohol", "short": "1° alcohol",
       "description": "–OH on a carbon bonded to at most one other carbon.",
       "smarts": ["[CX4;!$(C([OX2H])([#6])[#6])][OX2H]"]
     },
     {
-      "id": "alcohol2", "name": "Secondary alcohol",
+      "id": "alcohol2", "name": "Secondary alcohol", "short": "2° alcohol",
       "description": "–OH on a carbon bonded to two other carbons.",
       "smarts": ["[CX4;$(C([OX2H])([#6])[#6]);!$(C([OX2H])([#6])([#6])[#6])][OX2H]"]
     },
     {
-      "id": "alcohol3", "name": "Tertiary alcohol",
+      "id": "alcohol3", "name": "Tertiary alcohol", "short": "3° alcohol",
       "description": "–OH on a carbon bonded to three other carbons.",
       "smarts": ["[CX4]([#6])([#6])([#6])[OX2H]"],
       "core": [0, 4]
@@ -185,7 +185,7 @@
       "smarts": ["[CX2]#[CX2]"]
     },
     {
-      "id": "aromaticRing", "name": "Aromatic ring",
+      "id": "aromaticRing", "name": "Aromatic ring", "short": "Aromatic",
       "description": "A flat ring with 4n+2 delocalized π electrons — unusually stable.",
       "smarts": ["a1aaaaa1", "a1aaaa1", "a1aaaaaa1"]
     }

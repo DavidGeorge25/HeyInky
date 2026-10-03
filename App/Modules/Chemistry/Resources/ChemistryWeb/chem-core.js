@@ -48,7 +48,7 @@
       carbonyl: ['aldehyde', 'ketone'], carboxyl: ['carboxylicAcid'], carboxylate: ['carboxylicAcid'],
       acid: ['carboxylicAcid'], halide: ['alkylHalide', 'arylHalide'], benzene: ['aromaticRing'],
       arene: ['aromaticRing'], aromatic: ['aromaticRing'], phenyl: ['aromaticRing'], thioether: ['sulfide'],
-      ketal: ['acetal'], hemiketal: ['hemiacetal'], 'β-lactam': ['lactam'], betalactam: ['lactam'],
+      ketal: ['acetal'], hemiketal: ['hemiacetal'], βlactam: ['lactam'], betalactam: ['lactam'],
     };
 
     function normalizeKey(s) {
@@ -207,18 +207,15 @@
 
     function formulaOf(atoms) {
       const counts = {};
-      let charge = 0;
       for (const at of atoms) {
         const sym = SYMBOLS[at.z] || '*';
         counts[sym] = (counts[sym] || 0) + 1;
         if (at.impHs) counts.H = (counts.H || 0) + at.impHs;
-        charge += at.chg || 0;
       }
       const order = Object.keys(counts).sort((a, b) => a.localeCompare(b));
       const hill = counts.C ? ['C', 'H', ...order.filter((s) => s !== 'C' && s !== 'H')] : order;
       let f = '';
       for (const s of hill) if (counts[s]) f += s + (counts[s] > 1 ? counts[s] : '');
-      if (charge) f += (Math.abs(charge) > 1 ? Math.abs(charge) : '') + (charge > 0 ? '+' : '−');
       return f;
     }
 
@@ -235,7 +232,7 @@
         const defaults = { z: 6, impHs: 0, chg: 0 };
         const atoms = (json.atoms || []).map((a) => ({ ...defaults, ...a }));
         const bonds = (json.bonds || []).map((b) => ({ a: b.atoms[0], b: b.atoms[1], order: b.bo === undefined ? 1 : b.bo }));
-        const draw = JSON.parse(mol.get_svg_with_highlights(JSON.stringify({
+        const drawOptions = {
           width: -1, height: -1,
           fixedBondLength: params.bondLength || 30,
           padding: 0.08,
@@ -245,7 +242,15 @@
           returnDrawCoords: true,
           atomColourPalette: PALETTE,
           additionalAtomLabelPadding: 0.08,
-        })));
+        };
+        let draw = JSON.parse(mol.get_svg_with_highlights(JSON.stringify(drawOptions)));
+        const usable = (d) => d.drawCoords.length === atoms.length && d.drawCoords.every((p) => p && p[0] !== null && p[1] !== null);
+        if (!usable(draw)) {
+          // CoordGen can't lay out a few edge cases (e.g. [H][H]); RDKit's own depictor can.
+          mol.set_new_coords(false);
+          draw = JSON.parse(mol.get_svg_with_highlights(JSON.stringify(drawOptions)));
+        }
+        if (!usable(draw)) return { ok: false, input: smiles, error: 'RDKit could not lay out this structure.' };
         const svg = parseSVG(draw.svg);
         const aromatic = new Set();
         const qa = RDKit.get_qmol('[a]');
@@ -265,6 +270,7 @@
           input: smiles,
           smiles: mol.get_smiles(),
           formula: formulaOf(atoms),
+          charge: atoms.reduce((sum, a) => sum + (a.chg || 0), 0),
           molWeight: descriptors.amw || null,
           inchiKey,
           width: svg.width,
@@ -284,8 +290,11 @@
           groups: detected,
           highlights: resolvePatterns(mol, bonds, params.highlightGroups, detected),
           stars: resolvePatterns(mol, bonds, params.starGroups, detected),
-          stereocenters: (stereo.CIP_atoms || []).map(([atom, label]) => ({ atom, label: label.replace(/[()]/g, '') })),
-          stereobonds: (stereo.CIP_bonds || []).map(([a, b, label]) => ({ a, b, label: String(label).replace(/[()]/g, '') })),
+          // Only assigned descriptors; RDKit reports unspecified centers as "(?)".
+          stereocenters: (stereo.CIP_atoms || []).map(([atom, label]) => ({ atom, label: String(label).replace(/[()]/g, '') }))
+            .filter((s) => /^[RSrs]$/.test(s.label)),
+          stereobonds: (stereo.CIP_bonds || []).map(([a, b, label]) => ({ a, b, label: String(label).replace(/[()]/g, '') }))
+            .filter((s) => /^[EZ]$/.test(s.label)),
         };
       } finally {
         mol.delete();
@@ -304,11 +313,12 @@
         const products = species(parts[2]).map((s) => analyzeOne(s, params));
         const molecules = [...reactants, ...products];
         const failed = molecules.find((m) => !m.ok);
+        const ok = !failed && reactants.length > 0 && products.length > 0;
         return {
-          ok: !failed && reactants.length > 0 && products.length > 0,
+          ok,
           input: text,
-          error: failed ? failed.error : (reactants.length && products.length ? null : 'A reaction needs reactants and products.'),
-          molecules: failed ? [] : molecules,
+          error: failed ? failed.error : (ok ? null : 'A reaction needs reactants and products.'),
+          molecules: ok ? molecules : [],
           arrowAfter: reactants.length,
           agents: species(parts[1]),
         };

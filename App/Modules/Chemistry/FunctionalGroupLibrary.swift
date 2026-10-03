@@ -7,6 +7,8 @@ struct FunctionalGroupLibrary: Decodable, Sendable {
     struct Group: Decodable, Sendable, Identifiable, Equatable {
         var id: String
         var name: String
+        /// Compact on-structure label ("2° alcohol"); defaults to `name`.
+        var short: String?
         var description: String
         var smarts: [String]
         var core: [Int]?

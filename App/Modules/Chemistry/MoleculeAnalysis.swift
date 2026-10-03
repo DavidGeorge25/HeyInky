@@ -19,7 +19,10 @@ struct MoleculeDepiction: Decodable, Sendable, Equatable {
     var input: String
     /// RDKit canonical SMILES.
     var smiles: String
+    /// Hill formula without charge, e.g. "C2H3O2".
     var formula: String
+    /// Net formal charge.
+    var charge: Int
     var molWeight: Double?
     var inchiKey: String?
     /// Size of the depiction in RDKit drawing units (flexicanvas, fixed bond length).

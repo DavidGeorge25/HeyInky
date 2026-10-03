@@ -62,6 +62,8 @@ targets:
     platform: iOS
     sources:
       - path: HeyInkyTests
+        excludes:
+          - "**/__Snapshots__/**"   # reference images are read from the source tree
       - path: ../shared/fixtures
         type: folder
         buildPhase: resources

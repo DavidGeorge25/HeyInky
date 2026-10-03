@@ -7,7 +7,8 @@ window.inkyKetcher = {
   }),
   async load(smiles) {
     await window.inkyKetcher.ready;
-    if (smiles) await window.ketcher.setMolecule(smiles);
+    // An unreadable structure (the reason the user is here) opens an empty canvas.
+    if (smiles) { try { await window.ketcher.setMolecule(smiles); } catch (_) { /* start blank */ } }
     return true;
   },
   async smiles() {
