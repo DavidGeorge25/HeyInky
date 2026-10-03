@@ -1,0 +1,28 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  font-family: ui-rounded, -apple-system, "SF Pro Rounded", system-ui, sans-serif;
+}
+
+#board.jxgbox {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  touch-action: none;
+}
+
+#board text {
+  font-family: ui-rounded, -apple-system, "SF Pro Rounded", system-ui, sans-serif;
+}
