@@ -56,6 +56,12 @@ enum InkyPromptBuilder {
             }
         }
 
+        if !request.blanks.isEmpty {
+            lines.append("")
+            lines.append("Empty boxes detected on the page (answer blanks; use these exact boxes for fillText):")
+            for blank in request.blanks { lines.append(format(blank)) }
+        }
+
         lines.append("")
         if request.pageAnnotations.isEmpty {
             lines.append("Inky marks already on the page: none.")

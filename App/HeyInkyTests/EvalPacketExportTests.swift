@@ -79,7 +79,7 @@ struct EvalPacketExportTests {
             let lasso = c.lasso.map { NormRect(x: $0[0], y: $0[1], width: $0[2], height: $0[3]) }
             let lassoPath = lasso.map { r in [NormPoint(x: r.minX, y: r.minY), NormPoint(x: r.maxX, y: r.minY), NormPoint(x: r.maxX, y: r.maxY), NormPoint(x: r.minX, y: r.maxY)] } ?? []
 
-            let request = InkyContextBuilder.makeRequest(
+            let request = await InkyContextBuilder.makeRequest(
                 question: c.question, pageImage: pageImage, recognizedText: lines,
                 lassoRegion: lasso, lassoPath: lassoPath,
                 pageAspectRatio: pageSize.width / pageSize.height, notebookTitle: nil,
@@ -92,6 +92,7 @@ struct EvalPacketExportTests {
             let meta: [String: Any] = [
                 "ocrLines": lines.map { ["text": $0.text, "box": [$0.box.x, $0.box.y, $0.box.width, $0.box.height]] },
                 "annotationIDs": annotations.map(\.id.uuidString),
+                "blanks": request.blanks.map { [$0.x, $0.y, $0.width, $0.height] },
                 "imageBytes": request.images.map(\.pngData.count),
             ]
             try JSONSerialization.data(withJSONObject: meta, options: [.prettyPrinted]).write(to: outDir.appendingPathComponent("\(c.id).meta.json"))
@@ -113,6 +114,9 @@ struct EvalPacketExportTests {
             case "cropLongEdge": InkyLocalization.tuning.cropLongEdge = v
             case "cropPadding": InkyLocalization.tuning.cropPadding = v
             case "gridLineAlpha": InkyLocalization.tuning.gridLineAlpha = v
+            case "minorGridLines": InkyLocalization.tuning.minorGridLines = v != 0
+            case "labelAllEdges": InkyLocalization.tuning.labelAllEdges = v != 0
+            case "detectBlanks": InkyLocalization.tuning.detectBlanks = v != 0
             default: break
             }
         }

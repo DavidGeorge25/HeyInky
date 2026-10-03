@@ -27,6 +27,8 @@ struct InkyRequest: Sendable {
     var pageAnnotations: [InkyPageAnnotation] = []
     /// Earlier turns on this page, oldest first (see `InkyConversation`).
     var history: [InkyTurn] = []
+    /// Empty answer boxes found on the page (`InkyLocalization.detectBlanks`).
+    var blanks: [NormRect] = []
     /// Set by `ValidatingInkyModelClient` on its one retry: what was wrong last time.
     var correction: InkyCorrection?
 

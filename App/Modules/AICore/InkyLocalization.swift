@@ -14,6 +14,12 @@ enum InkyLocalization {
         var gridLabelAlpha: CGFloat = 0.8
         var lassoColor = UIColor(red: 0.45, green: 0.25, blue: 0.95, alpha: 0.9)
         var markColor = UIColor(red: 0.95, green: 0.5, blue: 0.1, alpha: 0.85)
+        /// Unlabeled lines halfway between labeled ones (0.05 on the full page).
+        var minorGridLines = true
+        /// Repeat labels along the bottom and right edges (helps for targets far from top/left).
+        var labelAllEdges = true
+        /// Detect empty answer boxes with Vision and list their exact coordinates.
+        var detectBlanks = true
     }
 
     @MainActor static var tuning = Tuning()
@@ -78,8 +84,26 @@ enum InkyLocalization {
 
             source.draw(in: CGRect(x: px(0), y: py(0), width: px(1) - px(0), height: py(1) - py(0)))
 
-            // Grid lines.
             let t = tuning
+            // Minor grid lines (unlabeled), lighter than the labeled ones.
+            if t.minorGridLines {
+                cg.setStrokeColor(t.gridColor.withAlphaComponent(t.gridLineAlpha * 0.45).cgColor)
+                cg.setLineWidth(1)
+                let half = step / 2
+                var m = (visible.minX / half).rounded(.up) * half
+                while m <= visible.maxX + 1e-9 {
+                    if abs((m / step).rounded() * step - m) > 1e-6 { cg.move(to: CGPoint(x: px(m), y: 0)); cg.addLine(to: CGPoint(x: px(m), y: outSize.height)) }
+                    m += half
+                }
+                m = (visible.minY / half).rounded(.up) * half
+                while m <= visible.maxY + 1e-9 {
+                    if abs((m / step).rounded() * step - m) > 1e-6 { cg.move(to: CGPoint(x: 0, y: py(m))); cg.addLine(to: CGPoint(x: outSize.width, y: py(m))) }
+                    m += half
+                }
+                cg.strokePath()
+            }
+
+            // Grid lines.
             cg.setStrokeColor(t.gridColor.withAlphaComponent(t.gridLineAlpha).cgColor)
             cg.setLineWidth(1)
             let first = (visible.minX / step).rounded(.up) * step
@@ -109,11 +133,17 @@ enum InkyLocalization {
                 let label = String(format: "%.\(decimals)f", x) as NSString
                 let size = label.size(withAttributes: attrs)
                 label.draw(at: CGPoint(x: px(x) - size.width / 2, y: 2), withAttributes: attrs)
+                if t.labelAllEdges {
+                    label.draw(at: CGPoint(x: px(x) - size.width / 2, y: outSize.height - size.height - 2), withAttributes: attrs)
+                }
             }
             for y in ys where y > visible.minY + 1e-6 && y < visible.maxY - 1e-6 {
                 let label = String(format: "%.\(decimals)f", y) as NSString
                 let size = label.size(withAttributes: attrs)
                 label.draw(at: CGPoint(x: 2, y: py(y) - size.height / 2), withAttributes: attrs)
+                if t.labelAllEdges {
+                    label.draw(at: CGPoint(x: outSize.width - size.width - 2, y: py(y) - size.height / 2), withAttributes: attrs)
+                }
             }
 
             // Existing Inky marks: thin outline + id tag, so the model can refer to them.
@@ -154,6 +184,37 @@ enum InkyLocalization {
         }
     }
 
+    /// Empty rectangles (answer boxes) on the page, normalized top-left origin. Rectangles that
+    /// contain recognized text, or that are tiny / huge, are dropped. Exact boxes beat estimating
+    /// a blank's position from the grid.
+    static func detectBlanks(in image: CGImage, text: [RecognizedTextLine]) async -> [NormRect] {
+        await Task.detached(priority: .userInitiated) {
+            guard let ink = InkMask(image: image, maxDimension: 1700, threshold: 175) else { return [] }
+            var blanks: [NormRect] = []
+            for r in ink.components(minPixels: 60) {
+                let area = r.width * r.height
+                if r.width > 0.03, r.height > 0.015, area < 0.08, r.height < 0.15 {
+                    // Box: an inked outline around an empty inside, with no recognized text in it.
+                    guard ink.borderCoverage(r) > 0.8,
+                          ink.density(r.insetBy(dx: r.width * 0.15, dy: r.height * 0.22)) < 0.004,
+                          !text.contains(where: { $0.box.overlapFraction(with: r) > 0.5 })
+                    else { continue }
+                    blanks.append(r)
+                } else if r.width > 0.08, r.height < 0.008 {
+                    // Underline blank "_____": a lone horizontal line that continues a text line.
+                    let slot = NormRect(x: r.x, y: r.y - 0.035, width: r.width, height: 0.035 + r.height)
+                    let follows = text.contains { line in
+                        line.box.maxX <= r.minX + 0.01 && r.minX - line.box.maxX < 0.06
+                            && line.box.maxY > slot.minY && line.box.minY < r.maxY
+                    }
+                    guard follows, ink.density(slot.insetBy(dx: 0.004, dy: 0.004)) < 0.004 else { continue }
+                    blanks.append(slot)
+                }
+            }
+            return blanks.sorted { ($0.y, $0.x) < ($1.y, $1.x) }
+        }.value
+    }
+
     /// On-device OCR (printed + handwriting). Boxes are normalized, top-left origin.
     static func recognizeText(in image: CGImage) async -> [RecognizedTextLine] {
         await Task.detached(priority: .userInitiated) {
@@ -192,8 +253,12 @@ enum InkyContextBuilder {
         notebookTitle: String?,
         annotations: [InkyPageAnnotation] = [],
         history: [InkyTurn] = []
-    ) -> InkyRequest {
-        InkyRequest(
+    ) async -> InkyRequest {
+        var blanks: [NormRect] = []
+        if InkyLocalization.tuning.detectBlanks, let cg = pageImage.cgImage {
+            blanks = await InkyLocalization.detectBlanks(in: cg, text: recognizedText)
+        }
+        return InkyRequest(
             question: question,
             images: InkyLocalization.modelImages(pageImage: pageImage, lasso: lassoRegion, lassoPath: lassoPath, annotations: annotations),
             recognizedText: recognizedText,
@@ -201,7 +266,110 @@ enum InkyContextBuilder {
             pageAspectRatio: pageAspectRatio,
             notebookTitle: notebookTitle,
             pageAnnotations: annotations,
-            history: history
+            history: history,
+            blanks: blanks
         )
+    }
+}
+
+/// Binary "dark ink" mask of a page: keeps pen strokes and printed text, drops light paper
+/// lines/grids and soft colors, so shape detection sees what the student drew.
+struct InkMask: Sendable {
+    let width: Int
+    let height: Int
+    let pixels: [UInt8]  // 1 = ink
+
+    init?(image: CGImage, maxDimension: Int, threshold: Int = 150) {
+        let scale = min(1, Double(maxDimension) / Double(max(image.width, image.height)))
+        let w = max(1, Int(Double(image.width) * scale)), h = max(1, Int(Double(image.height) * scale))
+        var gray = [UInt8](repeating: 255, count: w * h)
+        let ok = gray.withUnsafeMutableBytes { buffer -> Bool in
+            guard let ctx = CGContext(data: buffer.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
+                                      space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return false }
+            ctx.setFillColor(gray: 1, alpha: 1)
+            ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+            ctx.interpolationQuality = .medium
+            ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        guard ok else { return nil }
+        width = w
+        height = h
+        pixels = gray.map { Int($0) < threshold ? 1 : 0 }
+    }
+
+    /// Black-on-white image of the mask (for Vision).
+    func cgImage() -> CGImage? {
+        let bytes = pixels.map { $0 == 1 ? UInt8(0) : UInt8(255) }
+        guard let provider = CGDataProvider(data: Data(bytes) as CFData) else { return nil }
+        return CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: width,
+                       space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+                       provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
+    }
+
+    // Row 0 of `pixels` is the top of the page (CGContext draws with a flipped bitmap origin
+    // for gray contexts created this way: data starts at the top row).
+    func ink(_ x: Int, _ y: Int) -> Bool {
+        guard x >= 0, y >= 0, x < width, y < height else { return false }
+        return pixels[y * width + x] == 1
+    }
+
+    /// Bounding boxes (normalized) of 8-connected ink components with at least `minPixels` pixels.
+    func components(minPixels: Int) -> [NormRect] {
+        var seen = [Bool](repeating: false, count: pixels.count)
+        var boxes: [NormRect] = []
+        var stack: [Int] = []
+        for start in 0..<pixels.count where pixels[start] == 1 && !seen[start] {
+            seen[start] = true
+            stack.append(start)
+            var count = 0
+            var minX = width, minY = height, maxX = 0, maxY = 0
+            while let i = stack.popLast() {
+                count += 1
+                let x = i % width, y = i / width
+                minX = Swift.min(minX, x); maxX = Swift.max(maxX, x)
+                minY = Swift.min(minY, y); maxY = Swift.max(maxY, y)
+                for dy in -1...1 {
+                    for dx in -1...1 where dx != 0 || dy != 0 {
+                        let nx = x + dx, ny = y + dy
+                        guard nx >= 0, ny >= 0, nx < width, ny < height else { continue }
+                        let j = ny * width + nx
+                        if pixels[j] == 1 && !seen[j] { seen[j] = true; stack.append(j) }
+                    }
+                }
+            }
+            guard count >= minPixels else { continue }
+            boxes.append(NormRect(x: Double(minX) / Double(width), y: Double(minY) / Double(height),
+                                  width: Double(maxX - minX + 1) / Double(width), height: Double(maxY - minY + 1) / Double(height)))
+        }
+        return boxes
+    }
+
+    /// Fraction of ink pixels inside a normalized rect.
+    func density(_ r: NormRect) -> Double {
+        let x0 = Int(r.minX * Double(width)), x1 = Int(r.maxX * Double(width))
+        let y0 = Int(r.minY * Double(height)), y1 = Int(r.maxY * Double(height))
+        guard x1 > x0, y1 > y0 else { return 0 }
+        var count = 0
+        for y in y0..<y1 { for x in x0..<x1 where ink(x, y) { count += 1 } }
+        return Double(count) / Double((x1 - x0) * (y1 - y0))
+    }
+
+    /// Fraction of points along the rect's outline that have ink within a few pixels.
+    func borderCoverage(_ r: NormRect, samplesPerSide: Int = 40, slack: Int = 3) -> Double {
+        func hit(_ nx: Double, _ ny: Double) -> Bool {
+            let cx = Int(nx * Double(width)), cy = Int(ny * Double(height))
+            for dy in -slack...slack { for dx in -slack...slack where ink(cx + dx, cy + dy) { return true } }
+            return false
+        }
+        var hits = 0
+        for i in 0..<samplesPerSide {
+            let f = (Double(i) + 0.5) / Double(samplesPerSide)
+            if hit(r.minX + f * r.width, r.minY) { hits += 1 }
+            if hit(r.minX + f * r.width, r.maxY) { hits += 1 }
+            if hit(r.minX, r.minY + f * r.height) { hits += 1 }
+            if hit(r.maxX, r.minY + f * r.height) { hits += 1 }
+        }
+        return Double(hits) / Double(4 * samplesPerSide)
     }
 }

@@ -245,7 +245,7 @@ struct InkyContextPacketTests {
     }
 
     @MainActor
-    @Test func marksAreDrawnOnTheModelImage() throws {
+    @Test func marksAreDrawnOnTheModelImage() async throws {
         let page = UIGraphicsImageRenderer(size: CGSize(width: 816, height: 1056)).image { ctx in
             UIColor.white.setFill(); ctx.fill(CGRect(x: 0, y: 0, width: 816, height: 1056))
         }
@@ -253,10 +253,66 @@ struct InkyContextPacketTests {
         let plain = InkyLocalization.modelImages(pageImage: page, lasso: nil)
         let marked = InkyLocalization.modelImages(pageImage: page, lasso: nil, annotations: [mark])
         #expect(plain[0].pngData != marked[0].pngData)
-        let request = InkyContextBuilder.makeRequest(question: "q", pageImage: page, recognizedText: [], lassoRegion: nil,
+        let request = await InkyContextBuilder.makeRequest(question: "q", pageImage: page, recognizedText: [], lassoRegion: nil,
                                                      pageAspectRatio: 816.0 / 1056.0, notebookTitle: nil, annotations: [mark])
         #expect(request.pageAnnotations == [mark])
         #expect(request.images.count == 1)
+    }
+}
+
+@Suite("Blank detection")
+struct InkyBlankDetectionTests {
+    /// Lined paper, a printed prompt, an empty box, a box with an answer, an underline blank.
+    @MainActor
+    static func worksheet() -> UIImage {
+        UIGraphicsImageRenderer(size: CGSize(width: 816, height: 1056)).image { ctx in
+            let cg = ctx.cgContext
+            UIColor.white.setFill(); cg.fill(CGRect(x: 0, y: 0, width: 816, height: 1056))
+            cg.setStrokeColor(UIColor(red: 0.77, green: 0.82, blue: 0.9, alpha: 1).cgColor)
+            for y in stride(from: 96.0, to: 1040, by: 32) { cg.move(to: CGPoint(x: 0, y: y)); cg.addLine(to: CGPoint(x: 816, y: y)) }
+            cg.strokePath()
+            let font = UIFont.systemFont(ofSize: 24)
+            ("1.  7 × 8 =" as NSString).draw(at: CGPoint(x: 80, y: 150), withAttributes: [.font: font])
+            ("2.  9 + 3 =" as NSString).draw(at: CGPoint(x: 80, y: 250), withAttributes: [.font: font])
+            ("The answer is" as NSString).draw(at: CGPoint(x: 80, y: 350), withAttributes: [.font: font])
+            cg.setStrokeColor(UIColor.black.cgColor)
+            cg.setLineWidth(2)
+            cg.stroke(CGRect(x: 300, y: 144, width: 120, height: 42))
+            cg.stroke(CGRect(x: 300, y: 244, width: 120, height: 42))
+            ("12" as NSString).draw(at: CGPoint(x: 340, y: 250), withAttributes: [.font: font])
+            cg.move(to: CGPoint(x: 260, y: 378)); cg.addLine(to: CGPoint(x: 440, y: 378)); cg.strokePath()
+        }
+    }
+
+    @MainActor
+    @Test func findsEmptyBoxesAndUnderlinesOnly() async throws {
+        let image = try #require(Self.worksheet().cgImage)
+        let text = await InkyLocalization.recognizeText(in: image)
+        let blanks = await InkyLocalization.detectBlanks(in: image, text: text)
+        let box = NormRect(CGRect(x: 300, y: 144, width: 120, height: 42), in: CGSize(width: 816, height: 1056))
+        let filled = NormRect(CGRect(x: 300, y: 244, width: 120, height: 42), in: CGSize(width: 816, height: 1056))
+        #expect(blanks.contains { $0.intersectionOverUnion(box) > 0.8 }, "\(blanks)")
+        #expect(!blanks.contains { $0.intersectionOverUnion(filled) > 0.3 }, "a box with an answer is not blank")
+        #expect(blanks.contains { $0.minY > 0.3 && $0.maxY < 0.37 && $0.minX > 0.3 }, "underline blank")
+        #expect(blanks.count == 2)
+
+        var request = Fixtures.sampleRequest()
+        request.blanks = [box]
+        #expect(InkyPromptBuilder.userText(for: request).contains("Empty boxes detected on the page"))
+    }
+
+    @MainActor
+    @Test func gridPaperIsNotBlanks() async throws {
+        let image = try #require(UIGraphicsImageRenderer(size: CGSize(width: 816, height: 1056)).image { ctx in
+            UIColor.white.setFill(); ctx.fill(CGRect(x: 0, y: 0, width: 816, height: 1056))
+            ctx.cgContext.setStrokeColor(UIColor(red: 0.88, green: 0.91, blue: 0.95, alpha: 1).cgColor)
+            for v in stride(from: 0.0, to: 1056, by: 24) {
+                ctx.cgContext.move(to: CGPoint(x: v, y: 0)); ctx.cgContext.addLine(to: CGPoint(x: v, y: 1056))
+                ctx.cgContext.move(to: CGPoint(x: 0, y: v)); ctx.cgContext.addLine(to: CGPoint(x: 816, y: v))
+            }
+            ctx.cgContext.strokePath()
+        }.cgImage)
+        #expect(await InkyLocalization.detectBlanks(in: image, text: []).isEmpty)
     }
 }
 

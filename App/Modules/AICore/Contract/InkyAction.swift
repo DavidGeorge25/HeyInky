@@ -43,6 +43,14 @@ struct NormRect: Codable, Hashable, Sendable {
         return union > 0 ? inter / union : 0
     }
 
+    /// Intersection area divided by this rect's area.
+    func overlapFraction(with other: NormRect) -> Double {
+        let ix = max(0, min(maxX, other.maxX) - max(minX, other.minX))
+        let iy = max(0, min(maxY, other.maxY) - max(minY, other.minY))
+        let area = width * height
+        return area > 0 ? ix * iy / area : 0
+    }
+
     func contains(_ p: NormPoint) -> Bool {
         p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY
     }
