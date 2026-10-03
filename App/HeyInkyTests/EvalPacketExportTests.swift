@@ -38,7 +38,7 @@ struct EvalPacketExportTests {
     func exportPackets() async throws {
         let env = ProcessInfo.processInfo.environment
         let root = URL(fileURLWithPath: try #require(env["INKY_EVAL_DIR"]))
-        let outDir = root.appendingPathComponent("out/packets")
+        let outDir = env["INKY_EVAL_OUT"].flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0) } ?? root.appendingPathComponent("out/packets")
         try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
         applyTuning(env["INKY_EVAL_TUNING"])
 

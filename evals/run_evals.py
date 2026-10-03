@@ -125,6 +125,20 @@ def summary_md(s, scored, args):
     return "\n".join(lines)
 
 
+def strip_text_aids(body):
+    """Ablation: remove the word@x lines and the detected-blanks block from the context text,
+    and use the pre-word-position wording."""
+    import re
+
+    first = body["input"][0]["content"][0]
+    text = first["text"]
+    text = re.sub(r"\n   \S+@\.?\d.*", "", text)
+    text = re.sub(r"\n\nEmpty boxes detected on the page[^\n]*(\n\[[^\n]*)*", "", text)
+    text = text.replace(", each followed by where its words start (word@x):", ":")
+    first["text"] = text
+    return body
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--proxy", default="http://127.0.0.1:8787")
@@ -138,6 +152,8 @@ def main():
     ap.add_argument("--min-interval", type=float, default=4.0, help="seconds between request starts (TPM pacing)")
     ap.add_argument("--no-retry", action="store_true")
     ap.add_argument("--label", default="")
+    ap.add_argument("--packets", help="packet dir (default out/packets), e.g. an ablation export")
+    ap.add_argument("--strip-text-aids", action="store_true", help="ablation: drop word@x lines and detected blanks from packets")
     ap.add_argument("--resume", help="a previous run dir: re-run only its cases that hit quota/proxy errors and merge")
     args = ap.parse_args()
 
@@ -159,7 +175,7 @@ def main():
         done = {r["case"] for r in previous}
         cases = [c for c in cases if c["id"] not in done]
         print(f"resuming {prev_dir.name}: {len(done)} kept, {len(cases)} to run")
-    packets = ROOT / "out/packets"
+    packets = Path(args.packets) if args.packets else ROOT / "out/packets"
     instructions = None if args.prompt == "packet" else Path(args.prompt).read_text()
 
     jobs = [(c, i) for c in cases for i in range(args.repeat)]
@@ -171,6 +187,8 @@ def main():
         if quota_hit.is_set():
             return c, i, None
         body = json.loads((packets / f"{c['id']}.json").read_text())
+        if args.strip_text_aids:
+            body = strip_text_aids(body)
         try:
             res = run_packet(args.proxy, body, len(c["existing"]), model=args.model, instructions=instructions,
                              reasoning=args.reasoning, max_retries=0 if args.no_retry else 1)

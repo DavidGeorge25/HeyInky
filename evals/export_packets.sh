@@ -12,11 +12,13 @@ DEST="platform=iOS Simulator,name=${SIM:-iPad Pro 11-inch (M5)}"
 
 cd "$ROOT/App"
 [[ -d HeyInky.xcodeproj ]] || xcodegen generate -q
-rm -rf "$ROOT/evals/out/packets"
+OUT="${INKY_EVAL_OUT:-$ROOT/evals/out/packets}"
+rm -rf "$OUT"
 TEST_RUNNER_INKY_EVAL_DIR="$ROOT/evals" \
 TEST_RUNNER_INKY_EVAL_ONLY="${INKY_EVAL_ONLY:-}" \
 TEST_RUNNER_INKY_EVAL_TUNING="${INKY_EVAL_TUNING:-}" \
+TEST_RUNNER_INKY_EVAL_OUT="$OUT" \
 xcodebuild test -project HeyInky.xcodeproj -scheme HeyInky -destination "$DEST" \
   -derivedDataPath build/DerivedData -only-testing:HeyInkyTests/EvalPacketExportTests 2>&1 \
   | grep -E "error:|✘|passed|failed|TEST (SUCCEEDED|FAILED)" | tail -5
-ls "$ROOT/evals/out/packets"/*.json | grep -v meta | wc -l | xargs echo "packets:"
+ls "$OUT"/*.json | grep -v meta | wc -l | xargs echo "packets:"
