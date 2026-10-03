@@ -39,7 +39,7 @@ struct MoleculeCardSnapshotTests {
             .background(c.dark ? Color.black : Color.white)
             .environment(\.colorScheme, c.dark ? .dark : .light)
         let image = try #require(Self.render(view))
-        try Snapshot.assertMatches(image, named: c.name)
+        try MoleculeSnapshot.assertMatches(image, named: c.name)
     }
 
     @Test func invalidSmilesShowsCalmErrorWithRawSmiles() throws {
@@ -48,7 +48,7 @@ struct MoleculeCardSnapshotTests {
             .frame(width: Self.size.width, height: Self.size.height)
             .background(Color.white)
         let image = try #require(Self.render(view))
-        try Snapshot.assertMatches(image, named: "invalid-smiles")
+        try MoleculeSnapshot.assertMatches(image, named: "invalid-smiles")
     }
 
     static func render<V: View>(_ view: V) -> UIImage? {
@@ -58,7 +58,7 @@ struct MoleculeCardSnapshotTests {
     }
 }
 
-enum Snapshot {
+enum MoleculeSnapshot {
     static func directory(file: String = #filePath) -> URL {
         URL(fileURLWithPath: file).deletingLastPathComponent().appendingPathComponent("__Snapshots__")
     }
