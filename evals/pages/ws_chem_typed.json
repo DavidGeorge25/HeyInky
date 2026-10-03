@@ -1,0 +1,55 @@
+{
+ "id": "ws_chem_typed",
+ "hand": false,
+ "size": [
+  816,
+  1056
+ ],
+ "lines": [
+  {
+   "text": "Chem review",
+   "box": [
+    0.0882,
+    0.0625,
+    0.2279,
+    0.0202
+   ]
+  },
+  {
+   "text": "1. Molar mass of H2O:",
+   "box": [
+    0.098,
+    0.1458,
+    0.2672,
+    0.0152
+   ]
+  },
+  {
+   "text": "g/mol",
+   "box": [
+    0.5515,
+    0.1458,
+    0.0645,
+    0.0196
+   ]
+  },
+  {
+   "text": "2. Number of protons in a carbon atom:",
+   "box": [
+    0.098,
+    0.2405,
+    0.4624,
+    0.0196
+   ]
+  },
+  {
+   "text": "3. Charge of an electron:",
+   "box": [
+    0.098,
+    0.3352,
+    0.2925,
+    0.0196
+   ]
+  }
+ ]
+}

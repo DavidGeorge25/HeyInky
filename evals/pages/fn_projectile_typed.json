@@ -1,0 +1,46 @@
+{
+ "id": "fn_projectile_typed",
+ "hand": false,
+ "size": [
+  816,
+  1056
+ ],
+ "lines": [
+  {
+   "text": "Projectile motion",
+   "box": [
+    0.0882,
+    0.0625,
+    0.299,
+    0.0259
+   ]
+  },
+  {
+   "text": "Launch at 45\u00b0 with v = 10 m/s, g = 9.8 m/s\u00b2",
+   "box": [
+    0.0882,
+    0.1263,
+    0.4412,
+    0.017
+   ]
+  },
+  {
+   "text": "Trajectory: y = x \u2212 0.098 x\u00b2",
+   "box": [
+    0.0882,
+    0.1648,
+    0.3186,
+    0.0196
+   ]
+  },
+  {
+   "text": "Range R = v\u00b2 sin(2\u03b8) / g \u2248 10.2 m",
+   "box": [
+    0.0882,
+    0.2027,
+    0.3423,
+    0.0164
+   ]
+  }
+ ]
+}

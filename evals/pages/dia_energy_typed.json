@@ -1,0 +1,91 @@
+{
+ "id": "dia_energy_typed",
+ "hand": false,
+ "size": [
+  816,
+  1056
+ ],
+ "lines": [
+  {
+   "text": "Reaction energy diagram",
+   "box": [
+    0.0882,
+    0.0625,
+    0.4395,
+    0.0259
+   ]
+  },
+  {
+   "text": "Energy",
+   "box": [
+    0.098,
+    0.202,
+    0.0613,
+    0.0139
+   ]
+  },
+  {
+   "text": "Reaction progress",
+   "box": [
+    0.6618,
+    0.601,
+    0.1569,
+    0.0145
+   ]
+  },
+  {
+   "text": "Reactants",
+   "box": [
+    0.1838,
+    0.4618,
+    0.0874,
+    0.0114
+   ]
+  },
+  {
+   "text": "Products",
+   "box": [
+    0.6618,
+    0.5565,
+    0.0768,
+    0.0114
+   ]
+  },
+  {
+   "text": "Transition state",
+   "box": [
+    0.3848,
+    0.2771,
+    0.1332,
+    0.0114
+   ]
+  },
+  {
+   "text": "Ea",
+   "box": [
+    0.2892,
+    0.3914,
+    0.027,
+    0.0126
+   ]
+  },
+  {
+   "text": "\u0394H",
+   "box": [
+    0.7712,
+    0.5098,
+    0.0319,
+    0.0126
+   ]
+  },
+  {
+   "text": "Endothermic: products are higher in energy than reactants.",
+   "box": [
+    0.0882,
+    0.666,
+    0.5376,
+    0.0145
+   ]
+  }
+ ]
+}

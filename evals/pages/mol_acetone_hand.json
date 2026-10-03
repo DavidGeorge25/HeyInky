@@ -1,0 +1,37 @@
+{
+ "id": "mol_acetone_hand",
+ "hand": true,
+ "size": [
+  816,
+  1056
+ ],
+ "lines": [
+  {
+   "text": "Solvents",
+   "box": [
+    0.0874,
+    0.0701,
+    0.1201,
+    0.0271
+   ]
+  },
+  {
+   "text": "nail polish remover",
+   "box": [
+    0.1119,
+    0.5398,
+    0.1683,
+    0.0234
+   ]
+  },
+  {
+   "text": "polar aprotic",
+   "box": [
+    0.1095,
+    0.5758,
+    0.116,
+    0.0227
+   ]
+  }
+ ]
+}

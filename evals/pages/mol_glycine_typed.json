@@ -1,0 +1,37 @@
+{
+ "id": "mol_glycine_typed",
+ "hand": false,
+ "size": [
+  816,
+  1056
+ ],
+ "lines": [
+  {
+   "text": "Amino acids",
+   "box": [
+    0.0882,
+    0.0625,
+    0.219,
+    0.0202
+   ]
+  },
+  {
+   "text": "Simplest amino acid",
+   "box": [
+    0.1103,
+    0.5341,
+    0.2214,
+    0.0177
+   ]
+  },
+  {
+   "text": "Achiral",
+   "box": [
+    0.1095,
+    0.572,
+    0.0768,
+    0.0139
+   ]
+  }
+ ]
+}

@@ -1,0 +1,37 @@
+{
+ "id": "mol_acetic_acid_typed",
+ "hand": false,
+ "size": [
+  816,
+  1056
+ ],
+ "lines": [
+  {
+   "text": "Carboxylic Acids",
+   "box": [
+    0.0882,
+    0.0625,
+    0.2998,
+    0.0259
+   ]
+  },
+  {
+   "text": "Vinegar is ~5% of this acid.",
+   "box": [
+    0.1103,
+    0.5341,
+    0.2982,
+    0.0177
+   ]
+  },
+  {
+   "text": "pKa \u2248 4.76",
+   "box": [
+    0.1103,
+    0.572,
+    0.1185,
+    0.0177
+   ]
+  }
+ ]
+}

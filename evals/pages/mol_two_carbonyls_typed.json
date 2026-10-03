@@ -1,0 +1,46 @@
+{
+ "id": "mol_two_carbonyls_typed",
+ "hand": false,
+ "size": [
+  816,
+  1056
+ ],
+ "lines": [
+  {
+   "text": "Aldehyde vs ketone",
+   "box": [
+    0.0882,
+    0.0625,
+    0.3448,
+    0.0259
+   ]
+  },
+  {
+   "text": "1. propanal",
+   "box": [
+    0.1103,
+    0.1553,
+    0.1242,
+    0.0177
+   ]
+  },
+  {
+   "text": "2. ?",
+   "box": [
+    0.576,
+    0.1553,
+    0.0408,
+    0.0139
+   ]
+  },
+  {
+   "text": "Which one gives a positive Tollens' test?",
+   "box": [
+    0.1103,
+    0.4583,
+    0.4436,
+    0.0177
+   ]
+  }
+ ]
+}

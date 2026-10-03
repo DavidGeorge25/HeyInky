@@ -1,0 +1,37 @@
+{
+ "id": "mol_aspirin_typed",
+ "hand": false,
+ "size": [
+  816,
+  1056
+ ],
+ "lines": [
+  {
+   "text": "Drug structures: Aspirin",
+   "box": [
+    0.0882,
+    0.0625,
+    0.4265,
+    0.0259
+   ]
+  },
+  {
+   "text": "Analgesic, anti-inflammatory",
+   "box": [
+    0.1095,
+    0.5341,
+    0.3113,
+    0.0177
+   ]
+  },
+  {
+   "text": "C9H8O4",
+   "box": [
+    0.1103,
+    0.572,
+    0.0964,
+    0.0139
+   ]
+  }
+ ]
+}

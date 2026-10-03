@@ -1,0 +1,37 @@
+{
+ "id": "fn_log_exp_hand",
+ "hand": true,
+ "size": [
+  816,
+  1056
+ ],
+ "lines": [
+  {
+   "text": "Inverse functions",
+   "box": [
+    0.0891,
+    0.0612,
+    0.241,
+    0.0271
+   ]
+  },
+  {
+   "text": "y = ln(x)  and  y = e^x",
+   "box": [
+    0.0858,
+    0.1301,
+    0.2614,
+    0.0328
+   ]
+  },
+  {
+   "text": "reflections in y = x",
+   "box": [
+    0.0891,
+    0.1888,
+    0.1936,
+    0.0221
+   ]
+  }
+ ]
+}

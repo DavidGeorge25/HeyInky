@@ -1,9 +1,14 @@
 {
-  "description": "Hey Inky action contract v1. Source of truth for the model's structured output (OpenAI strict json_schema) and for the Swift Codable types in App/Modules/AICore/Contract/InkyAction.swift. Coordinates are normalized page space: (0,0) top-left, (1,1) bottom-right. Strict-mode rules: every object lists all properties in `required` and sets additionalProperties=false; optional values are nullable. Keep InkyActionSchemaSyncTests green when editing. Property ORDER matters: strict structured outputs generate keys in schema order, so `type` must stay first in every action.",
+  "description": "Hey Inky action contract v2. Source of truth for the model's structured output (OpenAI strict json_schema) and for the Swift Codable types in App/Modules/AICore/Contract/InkyAction.swift. Coordinates are normalized page space: (0,0) top-left, (1,1) bottom-right. Strict-mode rules: every object lists all properties in `required` and sets additionalProperties=false; optional values are nullable. Keep InkyActionSchemaSyncTests green when editing. Property ORDER matters: strict structured outputs generate keys in schema order, so `type` must stay first in every action.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["actions"],
+  "required": ["removeAnnotations", "actions"],
   "properties": {
+    "removeAnnotations": {
+      "type": "array",
+      "description": "Ids (like \"m2\") of existing Inky marks to delete, e.g. when the student says \"undo that\" or \"remove the highlight\". Usually empty.",
+      "items": { "type": "string" }
+    },
     "actions": {
       "type": "array",
       "description": "Ordered list of things Inky does on the page. Prefer acting on the page over talking.",

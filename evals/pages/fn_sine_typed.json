@@ -1,0 +1,37 @@
+{
+ "id": "fn_sine_typed",
+ "hand": false,
+ "size": [
+  816,
+  1056
+ ],
+ "lines": [
+  {
+   "text": "Trigonometric functions",
+   "box": [
+    0.0882,
+    0.0625,
+    0.4216,
+    0.0259
+   ]
+  },
+  {
+   "text": "Example 2.  y = 2 sin(3x)",
+   "box": [
+    0.0882,
+    0.1269,
+    0.2949,
+    0.0196
+   ]
+  },
+  {
+   "text": "Amplitude = ?     Period = ?",
+   "box": [
+    0.0874,
+    0.1648,
+    0.299,
+    0.0177
+   ]
+  }
+ ]
+}

@@ -3,8 +3,13 @@ import Foundation
 /// AI configuration. Every value can be overridden at launch with `-Key value`
 /// arguments (UserDefaults argument domain), e.g. `-InkyProxyURL http://192.168.1.20:8787`.
 enum InkyConfig {
-    /// The one place the model name lives.
-    static let modelName = "gpt-5.4-mini"
+    /// The one place the default model name lives (see evals/RESULTS.md for the comparison).
+    static let defaultModelName = "gpt-5.4-mini"
+
+    /// `-InkyModel gpt-5.4` overrides the model for A/B testing on device.
+    static var modelName: String {
+        UserDefaults.standard.string(forKey: "InkyModel").flatMap { $0.isEmpty ? nil : $0 } ?? defaultModelName
+    }
     static let reasoningEffort = "low"
     static let maxOutputTokens = 4000
 
@@ -29,10 +34,11 @@ enum InkyConfig {
 }
 
 enum InkyClientFactory {
+    /// Every client is wrapped in `ValidatingInkyModelClient` (checks + one retry).
     static func makeDefault() -> any InkyModelClient {
         if InkyConfig.useMockClient {
-            return MockInkyModelClient()
+            return ValidatingInkyModelClient(base: MockInkyModelClient())
         }
-        return ProxyInkyModelClient(baseURL: InkyConfig.proxyURL, token: InkyConfig.proxyToken)
+        return ValidatingInkyModelClient(base: ProxyInkyModelClient(baseURL: InkyConfig.proxyURL, token: InkyConfig.proxyToken))
     }
 }

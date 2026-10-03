@@ -116,3 +116,33 @@ test("node server streams end to end", async () => {
     server.close();
   }
 });
+
+test("retries once when OpenAI can't be reached, then reports 502", async () => {
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+  let failures = 1;
+  const flaky = (async (url: string | URL | Request, init?: RequestInit) => {
+    if (failures-- > 0) {
+      calls.push({ url: String(url), init: init ?? {} });
+      throw new TypeError("fetch failed");
+    }
+    return fakeFetch(calls)(url, init);
+  }) as typeof fetch;
+  const ok = await handleRequest(post({ input: "hi" }), { OpenAI_API_Key: "k", fetch: flaky });
+  assert.equal(ok.status, 200);
+  assert.equal(calls.length, 2);
+
+  const down = (async () => {
+    throw new TypeError("fetch failed");
+  }) as typeof fetch;
+  const res = await handleRequest(post({ input: "hi" }), { OpenAI_API_Key: "k", fetch: down });
+  assert.equal(res.status, 502);
+});
+
+test("prompt_cache_key passes the allow-list", () => {
+  const out = prepareUpstreamBody({ input: "x", prompt_cache_key: "inky-v2", secret: 1 }, {});
+  assert.ok("body" in out);
+  if ("body" in out) {
+    assert.equal(out.body.prompt_cache_key, "inky-v2");
+    assert.equal("secret" in out.body, false);
+  }
+});

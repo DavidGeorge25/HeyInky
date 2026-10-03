@@ -1,0 +1,55 @@
+{
+ "id": "ws_vocab_typed",
+ "hand": false,
+ "size": [
+  816,
+  1056
+ ],
+ "lines": [
+  {
+   "text": "Biology vocabulary",
+   "box": [
+    0.0882,
+    0.0625,
+    0.3391,
+    0.0259
+   ]
+  },
+  {
+   "text": "The powerhouse of the cell is the",
+   "box": [
+    0.098,
+    0.1465,
+    0.3725,
+    0.0177
+   ]
+  },
+  {
+   "text": ".",
+   "box": [
+    0.7414,
+    0.1585,
+    0.0074,
+    0.0019
+   ]
+  },
+  {
+   "text": "Photosynthesis takes place in the",
+   "box": [
+    0.098,
+    0.2317,
+    0.3791,
+    0.0177
+   ]
+  },
+  {
+   "text": ".",
+   "box": [
+    0.7414,
+    0.2437,
+    0.0074,
+    0.0019
+   ]
+  }
+ ]
+}
