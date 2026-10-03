@@ -28,8 +28,39 @@ _Last updated: 2026-10-03 (foundation session)._
 | Replies | `say` toast; `openSidebar` Markdown explainer with play/pause TTS |
 | Proxy | Node/TS server + Worker entry, `.env` loading, optional shared token, field allow-list, `store:false` |
 
+## InkyCharacter (feat/character) ✅
+- **Inky** is an original vector pen character (Canvas): ink-drop cowlick, big eyes, nib. States:
+  idle, listening, thinking, speaking, happy, hopping, writing — each with its own motion; state
+  changes blend; Reduce Motion holds reference poses and cross-fades.
+- **Acting on the page:** for each annotation Inky drops/hops (parabolic arc, squash & stretch,
+  shadow) to where it goes, draws it with a stroke-reveal under its nib (highlight swipe, circle loop,
+  star outline → fill, label text → arrow, handwriting, card pop), then a happy bounce, the reply
+  toast, and Inky hops away. Reduce Motion: annotations fade in one by one.
+- **Polish:** ask popover, floating button (ink-drop "seat" while Inky is out), toasts, sidebar;
+  haptics (incl. Apple Pencil Pro); subtle synthesized sounds with an "Inky Sounds" toggle.
+- **App icon + launch screen** featuring Inky, rendered from SwiftUI art.
+- **Tests:** 72 unit tests (character snapshots per state + small sizes, choreography, artwork sync),
+  4 UI tests incl. `InkyChoreographyUITests` (hop-to-target order, annotation hidden until Inky
+  arrives, nib on the target, celebrate, reply, leave). All green; zero warnings.
+- Shell touch-points are listed in `INTERFACE_REQUESTS.md`.
+
+### Screen recording: Inky in action
+1. Build & install on a simulator (or device): `xcodebuild build … -destination 'platform=iOS Simulator,name=iPad Pro 11-inch (M5)'`
+   (or run from Xcode with the launch arguments below in the scheme).
+2. Launch with the mock client and slightly slower motion so it reads well on video:
+   `xcrun simctl launch booted com.heyinky.app -InkyUITestReset YES -InkyUseMockClient YES -InkyMotionScale 1.5`
+   (drop `-InkyMotionScale` for real speed; use the proxy instead of the mock for a real answer).
+3. Start recording: `xcrun simctl io booted recordVideo --codec h264 inky.mp4`
+   (on device: Control Center → Screen Recording).
+4. Open **Welcome to Hey Inky**, tap Inky (bottom right), type **highlight the title**, send.
+   Inky drops onto the title, swipes the highlight, hops to the circle, star, label and answer
+   text, bounces, and the reply toast appears.
+5. Tap Inky again, ask **explain this page** → sidebar opens; tap **Listen** (Inky talks).
+6. Tap the mic in the ask popover to show the listening pose (needs mic permission).
+7. Optional: Settings → Accessibility → Motion → Reduce Motion on, repeat step 4 (annotations fade in).
+8. Stop recording with Ctrl-C.
+
 ## Known gaps / follow-ups for the lead
-- App icon artwork is empty (asset slot exists).
 - Simulator can't test real Pencil squeeze / hover; verify on device (`-InkyProxyURL http://<mac-ip>:8787`,
   proxy with `INKY_PROXY_HOST=0.0.0.0`).
 - PDF pages with rotation: rendered correctly, but text-layer boxes are skipped (OCR covers them).
@@ -44,5 +75,5 @@ _Last updated: 2026-10-03 (foundation session)._
   rendering + SMARTS highlight/star, Ketcher editing, offline assets, tests.
 - **Graphs** (`App/Modules/Graphs/README.md`): replace `GraphCardView` stub with bundled JSXGraph,
   sliders/draggable points, safe expression compilation, persist interactive state, tests.
-- **InkyCharacter** (`App/Modules/InkyCharacter/README.md`): final Inky art + per-state motion,
-  Reduce Motion support.
+- **InkyCharacter** (`App/Modules/InkyCharacter/README.md`): done; next: hop back to the floating
+  button (needs its page-space position, see `INTERFACE_REQUESTS.md`), Pencil Pro haptics at hover.

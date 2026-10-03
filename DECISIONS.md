@@ -83,3 +83,30 @@ Newest last. Each entry: decision — why.
 
 22. **Tests:** Swift Testing for unit tests, XCTest for UI tests (mock client via launch argument).
     The live OpenAI test is opt-in (`TEST_RUNNER_INKY_LIVE=1`) to keep the default suite free/offline.
+
+23. **Inky's motion is a pure function of (state, time)** (`InkyMotion`), drawn with `Canvas` inside a
+    `TimelineView`. — Every frame is reproducible, so snapshot tests render fixed reference poses, state
+    changes can be blended numerically, and Reduce Motion simply shows the reference pose.
+
+24. **Inky performs annotations instead of them popping in.** Actions are still applied and persisted
+    immediately; only the *display* is choreographed (`InkyChoreographer`: hidden until Inky lands,
+    then revealed with the nib's progress). — Streaming, persistence and tests stay unchanged; leaving
+    the page mid-performance just shows everything. Without an on-screen layer nothing is delayed.
+
+25. **The nib path and the stroke-reveal share one progress value** (`InkyStroke.tip(at:)` ⇄ each
+    mark's `progress`). — Ink always appears exactly under Inky's nib; one timing source.
+
+26. **The `say()` reply waits until Inky has finished drawing.** — The toast ("Highlighted the
+    title.") reads as Inky's sign-off together with the happy bounce instead of arriving first.
+
+27. **Sounds are synthesized tones played as system sounds, on by default, with a toggle.** — No
+    audio assets, tiny and quiet, mix with other audio and never reconfigure the `AVAudioSession`
+    that speech input/output use. Haptics also go to Apple Pencil Pro via `UICanvasFeedbackGenerator`.
+
+28. **App icon and launch image are rendered from SwiftUI** (`InkyArtwork.swift`) and tests fail if the
+    committed PNGs drift. — One source of truth for Inky's look; re-render with one command.
+
+29. **Image snapshots without a third-party library** (`SnapshotSupport.swift`): `ImageRenderer` →
+    PNG next to the tests via `#filePath`, small per-pixel tolerance. — No package dependency in the
+    XcodeGen spec; good enough for vector art rendered on the same simulator runtime.
+

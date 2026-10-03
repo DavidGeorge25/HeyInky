@@ -21,17 +21,20 @@ struct InkyAvatar: View {
     var body: some View {
         ZStack {
             Circle().fill(InkyStyle.tint)
+            // A quick cross-fade: the avatar often sits in a card that is itself moving
+            // (keyboard dismissal), where a scale transition would trail behind.
             if isAway {
                 InkyAwayDrop(size: size * 0.32)
-                    .transition(.scale(scale: 0.4).combined(with: .opacity))
+                    .transition(.opacity)
             } else {
                 InkyCharacterView(state: state, size: size * 0.86)
                     .offset(y: size * 0.02)
-                    .transition(.scale(scale: 0.6, anchor: .bottom).combined(with: .opacity))
+                    .transition(.opacity)
             }
         }
         .frame(width: size, height: size)
-        .animation(InkyStyle.spring, value: isAway)
+        .clipShape(Circle())
+        .animation(.easeOut(duration: 0.15), value: isAway)
         .accessibilityHidden(true)
     }
 }
