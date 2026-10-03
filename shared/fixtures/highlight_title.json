@@ -1,0 +1,1 @@
+{ "actions": [ { "type": "highlight", "region": { "x": 0.1, "y": 0.06, "width": 0.8, "height": 0.06 }, "color": "yellow", "note": null }, { "type": "say", "text": "Done — highlighted the title." } ] }

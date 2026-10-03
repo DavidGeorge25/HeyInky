@@ -1,0 +1,21 @@
+{
+  "name": "heyinky-proxy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tiny proxy between the Hey Inky iPad app and the OpenAI Responses API. Holds the API key so the app never does.",
+  "type": "module",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "start": "node src/server.ts",
+    "dev": "node --watch src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.ts",
+    "smoke": "node scripts/smoke.ts",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "ajv": "^8.17.1",
+    "typescript": "^5.9.0"
+  }
+}

@@ -1,0 +1,6 @@
+# Not used yet: the proxy runs locally via `npm start`. To deploy as a Worker:
+#   npx wrangler secret put OpenAI_API_Key
+#   npx wrangler deploy
+name = "heyinky-proxy"
+main = "src/worker.ts"
+compatibility_date = "2026-09-01"

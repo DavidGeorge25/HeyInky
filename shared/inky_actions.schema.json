@@ -1,0 +1,233 @@
+{
+  "$comment": "Hey Inky action contract v1. Source of truth for the model's structured output (OpenAI strict json_schema) and for the Swift Codable types in App/Modules/AICore/Contract/InkyAction.swift. Coordinates are normalized page space: (0,0) top-left, (1,1) bottom-right. Strict-mode rules: every object lists all properties in `required` and sets additionalProperties=false; optional values are nullable. Keep InkyActionSchemaSyncTests green when editing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["actions"],
+  "properties": {
+    "actions": {
+      "type": "array",
+      "description": "Ordered list of things Inky does on the page. Prefer acting on the page over talking.",
+      "items": {
+        "anyOf": [
+          { "$ref": "#/$defs/highlight" },
+          { "$ref": "#/$defs/circle" },
+          { "$ref": "#/$defs/star" },
+          { "$ref": "#/$defs/label" },
+          { "$ref": "#/$defs/fillText" },
+          { "$ref": "#/$defs/insertMoleculeCard" },
+          { "$ref": "#/$defs/insertGraphCard" },
+          { "$ref": "#/$defs/openSidebar" },
+          { "$ref": "#/$defs/say" }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "region": {
+      "type": "object",
+      "description": "Axis-aligned rectangle in normalized page coordinates. x,y is the top-left corner.",
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width": { "type": "number", "minimum": 0, "maximum": 1 },
+        "height": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "point": {
+      "type": "object",
+      "description": "Point in normalized page coordinates.",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "highlight": {
+      "type": "object",
+      "description": "Translucent marker highlight over a region, with an optional short margin note.",
+      "additionalProperties": false,
+      "required": ["type", "region", "color", "note"],
+      "properties": {
+        "type": { "type": "string", "enum": ["highlight"] },
+        "region": { "$ref": "#/$defs/region" },
+        "color": { "type": "string", "enum": ["yellow", "green", "blue", "pink", "orange"] },
+        "note": { "type": ["string", "null"] }
+      }
+    },
+    "circle": {
+      "type": "object",
+      "description": "Hand-drawn style loop around a region.",
+      "additionalProperties": false,
+      "required": ["type", "region", "style"],
+      "properties": {
+        "type": { "type": "string", "enum": ["circle"] },
+        "region": { "$ref": "#/$defs/region" },
+        "style": { "type": "string", "enum": ["solid", "dashed"] }
+      }
+    },
+    "star": {
+      "type": "object",
+      "description": "A small star placed at a point, e.g. to mark something important.",
+      "additionalProperties": false,
+      "required": ["type", "point"],
+      "properties": {
+        "type": { "type": "string", "enum": ["star"] },
+        "point": { "$ref": "#/$defs/point" }
+      }
+    },
+    "label": {
+      "type": "object",
+      "description": "Short text label placed near an anchor point, optionally with an arrow pointing at the anchor.",
+      "additionalProperties": false,
+      "required": ["type", "anchor", "text", "arrow"],
+      "properties": {
+        "type": { "type": "string", "enum": ["label"] },
+        "anchor": { "$ref": "#/$defs/point" },
+        "text": { "type": "string" },
+        "arrow": { "type": "boolean" }
+      }
+    },
+    "fillText": {
+      "type": "object",
+      "description": "Write text inside a region (e.g. fill a blank, answer box). handwritingStyle renders it in a handwriting font.",
+      "additionalProperties": false,
+      "required": ["type", "region", "text", "handwritingStyle"],
+      "properties": {
+        "type": { "type": "string", "enum": ["fillText"] },
+        "region": { "$ref": "#/$defs/region" },
+        "text": { "type": "string" },
+        "handwritingStyle": { "type": "boolean" }
+      }
+    },
+    "insertMoleculeCard": {
+      "type": "object",
+      "description": "Interactive molecule card. highlightGroups/starGroups are SMARTS patterns matched against the molecule.",
+      "additionalProperties": false,
+      "required": ["type", "smiles", "near", "highlightGroups", "starGroups", "caption"],
+      "properties": {
+        "type": { "type": "string", "enum": ["insertMoleculeCard"] },
+        "smiles": { "type": "string" },
+        "near": { "$ref": "#/$defs/region" },
+        "highlightGroups": { "type": "array", "items": { "type": "string" } },
+        "starGroups": { "type": "array", "items": { "type": "string" } },
+        "caption": { "type": ["string", "null"] }
+      }
+    },
+    "insertGraphCard": {
+      "type": "object",
+      "description": "Interactive graph card placed near a region.",
+      "additionalProperties": false,
+      "required": ["type", "spec", "near"],
+      "properties": {
+        "type": { "type": "string", "enum": ["insertGraphCard"] },
+        "spec": { "$ref": "#/$defs/graphSpec" },
+        "near": { "$ref": "#/$defs/region" }
+      }
+    },
+    "graphSpec": {
+      "type": "object",
+      "description": "JSXGraph-friendly graph description. Expressions are JavaScript math in x and the param names (e.g. 'a*Math.sin(b*x)').",
+      "additionalProperties": false,
+      "required": ["title", "xMin", "xMax", "yMin", "yMax", "functions", "params", "asymptotes", "points", "labels"],
+      "properties": {
+        "title": { "type": ["string", "null"] },
+        "xMin": { "type": "number" },
+        "xMax": { "type": "number" },
+        "yMin": { "type": "number" },
+        "yMax": { "type": "number" },
+        "functions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["expression", "label", "color"],
+            "properties": {
+              "expression": { "type": "string" },
+              "label": { "type": ["string", "null"] },
+              "color": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "min", "max", "value", "step"],
+            "properties": {
+              "name": { "type": "string" },
+              "min": { "type": "number" },
+              "max": { "type": "number" },
+              "value": { "type": "number" },
+              "step": { "type": ["number", "null"] }
+            }
+          }
+        },
+        "asymptotes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["orientation", "value", "label"],
+            "properties": {
+              "orientation": { "type": "string", "enum": ["vertical", "horizontal"] },
+              "value": { "type": "number" },
+              "label": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["x", "y", "label", "draggable"],
+            "properties": {
+              "x": { "type": "number" },
+              "y": { "type": "number" },
+              "label": { "type": ["string", "null"] },
+              "draggable": { "type": "boolean" }
+            }
+          }
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["x", "y", "text"],
+            "properties": {
+              "x": { "type": "number" },
+              "y": { "type": "number" },
+              "text": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "openSidebar": {
+      "type": "object",
+      "description": "Longer explanation shown in a sidebar. Markdown without LaTeX. speakable=true offers text-to-speech.",
+      "additionalProperties": false,
+      "required": ["type", "markdown", "speakable"],
+      "properties": {
+        "type": { "type": "string", "enum": ["openSidebar"] },
+        "markdown": { "type": "string" },
+        "speakable": { "type": "boolean" }
+      }
+    },
+    "say": {
+      "type": "object",
+      "description": "One short sentence shown as a toast.",
+      "additionalProperties": false,
+      "required": ["type", "text"],
+      "properties": {
+        "type": { "type": "string", "enum": ["say"] },
+        "text": { "type": "string" }
+      }
+    }
+  }
+}

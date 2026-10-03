@@ -1,1 +1,15 @@
+# Secrets
 .env
+.env.*
+
+# Node
+node_modules/
+
+# Xcode (project is generated from App/project.yml by XcodeGen)
+App/*.xcodeproj/
+App/build/
+DerivedData/
+*.xcresult
+xcuserdata/
+
+.DS_Store
