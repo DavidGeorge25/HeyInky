@@ -10,10 +10,36 @@ struct GraphPlotView: View {
     var standalone = false
 
     var body: some View {
-        Canvas { context, size in
-            GraphPlotRenderer(document: document, scene: scene, size: size, standalone: standalone).draw(in: &context)
+        VStack(alignment: .leading, spacing: 0) {
+            if standalone { legend }
+            Canvas { context, size in
+                GraphPlotRenderer(document: document, scene: scene, size: size).draw(in: &context)
+            }
         }
         .background(GraphTheme.color(scene.theme.background))
+    }
+
+    /// Curves and slider values above the plot, so a flattened image stands on its own.
+    private var legend: some View {
+        let s = CGFloat(scene.scale)
+        return VStack(alignment: .leading, spacing: 3 * s) {
+            ForEach(scene.functions, id: \.index) { f in
+                HStack(spacing: 5 * s) {
+                    Circle().fill(GraphTheme.color(f.color)).frame(width: 7 * s, height: 7 * s)
+                    Text("\(f.label) = \(GraphExpressionDisplay.pretty(document.spec.functions[f.index].expression))")
+                        .foregroundStyle(GraphTheme.color(f.color))
+                }
+            }
+            if !document.spec.params.isEmpty {
+                Text(document.spec.params.map { "\($0.name) = \(GraphFormat.number($0.value))" }.joined(separator: ",  "))
+                    .foregroundStyle(GraphTheme.color(scene.theme.text))
+            }
+        }
+        .font(.system(size: 10.5 * s, weight: .medium, design: .rounded))
+        .lineLimit(1)
+        .padding(.horizontal, 10 * s)
+        .padding(.vertical, 7 * s)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Renders to an image at `scale` pixels per point.
@@ -31,7 +57,6 @@ struct GraphPlotRenderer {
     let document: GraphDocument
     let scene: GraphScene
     let size: CGSize
-    let standalone: Bool
 
     private var s: CGFloat { CGFloat(scene.scale) }
     private var v: GraphScene.View { scene.view }
@@ -49,7 +74,6 @@ struct GraphPlotRenderer {
         drawCurves(&context)
         if scene.options.features { drawFeatures(&context) }
         drawPointsAndLabels(&context)
-        if standalone { drawLegend(&context) }
     }
 
     // MARK: Grid and axes
@@ -197,29 +221,6 @@ struct GraphPlotRenderer {
         for l in scene.labels {
             context.draw(Text(l.text).font(.system(size: 11 * s, design: .rounded)).foregroundStyle(color(theme.text)),
                          at: point(l.x, l.y), anchor: .leading)
-        }
-    }
-
-    // MARK: Legend (standalone images)
-
-    private func drawLegend(_ context: inout GraphicsContext) {
-        var lines: [(String, String)] = scene.functions.map { f in
-            (f.color, "\(f.label) = \(GraphExpressionDisplay.pretty(document.spec.functions[f.index].expression))")
-        }
-        if !document.spec.params.isEmpty {
-            let values = document.spec.params.map { "\($0.name) = \(GraphFormat.number($0.value))" }.joined(separator: ",  ")
-            lines.append((scene.theme.text, values))
-        }
-        let font = Font.system(size: 10.5 * s, weight: .medium, design: .rounded)
-        var y = 8 * s
-        let x = min(px(0) > size.width * 0.4 ? 10 * s : max(px(0) + 14 * s, 10 * s), size.width * 0.5)
-        for (css, text) in lines {
-            let resolved = context.resolve(Text(text).font(font).foregroundStyle(color(css)))
-            let textSize = resolved.measure(in: CGSize(width: size.width - x - 10 * s, height: 40 * s))
-            let box = CGRect(x: x - 4 * s, y: y - 2 * s, width: textSize.width + 8 * s, height: textSize.height + 4 * s)
-            context.fill(Path(roundedRect: box, cornerRadius: 4 * s), with: .color(color(scene.theme.background).opacity(0.85)))
-            context.draw(resolved, in: CGRect(x: x, y: y, width: textSize.width, height: textSize.height))
-            y += textSize.height + 5 * s
         }
     }
 }

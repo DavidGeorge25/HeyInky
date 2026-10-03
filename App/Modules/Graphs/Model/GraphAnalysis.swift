@@ -341,7 +341,7 @@ enum GraphFormat {
             while s.hasSuffix("0") { s.removeLast() }
             if s.hasSuffix(".") { s.removeLast() }
         }
-        return s.replacingOccurrences(of: "-", with: "−")
+        return s.hasPrefix("-") ? "−" + s.dropFirst() : s
     }
 
     /// "2x + 1", "−x − 3", "0.5x".
