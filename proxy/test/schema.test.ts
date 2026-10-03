@@ -45,6 +45,13 @@ test("every action type is listed in the root anyOf", () => {
   assert.equal(refs.length, 9);
 });
 
+test("`type` is the first property of every action (strict outputs follow key order)", () => {
+  for (const ref of schema.properties.actions.items.anyOf as Array<{ $ref: string }>) {
+    const name = ref.$ref.split("/").pop()!;
+    assert.equal(Object.keys(schema.$defs[name].properties)[0], "type", name);
+  }
+});
+
 test("valid fixtures validate", () => {
   for (const name of ["all_actions.json", "highlight_title.json"]) {
     const data = JSON.parse(fs.readFileSync(path.join(fixturesDir, name), "utf8"));

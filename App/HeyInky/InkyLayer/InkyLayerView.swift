@@ -1,0 +1,252 @@
+import SwiftUI
+
+/// The Inky layer: annotations drawn above the user's ink. Hosted inside the zooming
+/// canvas, sized to the page at the current zoom. Touches only reach it where
+/// `PageEditorModel.overlayWantsTouch` says so; everywhere else they go to PencilKit.
+struct InkyLayerView: View {
+    @Bindable var editor: PageEditorModel
+    @State private var editing: InkyAnnotation?
+    @State private var editText = ""
+    @GestureState private var dragTranslation: CGSize = .zero
+
+    var body: some View {
+        GeometryReader { geo in
+            let pageSize = editor.page.size
+            let scale = geo.size.width / pageSize.width
+            ZStack(alignment: .topLeading) {
+                if editor.selectedAnnotationID != nil || editor.selectedImageID != nil {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            editor.selectedAnnotationID = nil
+                            editor.selectedImageID = nil
+                        }
+                }
+
+                ForEach(editor.visibleAnnotations) { annotation in
+                    let isSelected = editor.selectedAnnotationID == annotation.id
+                    let rect = InkyAnnotationGeometry.bounds(for: annotation, pageSize: pageSize).cgRect(in: geo.size)
+                    InkyAnnotationView(annotation: annotation, pageSize: pageSize, scale: scale)
+                        .frame(width: max(rect.width, 1), height: max(rect.height, 1))
+                        .overlay {
+                            if isSelected {
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .strokeBorder(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                                    .padding(-6)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                        .contentShape(Rectangle().inset(by: -InkyAnnotationGeometry.hitSlop * scale))
+                        .position(x: rect.midX, y: rect.midY)
+                        .offset(isSelected ? dragTranslation : .zero)
+                        .onTapGesture {
+                            editor.selectedImageID = nil
+                            editor.selectedAnnotationID = isSelected ? nil : annotation.id
+                        }
+                        .gesture(isSelected ? moveGesture(annotation, viewSize: geo.size) : nil)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("inky.annotation.\(annotation.action.type.rawValue)")
+                        .accessibilityLabel(Self.accessibilityLabel(for: annotation.action))
+                        .accessibilityAddTraits(.isButton)
+                }
+
+                if let id = editor.selectedAnnotationID, let annotation = editor.annotations.first(where: { $0.id == id }) {
+                    let rect = InkyAnnotationGeometry.bounds(for: annotation, pageSize: pageSize).cgRect(in: geo.size)
+                    selectionToolbar(for: annotation)
+                        .position(x: min(max(rect.midX, 110), geo.size.width - 110), y: rect.minY > 60 ? rect.minY - 30 : rect.maxY + 30)
+                        .offset(dragTranslation)
+                }
+
+                if let id = editor.selectedImageID, let image = editor.page.images.first(where: { $0.id == id }) {
+                    ImageSelectionOverlay(editor: editor, image: image, viewSize: geo.size)
+                }
+            }
+        }
+        .alert("Edit", isPresented: Binding(get: { editing != nil }, set: { if !$0 { editing = nil } })) {
+            TextField("Text", text: $editText)
+            Button("Cancel", role: .cancel) { editing = nil }
+            Button("Save") {
+                if let annotation = editing { editor.updateAnnotation(Self.replacingText(in: annotation, with: editText)) }
+                editing = nil
+            }
+        }
+    }
+
+    private func moveGesture(_ annotation: InkyAnnotation, viewSize: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 4)
+            .updating($dragTranslation) { value, state, _ in state = value.translation }
+            .onEnded { value in
+                editor.moveAnnotation(annotation.id, by: NormPoint(
+                    x: value.translation.width / viewSize.width,
+                    y: value.translation.height / viewSize.height
+                ))
+            }
+    }
+
+    private func selectionToolbar(for annotation: InkyAnnotation) -> some View {
+        HStack(spacing: 2) {
+            if let text = Self.editableText(of: annotation.action) {
+                toolbarButton("Edit", systemImage: "pencil", id: "inky.selection.edit") {
+                    editText = text
+                    editing = annotation
+                }
+            }
+            toolbarButton("Hide", systemImage: "eye.slash", id: "inky.selection.hide") {
+                editor.setHidden(annotation.id, true)
+            }
+            toolbarButton("Delete", systemImage: "trash", id: "inky.selection.delete") {
+                editor.deleteAnnotation(annotation.id)
+            }
+        }
+        .padding(4)
+        .inkySurface(cornerRadius: 12)
+    }
+
+    private func toolbarButton(_ title: String, systemImage: String, id: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .labelStyle(.titleAndIcon)
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(title == "Delete" ? Color.red : Color.primary)
+        .accessibilityIdentifier(id)
+    }
+
+    static func editableText(of action: InkyAction) -> String? {
+        switch action {
+        case .label(let a): a.text
+        case .fillText(let a): a.text
+        case .highlight(let a): a.note ?? ""
+        case .insertMoleculeCard(let a): a.caption ?? ""
+        default: nil
+        }
+    }
+
+    static func replacingText(in annotation: InkyAnnotation, with text: String) -> InkyAnnotation {
+        var copy = annotation
+        switch annotation.action {
+        case .label(var a): a.text = text; copy.action = .label(a)
+        case .fillText(var a): a.text = text; copy.action = .fillText(a)
+        case .highlight(var a): a.note = text.isEmpty ? nil : text; copy.action = .highlight(a)
+        case .insertMoleculeCard(var a): a.caption = text.isEmpty ? nil : text; copy.action = .insertMoleculeCard(a)
+        default: break
+        }
+        return copy
+    }
+
+    static func accessibilityLabel(for action: InkyAction) -> String {
+        switch action {
+        case .highlight(let a): "Inky highlight\(a.note.map { ": \($0)" } ?? "")"
+        case .circle: "Inky circle"
+        case .star: "Inky star"
+        case .label(let a): "Inky label: \(a.text)"
+        case .fillText(let a): "Inky text: \(a.text)"
+        case .insertMoleculeCard(let a): "Molecule card \(a.caption ?? a.smiles)"
+        case .insertGraphCard(let a): "Graph card \(a.spec.title ?? "")"
+        case .openSidebar, .say: ""
+        }
+    }
+}
+
+/// Picks the renderer for an annotation. The view fills the annotation's bounds.
+struct InkyAnnotationView: View {
+    let annotation: InkyAnnotation
+    let pageSize: CGSize
+    let scale: CGFloat
+
+    var body: some View {
+        switch annotation.action {
+        case .highlight(let a):
+            HighlightMark(action: a, scale: scale)
+        case .circle(let a):
+            CircleMark(action: a, scale: scale, seed: Int(annotation.id.uuid.0) * 31 + Int(annotation.id.uuid.1))
+        case .star:
+            StarMark()
+        case .label(let a):
+            LabelMark(action: a, pageSize: pageSize, bounds: InkyAnnotationGeometry.baseBounds(for: annotation.action, pageSize: pageSize), scale: scale)
+        case .fillText(let a):
+            FillTextMark(action: a, scale: scale)
+        case .insertMoleculeCard(let a):
+            InkyCardContainer(title: a.caption ?? "Molecule", systemImage: "atom", scale: scale) {
+                MoleculeCardView(action: a)
+            }
+        case .insertGraphCard(let a):
+            InkyCardContainer(title: a.spec.title ?? "Graph", systemImage: "chart.xyaxis.line", scale: scale) {
+                GraphCardView(action: a)
+            }
+        case .openSidebar, .say:
+            EmptyView()
+        }
+    }
+}
+
+/// Move / resize / delete for a placed image.
+struct ImageSelectionOverlay: View {
+    let editor: PageEditorModel
+    let image: PlacedImage
+    let viewSize: CGSize
+    @GestureState private var move: CGSize = .zero
+    @GestureState private var resize: CGSize = .zero
+
+    var body: some View {
+        let base = image.frame.cgRect(in: viewSize)
+        let aspect = base.width / max(base.height, 1)
+        let grownWidth = max(40, base.width + max(resize.width, resize.height * aspect))
+        let rect = CGRect(x: base.minX + move.width, y: base.minY + move.height, width: grownWidth, height: grownWidth / aspect)
+
+        ZStack(alignment: .topLeading) {
+            Rectangle()
+                .strokeBorder(Theme.accent, lineWidth: 1.5)
+                .contentShape(Rectangle())
+                .frame(width: rect.width, height: rect.height)
+                .offset(x: rect.minX, y: rect.minY)
+                .gesture(
+                    DragGesture()
+                        .updating($move) { v, s, _ in s = v.translation }
+                        .onEnded { v in commit(dx: v.translation.width, dy: v.translation.height, grow: 0) }
+                )
+                .accessibilityIdentifier("page.image.selection")
+
+            Circle()
+                .fill(Theme.accent)
+                .frame(width: 22, height: 22)
+                .overlay(Circle().stroke(.white, lineWidth: 2))
+                .offset(x: rect.maxX - 11, y: rect.maxY - 11)
+                .gesture(
+                    DragGesture()
+                        .updating($resize) { v, s, _ in s = v.translation }
+                        .onEnded { v in commit(dx: 0, dy: 0, grow: max(v.translation.width, v.translation.height * aspect)) }
+                )
+
+            HStack(spacing: 2) {
+                Button(role: .destructive) { editor.deleteImage(image.id) } label: {
+                    Label("Delete", systemImage: "trash").padding(.horizontal, 10).padding(.vertical, 6)
+                }
+                .accessibilityIdentifier("page.image.delete")
+                Button { editor.selectedImageID = nil } label: {
+                    Text("Done").fontWeight(.semibold).padding(.horizontal, 10).padding(.vertical, 6)
+                }
+                .accessibilityIdentifier("page.image.done")
+            }
+            .font(.system(size: 13, design: .rounded))
+            .buttonStyle(.plain)
+            .padding(4)
+            .inkySurface(cornerRadius: 12)
+            .fixedSize()
+            .offset(x: max(0, rect.minX), y: max(0, rect.minY - 44))
+        }
+    }
+
+    private func commit(dx: CGFloat, dy: CGFloat, grow: CGFloat) {
+        var updated = image
+        let base = image.frame.cgRect(in: viewSize)
+        let aspect = base.width / max(base.height, 1)
+        let width = max(40, base.width + grow)
+        let rect = CGRect(x: base.minX + dx, y: base.minY + dy, width: width, height: width / aspect)
+        updated.frame = NormRect(rect, in: viewSize)
+        editor.updateImage(updated)
+    }
+}

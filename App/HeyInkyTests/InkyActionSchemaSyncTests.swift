@@ -1,0 +1,70 @@
+import Foundation
+import Testing
+@testable import HeyInky
+
+/// Guards against the Swift types drifting from /shared/inky_actions.schema.json.
+/// If this fails after editing the schema, update InkyAction.swift to match (and vice versa).
+@Suite("Schema ⇄ Swift sync")
+struct InkyActionSchemaSyncTests {
+    let schema = InkyPromptBuilder.actionSchema()
+
+    var defs: [String: [String: Any]] {
+        schema["$defs"] as? [String: [String: Any]] ?? [:]
+    }
+
+    func properties(_ def: String) -> Set<String> {
+        Set(((defs[def]?["properties"]) as? [String: Any] ?? [:]).keys)
+    }
+
+    /// Encodes with every optional set, so all keys appear.
+    func encodedKeys(_ action: InkyAction) throws -> Set<String> {
+        let data = try JSONEncoder().encode(action)
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+        return Set(object.keys)
+    }
+
+    static let fullySpecified: [InkyAction] = [
+        .highlight(HighlightAction(region: .unit, color: .green, note: "n")),
+        .circle(CircleAction(region: .unit, style: .solid)),
+        .star(StarAction(point: NormPoint(x: 0.5, y: 0.5))),
+        .label(LabelAction(anchor: NormPoint(x: 0.5, y: 0.5), text: "t", arrow: true)),
+        .fillText(FillTextAction(region: .unit, text: "t", handwritingStyle: false)),
+        .insertMoleculeCard(InsertMoleculeCardAction(smiles: "C", near: .unit, highlightGroups: [], starGroups: [], caption: "c")),
+        .insertGraphCard(InsertGraphCardAction(spec: GraphSpec(title: "t", xMin: 0, xMax: 1, yMin: 0, yMax: 1, functions: [], params: [], asymptotes: [], points: [], labels: []), near: .unit)),
+        .openSidebar(OpenSidebarAction(markdown: "m", speakable: true)),
+        .say(SayAction(text: "s")),
+    ]
+
+    @Test func actionTypeNamesMatchSchema() {
+        let refs = ((schema["properties"] as? [String: Any])?["actions"] as? [String: Any])?["items"] as? [String: Any]
+        let anyOf = refs?["anyOf"] as? [[String: String]] ?? []
+        let names = anyOf.compactMap { $0["$ref"]?.components(separatedBy: "/").last }
+        #expect(names == InkyActionType.allCases.map(\.rawValue))
+    }
+
+    @Test(arguments: fullySpecified)
+    func swiftKeysMatchSchemaProperties(_ action: InkyAction) throws {
+        #expect(try encodedKeys(action) == properties(action.type.rawValue))
+    }
+
+    @Test func enumValuesMatchSchema() {
+        func enumValues(_ def: String, _ property: String) -> [String] {
+            ((defs[def]?["properties"] as? [String: Any])?[property] as? [String: Any])?["enum"] as? [String] ?? []
+        }
+        #expect(enumValues("highlight", "color") == HighlightColor.allCases.map(\.rawValue))
+        #expect(enumValues("circle", "style") == CircleStyle.allCases.map(\.rawValue))
+    }
+
+    @Test func sharedPrimitivesMatch() throws {
+        #expect(properties("region") == ["x", "y", "width", "height"])
+        #expect(properties("point") == ["x", "y"])
+        let spec = GraphSpec(title: "t", xMin: 0, xMax: 1, yMin: 0, yMax: 1, functions: [], params: [], asymptotes: [], points: [], labels: [])
+        let keys = Set((try JSONSerialization.jsonObject(with: JSONEncoder().encode(spec)) as? [String: Any] ?? [:]).keys)
+        #expect(keys == properties("graphSpec"))
+    }
+
+    @Test func bundledSchemaIsAnObjectRoot() {
+        #expect(schema["type"] as? String == "object")
+        #expect(schema["$comment"] == nil, "OpenAI strict mode may reject unknown keywords")
+    }
+}

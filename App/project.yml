@@ -1,0 +1,92 @@
+# XcodeGen spec. The .xcodeproj is generated and git-ignored:
+#   cd App && xcodegen generate
+# Sources are globbed by folder, so adding a file never requires editing this spec.
+name: HeyInky
+options:
+  bundleIdPrefix: com.heyinky
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    TARGETED_DEVICE_FAMILY: "2"
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: "0.1.0"
+targets:
+  HeyInky:
+    type: application
+    platform: iOS
+    sources:
+      - path: HeyInky
+      - path: Modules
+        excludes:
+          - "**/*.md"
+      - path: ../shared/inky_actions.schema.json
+        buildPhase: resources
+      - path: ../shared/inky_system_prompt.md
+        buildPhase: resources
+    info:
+      path: HeyInky/Info.plist
+      properties:
+        CFBundleDisplayName: Hey Inky
+        UILaunchScreen: {}
+        UIApplicationSupportsIndirectInputEvents: true
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSMicrophoneUsageDescription: Inky listens when you tap the mic so you can ask out loud.
+        NSSpeechRecognitionUsageDescription: Your question is transcribed on device so Inky can answer it.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.heyinky.app
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+  HeyInkyTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: HeyInkyTests
+      - path: ../shared/fixtures
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - target: HeyInky
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.heyinky.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+  HeyInkyUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: HeyInkyUITests
+    dependencies:
+      - target: HeyInky
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.heyinky.app.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: HeyInky
+schemes:
+  HeyInky:
+    build:
+      targets:
+        HeyInky: all
+        HeyInkyTests: [test]
+        HeyInkyUITests: [test]
+    test:
+      gatherCoverageData: false
+      targets:
+        - HeyInkyTests
+        - HeyInkyUITests

@@ -1,5 +1,5 @@
 {
-  "$comment": "Hey Inky action contract v1. Source of truth for the model's structured output (OpenAI strict json_schema) and for the Swift Codable types in App/Modules/AICore/Contract/InkyAction.swift. Coordinates are normalized page space: (0,0) top-left, (1,1) bottom-right. Strict-mode rules: every object lists all properties in `required` and sets additionalProperties=false; optional values are nullable. Keep InkyActionSchemaSyncTests green when editing.",
+  "description": "Hey Inky action contract v1. Source of truth for the model's structured output (OpenAI strict json_schema) and for the Swift Codable types in App/Modules/AICore/Contract/InkyAction.swift. Coordinates are normalized page space: (0,0) top-left, (1,1) bottom-right. Strict-mode rules: every object lists all properties in `required` and sets additionalProperties=false; optional values are nullable. Keep InkyActionSchemaSyncTests green when editing. Property ORDER matters: strict structured outputs generate keys in schema order, so `type` must stay first in every action.",
   "type": "object",
   "additionalProperties": false,
   "required": ["actions"],

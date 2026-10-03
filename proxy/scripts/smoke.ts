@@ -12,7 +12,6 @@ import { REPO_ROOT } from "../src/env.ts";
 const proxyURL = process.env.PROXY_URL ?? "http://127.0.0.1:8787";
 const schema = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "shared/inky_actions.schema.json"), "utf8"));
 const instructions = fs.readFileSync(path.join(REPO_ROOT, "shared/inky_system_prompt.md"), "utf8");
-delete schema.$comment;
 
 const title = { x: 0.1, y: 0.06, width: 0.62, height: 0.045 };
 const pageText = [
@@ -34,6 +33,7 @@ const body = {
     },
   ],
   text: { format: { type: "json_schema", name: "inky_actions", strict: true, schema } },
+  ...(process.env.REASONING ? { reasoning: { effort: process.env.REASONING } } : {}),
 };
 
 const started = Date.now();
@@ -74,7 +74,7 @@ for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
   }
 }
 
-const parsed = JSON.parse(output);
+const parsed = JSON.parse(output) as { actions: Array<{ type: string; region?: { x: number; y: number; width: number; height: number } }> };
 const ajv = new Ajv.default({ strict: false });
 if (!ajv.validate(schema, parsed)) {
   console.error("Schema validation failed:", ajv.errorsText());
@@ -88,7 +88,7 @@ if (!highlight) {
   console.error("FAIL: no highlight action");
   process.exit(1);
 }
-const r = highlight.region;
+const r = highlight.region!;
 const ix = Math.max(0, Math.min(r.x + r.width, title.x + title.width) - Math.max(r.x, title.x));
 const iy = Math.max(0, Math.min(r.y + r.height, title.y + title.height) - Math.max(r.y, title.y));
 const inter = ix * iy;
