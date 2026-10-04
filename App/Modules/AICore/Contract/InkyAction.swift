@@ -140,6 +140,8 @@ struct LabelAction: Codable, Hashable, Sendable {
     var anchor: NormPoint
     var text: String
     var arrow: Bool
+    /// Top-left of the text box when the app laid it out exactly (`PartLabeler`); the model never sets it.
+    var textAt: NormPoint? = nil
 }
 
 struct FillTextAction: Codable, Hashable, Sendable {
@@ -368,6 +370,50 @@ struct AnnotateShapeAction: Codable, Hashable, Sendable {
     var color: DrawAction.Color
 }
 
+/// Textbook labels for parts of a picture (`PagePart` R1…): the app lays them out beside the
+/// picture with leader lines ending exactly on each part (`PartLabeler`).
+struct LabelPartsAction: Codable, Hashable, Sendable {
+    struct Item: Codable, Hashable, Sendable {
+        var text: String
+        /// Part id, or nil to point at (x, y).
+        var part: String?
+        var x: Double?
+        var y: Double?
+        /// Point at the part's outer boundary (a membrane) instead of inside it.
+        var edge: Bool
+
+        init(text: String, part: String?, x: Double? = nil, y: Double? = nil, edge: Bool = false) {
+            self.text = text
+            self.part = part
+            self.x = x
+            self.y = y
+            self.edge = edge
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            text = try c.decode(String.self, forKey: .text)
+            part = try c.decodeIfPresent(String.self, forKey: .part)
+            x = try c.decodeIfPresent(Double.self, forKey: .x)
+            y = try c.decodeIfPresent(Double.self, forKey: .y)
+            edge = try c.decodeIfPresent(Bool.self, forKey: .edge) ?? false
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(text, forKey: .text)
+            try c.encode(part, forKey: .part)
+            try c.encode(x, forKey: .x)
+            try c.encode(y, forKey: .y)
+            try c.encode(edge, forKey: .edge)
+        }
+
+        private enum CodingKeys: String, CodingKey { case text, part, x, y, edge }
+    }
+
+    var labels: [Item]
+}
+
 /// A typeset chemistry figure (RDKit structures in a row with connectors and electron arrows).
 /// Atoms are referenced by SMILES atom-map numbers ("[O-:1]" → "1").
 struct InsertChemSchemeAction: Codable, Hashable, Sendable {
@@ -531,7 +577,7 @@ struct SayAction: Codable, Hashable, Sendable {
 /// The discriminator values, in schema order.
 enum InkyActionType: String, Codable, CaseIterable, Sendable {
     case highlight, circle, star, label, fillText, insertMoleculeCard, insertGraphCard, draw
-    case annotateStructure, annotateShape, insertChemScheme, insertDiagram, insertMath, insertPractice, narrate, addPage, openSidebar, say
+    case annotateStructure, annotateShape, labelParts, insertChemScheme, insertDiagram, insertMath, insertPractice, narrate, addPage, openSidebar, say
 }
 
 /// One thing Inky does. Encoded flat with a `type` discriminator, exactly as in the schema.
@@ -546,6 +592,7 @@ enum InkyAction: Hashable, Sendable {
     case draw(DrawAction)
     case annotateStructure(AnnotateStructureAction)
     case annotateShape(AnnotateShapeAction)
+    case labelParts(LabelPartsAction)
     case insertChemScheme(InsertChemSchemeAction)
     case insertDiagram(InsertDiagramAction)
     case insertMath(InsertMathAction)
@@ -567,6 +614,7 @@ enum InkyAction: Hashable, Sendable {
         case .draw: .draw
         case .annotateStructure: .annotateStructure
         case .annotateShape: .annotateShape
+        case .labelParts: .labelParts
         case .insertChemScheme: .insertChemScheme
         case .insertDiagram: .insertDiagram
         case .insertMath: .insertMath
@@ -609,6 +657,7 @@ extension InkyAction: Codable {
         case .draw: self = .draw(try DrawAction(from: decoder))
         case .annotateStructure: self = .annotateStructure(try AnnotateStructureAction(from: decoder))
         case .annotateShape: self = .annotateShape(try AnnotateShapeAction(from: decoder))
+        case .labelParts: self = .labelParts(try LabelPartsAction(from: decoder))
         case .insertChemScheme: self = .insertChemScheme(try InsertChemSchemeAction(from: decoder))
         case .insertDiagram: self = .insertDiagram(try InsertDiagramAction(from: decoder))
         case .insertMath: self = .insertMath(try InsertMathAction(from: decoder))
@@ -634,6 +683,7 @@ extension InkyAction: Codable {
         case .draw(let a): try a.encode(to: encoder)
         case .annotateStructure(let a): try a.encode(to: encoder)
         case .annotateShape(let a): try a.encode(to: encoder)
+        case .labelParts(let a): try a.encode(to: encoder)
         case .insertChemScheme(let a): try a.encode(to: encoder)
         case .insertDiagram(let a): try a.encode(to: encoder)
         case .insertMath(let a): try a.encode(to: encoder)

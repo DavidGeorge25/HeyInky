@@ -206,6 +206,32 @@
       ],
       "ticks": [],
       "color": "indigo"
+    },
+    {
+      "type": "labelParts",
+      "labels": [
+        {
+          "text": "nucleus",
+          "part": "R2",
+          "x": null,
+          "y": null,
+          "edge": false
+        },
+        {
+          "text": "cell membrane",
+          "part": "R1",
+          "x": null,
+          "y": null,
+          "edge": true
+        },
+        {
+          "text": "vacuole",
+          "part": null,
+          "x": 0.42,
+          "y": 0.51,
+          "edge": false
+        }
+      ]
     }
   ]
 }

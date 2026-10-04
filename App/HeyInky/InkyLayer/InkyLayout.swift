@@ -16,6 +16,7 @@ enum InkyLayout {
         let size = labelTextSize(label, pageSize: pageSize)
         let w = size.width, h = size.height
         let a = label.anchor
+        if let t = label.textAt { return [rect(t.x, t.y, w, h)] }
         guard label.arrow else {
             // Beside the point (no arrow): right, left, then shifted down/up.
             let gap = 8 / pageSize.width

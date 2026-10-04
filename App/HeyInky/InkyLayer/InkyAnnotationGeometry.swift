@@ -55,7 +55,7 @@ enum InkyAnnotationGeometry {
         case .insertDiagram(let a): a.near
         case .insertMath(let a): a.near
         case .insertPractice(let a): a.near
-        case .annotateStructure, .annotateShape, .narrate, .addPage, .openSidebar, .say: .zero
+        case .annotateStructure, .annotateShape, .labelParts, .narrate, .addPage, .openSidebar, .say: .zero
         }
     }
 

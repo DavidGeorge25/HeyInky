@@ -33,6 +33,22 @@ final class StudentSweepUITests: XCTestCase {
         run(scenario: "stoich", notebook: "Chem – Balancing equations", ask: "balance these neatly", shot: "chem-balance")
     }
 
+    func testTriangleLawOfCosines() throws {
+        run(scenario: "geometry", notebook: "Geometry – Triangles", ask: "help me solve this", shot: "geometry")
+    }
+
+    func testLabelACellImage() throws {
+        run(scenario: "cell", notebook: "Bio – Cell diagram", ask: "label the parts of this cell", shot: "cell-labels")
+    }
+
+    func testPlotLabData() throws {
+        run(scenario: "lab", notebook: "Physics lab – Motion", ask: "plot this data and find the velocity", shot: "lab-plot")
+    }
+
+    func testStudyNotesFromLecture() throws {
+        run(scenario: "biology", notebook: "Bio – Cellular respiration", ask: "turn this into clean study notes on a new page", shot: "bio-notes")
+    }
+
     func testNarratedWalkthrough() throws {
         run(scenario: "physics", notebook: "Physics – Forces", ask: "walk me through finding the acceleration", shot: "physics-narrated", voice: true)
     }

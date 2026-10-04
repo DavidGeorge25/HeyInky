@@ -39,6 +39,8 @@ struct InkyRequest: Sendable {
     var structures: [PageStructure] = []
     /// Closed shapes drawn on the page (`ShapeFinder`), ids P1, P2, ….
     var shapes: [PageShape] = []
+    /// Parts of pictures on the page (`ImagePartFinder`), ids R1, R2, ….
+    var parts: [PagePart] = []
     /// The student wants Inky to talk them through it (voice on, or they asked by voice).
     var narrate = false
     /// Set by `ValidatingInkyModelClient` on its one retry: what was wrong last time.
@@ -47,6 +49,11 @@ struct InkyRequest: Sendable {
     func structure(_ id: String) -> PageStructure? {
         let key = id.trimmingCharacters(in: .whitespaces).uppercased()
         return structures.first { $0.id.uppercased() == key }
+    }
+
+    func part(_ id: String) -> PagePart? {
+        let key = id.trimmingCharacters(in: .whitespaces).uppercased()
+        return parts.first { $0.id.uppercased() == key }
     }
 
     func shape(_ id: String) -> PageShape? {

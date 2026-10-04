@@ -112,6 +112,18 @@ struct MockInkyModelClient: InkyModelClient {
                 ])),
             ]
         }
+        if q.contains("label"), let whole = request.parts.first {
+            // Canned names by size: the whole drawing first (its outline and inside), then the rest.
+            let names = ["nucleus", "rough ER", "Golgi apparatus", "mitochondrion", "mitochondrion", "nucleolus"]
+            var labels: [LabelPartsAction.Item] = [
+                .init(text: "cell membrane", part: whole.id, edge: true),
+                .init(text: "cytoplasm", part: whole.id),
+            ]
+            for (k, part) in request.parts.dropFirst().prefix(names.count).enumerated() {
+                labels.append(.init(text: names[k], part: part.id))
+            }
+            return [.say(SayAction(text: "Here are the parts of the cell.")), .labelParts(LabelPartsAction(labels: labels))]
+        }
         if let shape = request.shapes.first(where: { !$0.contacts.isEmpty }), q.contains("free-body") || q.contains("forces") {
             return [
                 .say(SayAction(text: "Here are the forces on the block.")),

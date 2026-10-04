@@ -194,7 +194,7 @@ struct InkyLayerView: View {
         case .insertDiagram(let a): "Diagram" + (a.title.map { ": \($0)" } ?? "")
         case .insertMath(let a): "Math: " + a.lines.map(\.latex).joined(separator: "; ")
         case .insertPractice(let a): "Practice: " + (a.title ?? "\(a.problems.count) problems")
-        case .annotateStructure, .annotateShape, .narrate, .addPage, .openSidebar, .say: ""
+        case .annotateStructure, .annotateShape, .labelParts, .narrate, .addPage, .openSidebar, .say: ""
         }
     }
 }
@@ -260,7 +260,7 @@ struct InkyAnnotationView: View {
             PracticeCardView(action: a, scale: scale)
                 .inkySurface(cornerRadius: 12 * scale)
                 .cardReveal(progress)
-        case .annotateStructure, .annotateShape, .narrate, .addPage, .openSidebar, .say:
+        case .annotateStructure, .annotateShape, .labelParts, .narrate, .addPage, .openSidebar, .say:
             EmptyView()
         }
     }

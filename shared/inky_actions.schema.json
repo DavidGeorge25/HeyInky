@@ -50,6 +50,9 @@
             "$ref": "#/$defs/annotateShape"
           },
           {
+            "$ref": "#/$defs/labelParts"
+          },
+          {
             "$ref": "#/$defs/insertChemScheme"
           },
           {
@@ -1065,6 +1068,66 @@
             "yellow",
             "pink"
           ]
+        }
+      }
+    },
+    "labelParts": {
+      "type": "object",
+      "description": "Textbook-style labels for the parts of a picture on the page (parts R1, R2… listed in the context with what they look like and where they are). The app lays the labels out in tidy columns beside the picture with non-crossing leader lines that end exactly on each part. Use this whenever you label things in an image or slide figure (cell organelles, anatomy, apparatus, a map, a circuit photo) instead of `label`.",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "labels"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "labelParts"
+          ]
+        },
+        "labels": {
+          "type": "array",
+          "description": "One per part, in any order. part: the part id the label points at; when no listed part matches, set part null and give x, y (normalized page point on the thing).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "text",
+              "part",
+              "x",
+              "y",
+              "edge"
+            ],
+            "properties": {
+              "text": {
+                "type": "string",
+                "description": "The name, 1–4 words (\"nucleus\", \"rough ER\")."
+              },
+              "part": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "x": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "y": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "edge": {
+                "type": "boolean",
+                "description": "Point at the part's outer boundary (cell membrane, cell wall, skin, outer layer) instead of its inside."
+              }
+            }
+          }
         }
       }
     },

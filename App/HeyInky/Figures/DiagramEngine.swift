@@ -232,6 +232,166 @@ final class DiagramEngine: NSObject, WKNavigationDelegate {
         el.setAttribute('stroke', 'none');
       }
     }
+    // Model-made markers come out huge (markerUnits=strokeWidth) or black (currentColor); the
+    // kit's arrowheads/dots in each line's own color replace them.
+    function takeMarkers(svg){
+      const own = new Map();
+      for (const m of Array.from(svg.querySelectorAll('marker'))) {
+        if (m.id) own.set(m.id, m.querySelector('circle,ellipse') ? 'dot' : 'arrow');
+        m.remove();
+      }
+      return own;
+    }
+    function fitMarkers(svg, own){
+      const defs = svg.querySelector('defs');
+      const made = new Set();
+      const arrow = (color, width) => {
+        const key = 'ink-arrow-' + color.replace(/[^a-z0-9]/gi, '') + '-' + Math.round(width * 10);
+        if (!made.has(key)) {
+          made.add(key);
+          const size = 5 + 2 * Math.min(Math.max(width, 1), 5);
+          const m = document.createElementNS(SVGNS, 'marker');
+          m.setAttribute('id', key); m.setAttribute('viewBox', '0 0 10 10'); m.setAttribute('refX', '8.5'); m.setAttribute('refY', '5');
+          m.setAttribute('markerWidth', String(size)); m.setAttribute('markerHeight', String(size)); m.setAttribute('markerUnits', 'userSpaceOnUse');
+          m.setAttribute('orient', 'auto-start-reverse');
+          const p = document.createElementNS(SVGNS, 'path');
+          p.setAttribute('d', 'M0,0.8 L9.2,5 L0,9.2 Z'); p.setAttribute('fill', color); p.setAttribute('stroke', 'none');
+          m.appendChild(p); defs.appendChild(m);
+        }
+        return key;
+      };
+      for (const el of svg.querySelectorAll('*')) {
+        if (el.closest('defs')) continue;
+        for (const prop of ['marker-start', 'marker-mid', 'marker-end']) {
+          const value = el.getAttribute(prop) || el.style.getPropertyValue(prop);
+          const m = /url\\(\\s*['"]?#([^'")\\s]+)/.exec(value || '');
+          if (!m) continue;
+          const id = m[1];
+          const isKit = id === 'dot' || /^arrow(-[a-z]+)?$/.test(id) && !own.has(id);
+          if (isKit && id !== 'arrow') continue;
+          const kind = own.get(id) || (id === 'dot' ? 'dot' : 'arrow');
+          let next;
+          if (kind === 'dot') next = 'dot';
+          else {
+            const cs = getComputedStyle(el);
+            const color = cs.stroke && cs.stroke !== 'none' ? cs.stroke : COLORS.ink;
+            next = arrow(color, parseFloat(cs.strokeWidth) || 2);
+          }
+          el.style.removeProperty(prop);
+          el.setAttribute(prop, 'url(#' + next + ')');
+        }
+      }
+    }
+    // Chemical formulas get real subscripts and charges superscripts: C6H12O6 → C₆H₁₂O₆, Ca2+ → Ca²⁺.
+    const ELEMENTS = new Set('H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Rb Sr Ag Sn I Xe Cs Ba Pt Au Hg Pb U'.split(' '));
+    const BIO = ['NADPH', 'NADP', 'NADH', 'NAD', 'FADH', 'FAD', 'CoA'];
+    function symbols(core){
+      let i = 0, n = 0;
+      while (i < core.length) {
+        const c = core[i];
+        if (/\\d/.test(c)) { if (i === 0) return -1; i++; continue; }
+        if (c === '(' || c === ')') { i++; continue; }
+        const bio = BIO.find((b) => core.startsWith(b, i));
+        if (bio) { i += bio.length; n++; continue; }
+        const two = core.slice(i, i + 2);
+        if (/^[A-Z][a-z]$/.test(two) && ELEMENTS.has(two)) { i += 2; n++; continue; }
+        if (/^[A-Z]$/.test(c) && ELEMENTS.has(c)) { i++; n++; continue; }
+        return -1;
+      }
+      return n;
+    }
+    function formulaPieces(token){
+      const m = /^(\\d*)([A-Z(][A-Za-z0-9()]*?)(\\d*[+−-])?$/.exec(token);
+      if (!m) return null;
+      let [, coefficient, core, charge] = m;
+      // NH4+: the digits are the formula's (an ion of one element, Ca2+, carries them in its charge).
+      if (charge && /^\\d/.test(charge) && symbols(core) > 1) {
+        const digits = /^\\d+/.exec(charge)[0];
+        core += digits; charge = charge.slice(digits.length);
+      }
+      const n = symbols(core);
+      if (n < 1) return null;
+      const hasIndex = /[A-Za-z)]\\d/.test(core);
+      if (!charge && !hasIndex) return null;
+      if (!charge && n === 1 && !/^(O|N|H|Cl|F|I|Br|S|P)\\d+$/.test(core) && !BIO.some((b) => core.startsWith(b))) return null;
+      const pieces = [];
+      if (coefficient) pieces.push([coefficient, '']);
+      for (const part of core.split(/(\\d+)/)) {
+        if (!part) continue;
+        pieces.push([part, /^\\d+$/.test(part) ? 'sub' : '']);
+      }
+      if (charge) pieces.push([charge.replace('-', '−'), 'super']);
+      return pieces;
+    }
+    function subscriptFormulas(root){
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        const parent = node.parentElement;
+        if (!parent || !parent.closest('text') || parent.closest('defs')) continue;
+        if (parent.closest('svg') !== root && root.nodeName.toLowerCase() === 'svg') continue;
+        if (parent.getAttribute('baseline-shift')) continue;
+        if (/\\d/.test(node.textContent)) nodes.push(node);
+      }
+      for (const node of nodes) {
+        const parts = node.textContent.split(/([\\s,;:\\/=→⇌⟶⇄]+)/);
+        let changed = false;
+        const out = [];
+        for (const part of parts) {
+          const pieces = part && formulaPieces(part);
+          if (pieces) { changed = true; out.push(...pieces); } else out.push([part, '']);
+        }
+        if (!changed) continue;
+        const frag = document.createDocumentFragment();
+        for (const [text, shift] of out) {
+          if (!text) continue;
+          if (!shift) { frag.appendChild(document.createTextNode(text)); continue; }
+          const span = document.createElementNS(SVGNS, 'tspan');
+          span.setAttribute('baseline-shift', shift);
+          span.setAttribute('font-size', '70%');
+          span.textContent = text;
+          frag.appendChild(span);
+        }
+        node.parentNode.replaceChild(frag, node);
+      }
+    }
+    // Text that overflows the box it starts in: shrinks to fit across (down to a readable size),
+    // and the box grows downward when the text runs out of its bottom and there's room.
+    function fitTextToBoxes(svg, problems){
+      const containers = Array.from(svg.querySelectorAll('rect,ellipse,circle')).filter((el) => !el.closest('defs') && !el.closest('marker') && (!el.ownerSVGElement || el.ownerSVGElement === svg))
+        .map((el) => { try { return { el, b: el.getBBox() }; } catch (e) { return null; } }).filter((c) => c && c.b.width > 20 && c.b.height > 12);
+      const texts = Array.from(svg.querySelectorAll('text')).filter((t) => !t.closest('defs') && t.textContent.trim().length);
+      for (const t of texts) {
+        let tb;
+        try { tb = t.getBBox(); } catch (e) { continue; }
+        const anchor = getComputedStyle(t).textAnchor;
+        const ax = anchor === 'middle' ? tb.x + tb.width / 2 : anchor === 'end' ? tb.x + tb.width : tb.x;
+        const home = containers.filter((c) => ax >= c.b.x - 2 && ax <= c.b.x + c.b.width + 2 && tb.y >= c.b.y - 2 && tb.y < c.b.y + c.b.height - 2)
+          .sort((a, b) => a.b.width * a.b.height - b.b.width * b.b.height)[0];
+        if (!home) continue;
+        const pad = 6, b = home.b;
+        const room = anchor === 'middle' ? 2 * Math.min(ax - b.x - pad, b.x + b.width - pad - ax)
+          : anchor === 'end' ? ax - b.x - pad : b.x + b.width - pad - ax;
+        if (room > 8 && tb.width > room) {
+          const size = parseFloat(getComputedStyle(t).fontSize) || 14;
+          t.style.fontSize = Math.max(9, Math.floor(size * room / tb.width * 10) / 10) + 'px';
+          try { tb = t.getBBox(); } catch (e) { continue; }
+          if (tb.width > room + 2) problems.push('text "' + t.textContent.trim().slice(0, 30) + '" doesn’t fit in its box; widen the box or shorten the text');
+        }
+        const overflow = tb.y + tb.height + 5 - (b.y + b.height);
+        if (overflow > 0 && home.el.nodeName.toLowerCase() === 'rect') {
+          const strip = { x: b.x, y: b.y + b.height, width: b.width, height: overflow };
+          const hit = containers.some((c) => c !== home && overlap(strip, c.b) > 0 && !(c.b.x <= b.x && c.b.y <= b.y && c.b.x + c.b.width >= b.x + b.width && c.b.y + c.b.height >= b.y + b.height + overflow));
+          if (!hit) {
+            home.el.setAttribute('height', String(b.height + overflow));
+            b.height += overflow;
+          } else {
+            problems.push('text "' + t.textContent.trim().slice(0, 30) + '" runs out of the bottom of its box; make the box taller');
+          }
+        }
+      }
+    }
     function overlap(a, b){
       const x = Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x));
       const y = Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
@@ -250,6 +410,7 @@ final class DiagramEngine: NSObject, WKNavigationDelegate {
         const root = doc.documentElement;
         if (!root || root.nodeName.toLowerCase() !== 'svg') return JSON.stringify({ ok: false, problems: ['the root element must be <svg>'], width: 0, height: 0, minFontSize: 0, textCount: 0, svg: '' });
         sanitize(root);
+        const ownMarkers = takeMarkers(root);
         const host = document.getElementById('host');
         host.innerHTML = '';
         const svg = document.importNode(root, true);
@@ -260,26 +421,9 @@ final class DiagramEngine: NSObject, WKNavigationDelegate {
         host.appendChild(svg);
         ensureKit(svg);
         applyDefaults(svg);
-        // Text that overflows the box it sits in shrinks to fit (down to a readable size).
-        const containers = Array.from(svg.querySelectorAll('rect,ellipse,circle')).filter((el) => !el.closest('defs') && !el.closest('marker'))
-          .map((el) => { try { return { el, b: el.getBBox() }; } catch (e) { return null; } }).filter((c) => c && c.b.width > 20 && c.b.height > 12);
-        for (const t of svg.querySelectorAll('text')) {
-          if (t.closest('defs')) continue;
-          let tb;
-          try { tb = t.getBBox(); } catch (e) { continue; }
-          const cx = tb.x + tb.width / 2, cy = tb.y + tb.height / 2;
-          const home = containers.filter((c) => cx > c.b.x && cx < c.b.x + c.b.width && cy > c.b.y && cy < c.b.y + c.b.height)
-            .sort((a, b) => a.b.width * a.b.height - b.b.width * b.b.height)[0];
-          if (!home) continue;
-          const room = home.b.width - 12;
-          if (tb.width <= room) continue;
-          const size = parseFloat(getComputedStyle(t).fontSize) || 14;
-          const fitted = Math.max(10, Math.floor(size * room / tb.width * 10) / 10);
-          t.style.fontSize = fitted + 'px';
-          try { tb = t.getBBox(); } catch (e) { continue; }
-          // Keep it centered in its box when it was meant to be.
-          if (tb.width > room + 2) problems.push('text "' + t.textContent.trim().slice(0, 30) + '" doesn’t fit in its box; widen the box or shorten the text');
-        }
+        fitMarkers(svg, ownMarkers);
+        subscriptFormulas(svg);
+        fitTextToBoxes(svg, problems);
         // Measure the content (all drawable children; markers/defs excluded by getBBox).
         let box;
         try { box = svg.getBBox(); } catch (e) { box = { x: 0, y: 0, width: 0, height: 0 }; }
@@ -337,6 +481,7 @@ final class DiagramEngine: NSObject, WKNavigationDelegate {
               g.insertBefore(l, g.firstChild);
             });
           }
+          subscriptFormulas(g);
           try { box = svg.getBBox(); } catch (e) {}
         }
         // Text checks.

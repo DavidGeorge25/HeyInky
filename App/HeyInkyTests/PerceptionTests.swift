@@ -298,6 +298,26 @@ struct PerceptionTests {
         #expect(fitted.svg.contains("font-size:"), "shrunk inline")
         #expect(!fitted.problems.contains { $0.contains("fit in its box") }, "\(fitted.problems)")
 
+        // What a live model wrote for study notes: its own huge black marker, a line overflowing
+        // the bottom of its box, another overflowing the right, unsubscripted formulas.
+        let notes = #"""
+        <svg viewBox="0 0 700 400" xmlns="http://www.w3.org/2000/svg"><defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+        <rect x="72" y="40" width="250" height="92" rx="14" fill="#fff" stroke="#d7dde8"/>
+        <text x="92" y="68" style="font-size:17px">1. Glycolysis</text>
+        <text x="92" y="118" style="font-size:16px">glucose → 2 pyruvate</text>
+        <text x="92" y="140" style="font-size:15px;fill:#3a5af5">net 2 ATP + 2 NADH</text>
+        <rect x="378" y="152" width="250" height="112" rx="14" fill="#fff" stroke="#d7dde8"/>
+        <text x="400" y="180" style="font-size:15px">C6H12O6 + 6 O2 → 6 CO2 + 6 H2O</text>
+        <text x="400" y="230" style="font-size:15px;fill:#3a5af5">O2 is the final electron acceptor → water</text>
+        <line x1="322" y1="86" x2="378" y2="200" stroke="#3a5af5" stroke-width="3" marker-end="url(#arrow)"/></svg>
+        """#
+        let tidy = try await DiagramEngine.shared.prepare(svg: notes)
+        #expect(!tidy.svg.contains("strokeWidth"), "model marker replaced")
+        #expect(tidy.svg.contains("ink-arrow-rgb5890245"), "arrowhead in the line's color: \(tidy.svg.prefix(600))")
+        #expect(tidy.svg.contains("baseline-shift=\"sub\""), "formulas subscripted")
+        #expect(!tidy.svg.contains(#"width="250" height="92""#), "the glycolysis box grew to hold its last line")
+        #expect(!tidy.problems.contains { $0.contains("fit") || $0.contains("bottom") }, "\(tidy.problems)")
+
         let tiny = #"<svg viewBox="0 0 3000 2000"><rect x="0" y="0" width="3000" height="2000"/><text x="100" y="100" font-size="12">tiny</text></svg>"#
         let small = try await DiagramEngine.shared.prepare(svg: tiny)
         #expect(DiagramEngine.displayProblems(for: small, pageSize: CGSize(width: 816, height: 1056)).contains { $0.contains("pt on the page") })
@@ -411,3 +431,100 @@ struct PerceptionTests {
 }
 
 private final class PerceptionBundleToken {}
+
+extension PerceptionTests {
+    // MARK: Picture parts
+
+    @MainActor @Test func cellPictureSplitsIntoItsOrganelles() throws {
+        guard let cg = UITestScenarios.cellImage().cgImage else { Issue.record("no image"); return }
+        let parts = ImagePartFinder.parts(in: cg)
+        for (i, p) in parts.enumerated() {
+            print("part", i, p.kind, ImagePartFinder.colorName(p.color), ImagePartFinder.shapeName(p), p.box, p.point, "parent", p.parent as Any, "outlined", p.outlined, "detail", p.detailed)
+        }
+        // Image coordinates of the drawing (900 × 620).
+        func at(_ x: Double, _ y: Double) -> CGPoint { CGPoint(x: x / 900, y: y / 620) }
+        func part(containing p: CGPoint) -> Int? {
+            parts.indices.filter { parts[$0].kind == .region && parts[$0].box.contains(p) }.min { parts[$0].area < parts[$1].area }
+        }
+        let regions = parts.filter { $0.kind == .region }
+        let marks = parts.filter { $0.kind == .marks }
+        // Cytoplasm, nucleus, nucleolus, 2 mitochondria; ER and Golgi line marks.
+        #expect(regions.count == 5)
+        #expect(marks.count == 2)
+        guard let cell = part(containing: at(120, 120)), let nucleus = part(containing: at(360, 300)),
+              let nucleolus = part(containing: at(442, 295)), let mito = part(containing: at(160, 360)) else {
+            Issue.record("missing parts"); return
+        }
+        #expect(parts[cell].outlined && parts[nucleus].outlined && parts[mito].outlined)
+        #expect(parts[nucleus].parent == cell)
+        #expect(parts[nucleolus].parent == nucleus)
+        #expect(parts[mito].parent == cell)
+        #expect(parts[mito].detailed)
+        // Each part's point lies inside it; the nucleolus point is on the nucleolus.
+        #expect(hypot(parts[nucleolus].point.x - 442.5 / 900, parts[nucleolus].point.y - 295 / 620) < 0.03)
+        // The membrane outline sits on the drawn ellipse (center 450,310, radii 390,260).
+        for p in parts[cell].outline {
+            let e = pow((p.x * 900 - 450) / 390, 2) + pow((p.y * 620 - 310) / 260, 2)
+            #expect(abs(e - 1) < 0.08)
+        }
+        // ER marks right of the nucleus, Golgi below it.
+        #expect(marks.contains { $0.box.contains(at(670, 380)) })
+        #expect(marks.contains { $0.box.contains(at(390, 440)) })
+        #expect(marks.allSatisfy { $0.parent == cell })
+    }
+
+    @MainActor @Test func partLabelsSitInColumnsWithExactLeaders() throws {
+        let pageSize = CGSize(width: 768, height: 1024)
+        guard let cg = UITestScenarios.cellImage().cgImage else { Issue.record("no image"); return }
+        let frame = NormRect(x: 0.2, y: 0.1, width: 0.6, height: 0.6 * 620 / 900 * 768 / 1024)
+        let raw = ImagePartFinder.parts(in: cg)
+        let found = raw.map { p in
+            PageStructureFinder.FoundPart(
+                part: p,
+                box: NormRect(x: frame.x + Double(p.box.minX) * frame.width, y: frame.y + Double(p.box.minY) * frame.height,
+                              width: Double(p.box.width) * frame.width, height: Double(p.box.height) * frame.height),
+                point: NormPoint(x: frame.x + Double(p.point.x) * frame.width, y: frame.y + Double(p.point.y) * frame.height),
+                outline: p.outline.map { NormPoint(x: frame.x + Double($0.x) * frame.width, y: frame.y + Double($0.y) * frame.height) },
+                picture: frame)
+        }
+        let parts = PageStructureFinder.numberParts([found])
+        #expect(parts.first?.id == "R1")
+        let text = InkyPromptBuilder.partText(parts)
+        print(text)
+        #expect(text.contains("inside R1"))
+        let labels = parts.prefix(6).map { LabelPartsAction.Item(text: "part \($0.id)", part: $0.id, edge: $0.id == "R1") }
+        let output = PartLabeler.compile(LabelPartsAction(labels: Array(labels)), parts: parts, pageSize: pageSize) { text in
+            CGSize(width: CGFloat(text.count) * 8 + 20, height: 24)
+        }
+        #expect(output.labels.count == labels.count)
+        var boxes: [CGRect] = []
+        for (label, part) in zip(output.labels, parts.prefix(6)) {
+            guard let at = label.textAt else { Issue.record("no text position"); continue }
+            let box = CGRect(x: at.x * 768, y: at.y * 1024, width: CGFloat(label.text.count) * 8 + 20, height: 24)
+            // Outside the drawing, on the page, not on another label.
+            #expect(!box.intersects(frame.cgRect(in: pageSize).insetBy(dx: 20, dy: 20)))
+            #expect(box.minX >= 0 && box.maxX <= 768)
+            #expect(!boxes.contains { $0.intersects(box) })
+            boxes.append(box)
+            if part.id == "R1" {
+                // The membrane label points at the outline.
+                #expect(part.outline.contains { hypot($0.x - label.anchor.x, $0.y - label.anchor.y) < 0.001 })
+            } else {
+                #expect(abs(label.anchor.x - part.point.x) < 1e-6 && abs(label.anchor.y - part.point.y) < 1e-6)
+            }
+        }
+        // Leaders don't cross.
+        for i in output.labels.indices {
+            for j in output.labels.indices where j > i {
+                func leader(_ l: LabelAction) -> (CGPoint, CGPoint) {
+                    let at = l.textAt!
+                    let box = CGRect(x: at.x * 768, y: at.y * 1024, width: CGFloat(l.text.count) * 8 + 20, height: 24)
+                    let t = CGPoint(x: l.anchor.x * 768, y: l.anchor.y * 1024)
+                    return (LabelMark.edgePoint(of: box, toward: t), t)
+                }
+                let (p, q) = leader(output.labels[i]), (r, s) = leader(output.labels[j])
+                #expect(!PartLabeler.crosses(p, q, r, s), "\(output.labels[i].text) × \(output.labels[j].text)")
+            }
+        }
+    }
+}

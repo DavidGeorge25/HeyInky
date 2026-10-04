@@ -39,6 +39,7 @@ struct InkyActionSchemaSyncTests {
         .annotateShape(AnnotateShapeAction(shape: "P1", vectors: [.init(label: "mg", direction: .down, angle: nil, from: "center", length: .long, color: .red)],
                                            angleMarks: [.init(vertex: "v1", label: "30°", right: false)], sideLabels: [.init(edge: "e1", text: "5 m")],
                                            ticks: [.init(edge: "e2", count: 1)], color: .indigo)),
+        .labelParts(LabelPartsAction(labels: [.init(text: "nucleus", part: "R1", x: nil, y: nil, edge: false)])),
         .insertChemScheme(InsertChemSchemeAction(
             near: .unit, title: "t", steps: [.init(smiles: "C", label: "l")], connectors: [.init(kind: .resonance, above: "a", below: "b")],
             arrows: [.init(step: 0, from: "1", to: "2", kind: .fishhook)], lonePairs: [.init(step: 0, atom: "1")],

@@ -119,6 +119,16 @@ final class PrecisionUITests: XCTestCase {
         shot("diagram")
     }
 
+    func testPartsOfAPictureAreLabeledLikeATextbook() throws {
+        launch(scenario: "cell")
+        openNotebook("Bio – Cell diagram")
+        ask("label the parts of this cell")
+        XCTAssertTrue(element("inky.annotation.label").waitForExistence(timeout: answerTimeout), "labels added")
+        XCTAssertTrue(app.buttons["inky.summon"].waitForExistence(timeout: answerTimeout))
+        sleep(isLive ? 10 : 7)
+        shot("cell-labels")
+    }
+
     // MARK: Helpers
 
     private func launch(scenario: String) {

@@ -284,6 +284,7 @@ enum InkyContextBuilder {
         inkAtoms: [InkAtom] = [],
         structures: [PageStructure] = [],
         shapes: [PageShape] = [],
+        parts: [PagePart] = [],
         focus: NormRect? = nil
     ) async -> InkyRequest {
         var blanks: [NormRect] = []
@@ -303,7 +304,8 @@ enum InkyContextBuilder {
             inkPaths: inkPaths,
             inkAtoms: inkAtoms,
             structures: structures,
-            shapes: shapes
+            shapes: shapes,
+            parts: parts
         )
     }
 }

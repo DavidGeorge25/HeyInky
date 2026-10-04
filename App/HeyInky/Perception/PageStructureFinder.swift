@@ -45,9 +45,26 @@ enum PageStructureFinder {
         var angles: [Double]
     }
 
+    /// A part of a picture, before ids are assigned. `parent` indexes the same source's parts.
+    struct FoundPart: Sendable {
+        var part: ImagePartFinder.Part
+        var box: NormRect
+        var point: NormPoint
+        var outline: [NormPoint]
+        var picture: NormRect
+    }
+
     struct Analysis: Sendable {
         var structures: [Found] = []
         var shapes: [FoundShape] = []
+        var parts: [FoundPart] = []
+    }
+
+    /// Everything Inky can mark by id on a page.
+    struct Findings: Sendable {
+        var structures: [PageStructure] = []
+        var shapes: [PageShape] = []
+        var parts: [PagePart] = []
     }
 
     private static var cache: [String: Analysis] = [:]
@@ -59,8 +76,15 @@ enum PageStructureFinder {
 
     /// Structures (S1…) and shapes (P1…) on the page.
     static func findAll(editor: PageEditorModel, text: [RecognizedTextLine]) async -> (structures: [PageStructure], shapes: [PageShape]) {
+        let all = await findEverything(editor: editor, text: text)
+        return (all.structures, all.shapes)
+    }
+
+    /// Structures (S1…), shapes (P1…) and picture parts (R1…) on the page.
+    static func findEverything(editor: PageEditorModel, text: [RecognizedTextLine]) async -> Findings {
         var found: [Found] = []
         var shapes: [FoundShape] = []
+        var partGroups: [[FoundPart]] = []
         for source in sources(editor: editor, text: text) {
             let analysis: Analysis
             if let hit = cache[source.cacheKey] {
@@ -71,6 +95,7 @@ enum PageStructureFinder {
             }
             found += analysis.structures
             shapes += analysis.shapes
+            if !analysis.parts.isEmpty { partGroups.append(analysis.parts) }
         }
         // Ids: S1, S2… by position on the page (top to bottom, then left to right).
         found.sort { ($0.region.y, $0.region.x) < ($1.region.y, $1.region.x) }
@@ -83,7 +108,28 @@ enum PageStructureFinder {
             PageShape(id: "P\(index + 1)", kind: f.kind, vertices: f.vertices, center: f.center, radius: f.radius, angles: f.angles, contacts: [])
         }
         addContacts(&pageShapes, pageSize: editor.page.size)
-        return (structures, pageShapes)
+        return Findings(structures: structures, shapes: pageShapes, parts: numberParts(partGroups))
+    }
+
+    /// Ids R1, R2… per picture (top to bottom), biggest parts first; at most 28 in all.
+    static func numberParts(_ groups: [[FoundPart]]) -> [PagePart] {
+        var result: [PagePart] = []
+        for group in groups.sorted(by: { ($0.first?.picture.y ?? 0, $0.first?.picture.x ?? 0) < ($1.first?.picture.y ?? 0, $1.first?.picture.x ?? 0) }) {
+            let order = group.indices.sorted { group[$0].part.area > group[$1].part.area }.prefix(max(0, 28 - result.count))
+            var ids: [Int: String] = [:]
+            for (k, i) in order.enumerated() { ids[i] = "R\(result.count + k + 1)" }
+            for i in order {
+                let f = group[i]
+                result.append(PagePart(
+                    id: ids[i]!, kind: f.part.kind == .marks ? .marks : .region,
+                    color: ImagePartFinder.colorName(f.part.color), shape: ImagePartFinder.shapeName(f.part),
+                    box: f.box, point: f.point, outline: f.outline, area: (f.part.area * 1000).rounded() / 1000,
+                    inside: f.part.parent.flatMap { ids[$0] }, outlined: f.part.outlined, detailed: f.part.detailed,
+                    picture: f.picture
+                ))
+            }
+        }
+        return result
     }
 
     /// A shape rests on another when one of its edges lies along one of the other's (a block on a
@@ -213,6 +259,7 @@ enum PageStructureFinder {
         var bitmap: InkBitmap
         var graph: StructureRecognizer.Graph
         var shapes: [ShapeFinder.Shape]
+        var parts: [ImagePartFinder.Part]
     }
 
     static func analyze(_ source: Source, pageSize: CGSize) async -> Analysis {
@@ -221,8 +268,10 @@ enum PageStructureFinder {
             let art = LineArt(bitmap: bitmap)
             // Shapes at least ~3% of the page across (letters and arrowheads aren't shapes).
             let pagePixels = CGFloat(bitmap.width) / max(CGFloat(source.frame.width), 0.01)
+            // Picture parts: photos, diagrams and slide figures (not the student's own ink).
+            let parts = source.kind == .ink ? [] : ImagePartFinder.parts(in: source.image, exclude: source.exclude.map { $0.cgRect(in: CGSize(width: 1, height: 1)) })
             return Raster(bitmap: bitmap, graph: StructureRecognizer.recognize(art),
-                          shapes: ShapeFinder.shapes(in: art, minSize: max(18, pagePixels * 0.03)))
+                          shapes: ShapeFinder.shapes(in: art, minSize: max(18, pagePixels * 0.03)), parts: parts)
         }.value
         guard let raster else { return Analysis() }
         let graph = raster.graph
@@ -328,7 +377,29 @@ enum PageStructureFinder {
                               radius: Double(shape.radius) * pointsPerPixel,
                               angles: ShapeFinder.angles(shape.vertices).map { ($0 * 10).rounded() / 10 })
         }
-        return Analysis(structures: result, shapes: shapes)
+        // Parts, in page space (marks that are a molecule's bonds aren't parts).
+        func imagePoint(_ p: CGPoint) -> NormPoint {
+            NormPoint(x: source.frame.x + Double(p.x) * source.frame.width, y: source.frame.y + Double(p.y) * source.frame.height)
+        }
+        var parts: [FoundPart] = []
+        var keep = [Bool](repeating: true, count: raster.parts.count)
+        for (i, part) in raster.parts.enumerated() where part.kind == .marks {
+            if result.contains(where: { $0.region.contains(imagePoint(part.point)) }) { keep[i] = false }
+        }
+        var newIndex: [Int: Int] = [:]
+        for i in raster.parts.indices where keep[i] { newIndex[i] = newIndex.count }
+        for (i, part) in raster.parts.enumerated() where keep[i] {
+            var p = part
+            p.parent = part.parent.flatMap { newIndex[$0] }
+            let b = part.box
+            parts.append(FoundPart(
+                part: p,
+                box: NormRect(x: source.frame.x + Double(b.minX) * source.frame.width, y: source.frame.y + Double(b.minY) * source.frame.height,
+                              width: Double(b.width) * source.frame.width, height: Double(b.height) * source.frame.height),
+                point: imagePoint(part.point), outline: part.outline.map(imagePoint), picture: source.frame
+            ))
+        }
+        return Analysis(structures: result, shapes: shapes, parts: parts)
     }
 
     /// Typical valence when RDKit can't vouch for the drawing.

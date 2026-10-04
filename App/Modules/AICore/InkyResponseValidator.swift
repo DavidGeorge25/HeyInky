@@ -76,6 +76,20 @@ enum InkyResponseValidator {
         case .annotateStructure(let a):
             if let problem = structureProblem(a, request: request) { return .invalid("annotateStructure: \(problem)") }
             return .valid(action)
+        case .labelParts(let a):
+            if a.labels.isEmpty { return .invalid("labelParts: add at least one label") }
+            for l in a.labels {
+                if l.text.trimmingCharacters(in: .whitespaces).isEmpty { return .invalid("labelParts: a label has no text") }
+                if let id = l.part {
+                    if let request, request.part(id) == nil {
+                        return .invalid(request.parts.isEmpty ? "labelParts: no picture parts were found; give x and y with part null"
+                                        : "labelParts: there is no part \(id) (found: \(request.parts.map(\.id).joined(separator: ", ")))")
+                    }
+                } else if l.x == nil || l.y == nil {
+                    return .invalid("labelParts: \"\(l.text)\" needs a part id or x and y")
+                }
+            }
+            return .valid(action)
         case .annotateShape(let a):
             if let request {
                 guard let shape = request.shape(a.shape) else {

@@ -18,6 +18,9 @@ enum UITestScenarios {
     static let physicsTitle = "Physics – Forces"
     static let biologyTitle = "Bio – Cellular respiration"
     static let stoichTitle = "Chem – Balancing equations"
+    static let geometryTitle = "Geometry – Triangles"
+    static let cellTitle = "Bio – Cell diagram"
+    static let labTitle = "Physics lab – Motion"
 
     /// Worksheet questions and their answers (the UI tests check Inky's fills against these).
     static let worksheet: [(question: String, answer: String)] = [
@@ -44,6 +47,9 @@ enum UITestScenarios {
             case "physics": seedPDF(title: physicsTitle, into: store, write: writeInclineSlide)
             case "biology": seedPDF(title: biologyTitle, into: store, write: writeRespirationNotes)
             case "stoich": seedPDF(title: stoichTitle, into: store, write: writeBalancing)
+            case "geometry": seedPDF(title: geometryTitle, into: store, write: writeTriangle)
+            case "lab": seedPDF(title: labTitle, into: store, write: writeLabData)
+            case "cell": seedCellImage(into: store)
             default: break
             }
         }
@@ -233,6 +239,109 @@ enum UITestScenarios {
                 y += 90
             }
         }
+    }
+
+    /// A triangle with two sides and the included angle given: find the third side (law of cosines).
+    static func writeTriangle() throws -> URL {
+        try writePage(name: "Triangle") { ink in
+            draw("Q5.  In triangle ABC, a = 7 cm, b = 9 cm and C = 52°.", at: CGPoint(x: 72, y: 80), font: .systemFont(ofSize: 20), color: ink)
+            draw("Find side c and angle A.", at: CGPoint(x: 72, y: 112), font: .systemFont(ofSize: 20), color: ink)
+            let A = CGPoint(x: 150, y: 520), B = CGPoint(x: 560, y: 520), C = CGPoint(x: 330, y: 250)
+            let tri = UIBezierPath()
+            tri.move(to: A); tri.addLine(to: B); tri.addLine(to: C); tri.close()
+            tri.lineWidth = 2
+            ink.setStroke(); tri.stroke()
+            let f = UIFont.systemFont(ofSize: 20, weight: .medium)
+            draw("A", at: CGPoint(x: 126, y: 524), font: f, color: ink)
+            draw("B", at: CGPoint(x: 568, y: 524), font: f, color: ink)
+            draw("C", at: CGPoint(x: 322, y: 220), font: f, color: ink)
+            draw("9 cm", at: CGPoint(x: 190, y: 360), font: .systemFont(ofSize: 17), color: ink)
+            draw("7 cm", at: CGPoint(x: 460, y: 360), font: .systemFont(ofSize: 17), color: ink)
+            draw("52°", at: CGPoint(x: 316, y: 282), font: .systemFont(ofSize: 15), color: ink)
+        }
+    }
+
+    /// A lab data table (roughly linear: v ≈ 2.1 m/s).
+    static func writeLabData() throws -> URL {
+        try writePage(name: "Lab") { ink in
+            draw("Lab 2 — Constant velocity cart", at: CGPoint(x: 72, y: 72), font: .systemFont(ofSize: 26, weight: .bold), color: ink)
+            let rows = [("t (s)", "x (m)"), ("0.0", "0.10"), ("1.0", "2.25"), ("2.0", "4.30"), ("3.0", "6.42"), ("4.0", "8.51"), ("5.0", "10.60")]
+            var y: CGFloat = 150
+            for (i, row) in rows.enumerated() {
+                let font = i == 0 ? UIFont.systemFont(ofSize: 18, weight: .semibold) : .monospacedDigitSystemFont(ofSize: 18, weight: .regular)
+                draw(row.0, at: CGPoint(x: 100, y: y), font: font, color: ink)
+                draw(row.1, at: CGPoint(x: 220, y: y), font: font, color: ink)
+                y += 34
+            }
+            draw("Plot x vs t and find the cart's velocity.", at: CGPoint(x: 72, y: y + 30), font: .systemFont(ofSize: 18), color: ink)
+        }
+    }
+
+    /// An unlabeled animal cell drawn as an image, placed on a blank page.
+    private static func seedCellImage(into store: NotebookStore) {
+        guard !exists(cellTitle, in: store) else { return }
+        let image = cellImage()
+        guard let data = image.pngData() else { return }
+        let notebook = store.createNotebook(title: cellTitle, paper: .blank)
+        guard let page = notebook.pages.first,
+              var placed = try? store.addImage(data, to: page.id, in: notebook.id, center: NormPoint(x: 0.5, y: 0.35)),
+              var fresh = store.notebook(id: notebook.id)?.pages.first else { return }
+        let aspect = placed.frame.height / max(placed.frame.width, 0.0001)
+        placed.frame = NormRect(x: 0.08, y: 0.12, width: 0.84, height: 0.84 * aspect)
+        if let index = fresh.images.firstIndex(where: { $0.id == placed.id }) {
+            fresh.images[index] = placed
+            store.updatePage(fresh, in: notebook.id)
+        }
+    }
+
+    /// An unlabeled textbook-style animal cell: membrane, nucleus + nucleolus, two mitochondria,
+    /// rough ER (wavy lines), Golgi (stacked arcs).
+    static func cellImage() -> UIImage {
+        let size = CGSize(width: 900, height: 620)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+            let g = ctx.cgContext
+            UIColor.white.setFill(); g.fill(CGRect(origin: .zero, size: size))
+            g.setLineWidth(4)
+            // Membrane
+            UIColor(red: 0.93, green: 0.97, blue: 0.93, alpha: 1).setFill()
+            UIColor(white: 0.15, alpha: 1).setStroke()
+            let cell = UIBezierPath(ovalIn: CGRect(x: 60, y: 50, width: 780, height: 520)); cell.lineWidth = 4; cell.fill(); cell.stroke()
+            // Nucleus + nucleolus
+            UIColor(red: 0.85, green: 0.88, blue: 0.98, alpha: 1).setFill()
+            let nucleus = UIBezierPath(ovalIn: CGRect(x: 330, y: 200, width: 220, height: 190)); nucleus.lineWidth = 4; nucleus.fill(); nucleus.stroke()
+            UIColor(red: 0.55, green: 0.60, blue: 0.90, alpha: 1).setFill()
+            UIBezierPath(ovalIn: CGRect(x: 415, y: 270, width: 55, height: 50)).fill()
+            // Mitochondria
+            for frame in [CGRect(x: 150, y: 330, width: 130, height: 60), CGRect(x: 610, y: 150, width: 120, height: 55)] {
+                UIColor(red: 1.0, green: 0.88, blue: 0.80, alpha: 1).setFill()
+                let m = UIBezierPath(ovalIn: frame); m.lineWidth = 3; m.fill(); m.stroke()
+                let cristae = UIBezierPath()
+                cristae.move(to: CGPoint(x: frame.minX + 15, y: frame.midY))
+                for k in 0..<5 {
+                    let x = frame.minX + 15 + CGFloat(k) * (frame.width - 30) / 5
+                    cristae.addQuadCurve(to: CGPoint(x: x + (frame.width - 30) / 5, y: frame.midY), controlPoint: CGPoint(x: x + (frame.width - 30) / 10, y: frame.midY + (k % 2 == 0 ? -18 : 18)))
+                }
+                cristae.lineWidth = 2.5; cristae.stroke()
+            }
+            // Rough ER: wavy lines beside the nucleus
+            for k in 0..<3 {
+                let er = UIBezierPath()
+                let y0 = CGFloat(220 + k * 28)
+                er.move(to: CGPoint(x: 580, y: y0 + 120))
+                er.addCurve(to: CGPoint(x: 760, y: y0 + 140), controlPoint1: CGPoint(x: 640, y: y0 + 90), controlPoint2: CGPoint(x: 700, y: y0 + 170))
+                er.lineWidth = 3; er.stroke()
+            }
+            // Golgi: stacked arcs, lower left
+            for k in 0..<4 {
+                let golgi = UIBezierPath()
+                let y0 = CGFloat(420 + k * 16)
+                golgi.move(to: CGPoint(x: 330, y: y0)); golgi.addQuadCurve(to: CGPoint(x: 450, y: y0), controlPoint: CGPoint(x: 390, y: y0 - 22))
+                golgi.lineWidth = 3; golgi.stroke()
+            }
+        }
+        return image
     }
 
     private static func writePage(name: String, draw body: (UIColor) -> Void) throws -> URL {

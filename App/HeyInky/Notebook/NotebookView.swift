@@ -393,7 +393,7 @@ struct InkyLayerMenu: View {
         case .insertDiagram(let a): a.title.map { "Diagram · \($0)" } ?? "Diagram"
         case .insertMath(let a): a.title.map { "Math · \($0)" } ?? "Math"
         case .insertPractice(let a): a.title.map { "Practice · \($0)" } ?? "Practice"
-        case .annotateStructure, .annotateShape, .narrate, .addPage, .openSidebar, .say: ""
+        case .annotateStructure, .annotateShape, .labelParts, .narrate, .addPage, .openSidebar, .say: ""
         }
     }
 }

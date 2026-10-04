@@ -92,6 +92,10 @@ enum InkyPromptBuilder {
             lines.append("")
             lines.append(shapeText(request.shapes))
         }
+        if !request.parts.isEmpty {
+            lines.append("")
+            lines.append(partText(request.parts))
+        }
 
         lines.append("")
         if request.pageAnnotations.isEmpty {
@@ -180,6 +184,21 @@ enum InkyPromptBuilder {
         return lines.joined(separator: "\n")
     }
 
+    /// Parts of pictures, for `labelParts`.
+    static func partText(_ parts: [PagePart]) -> String {
+        var lines = ["Parts of the pictures on the page (found by the app; label them with `labelParts` by id — match each name to the part by color, shape, size, nesting and position in the image):"]
+        for p in parts.prefix(28) {
+            var line = String(format: "\(p.id) %@ %@ %@ at (%.3f, %.3f), box (%.3f, %.3f)–(%.3f, %.3f), %.1f%% of the picture",
+                              p.color, p.shape, p.kind == .marks ? "line marks" : "region", p.point.x, p.point.y,
+                              p.box.x, p.box.y, p.box.maxX, p.box.maxY, p.area * 100)
+            if let inside = p.inside { line += ", inside \(inside)" }
+            if p.outlined { line += ", outlined" }
+            if p.detailed { line += ", with markings inside" }
+            lines.append(line)
+        }
+        return lines.joined(separator: "\n")
+    }
+
     static func questionText(for request: InkyRequest) -> String {
         var text = "Student: \(request.question)"
         if let correction = request.correction {
@@ -229,6 +248,8 @@ enum InkyPromptBuilder {
             if !a.labels.isEmpty { parts.append("labels " + a.labels.map { "\"\($0.text)\" at \($0.atom)" }.joined(separator: ", ")) }
             if !a.arrows.isEmpty { parts.append("arrows " + a.arrows.map { "\($0.from)→\($0.to)" }.joined(separator: ", ")) }
             return "marked \(a.structure): " + (parts.isEmpty ? "nothing" : parts.joined(separator: "; "))
+        case .labelParts(let a):
+            return "labeled parts: " + a.labels.map { "\"\($0.text)\"" + ($0.part.map { " → \($0)" } ?? "") }.joined(separator: ", ")
         case .annotateShape(let a):
             var parts: [String] = []
             if !a.vectors.isEmpty { parts.append("vectors " + a.vectors.map { "\($0.label) \($0.direction == .angle ? "\(Int($0.angle ?? 0))°" : $0.direction.rawValue)" }.joined(separator: ", ")) }

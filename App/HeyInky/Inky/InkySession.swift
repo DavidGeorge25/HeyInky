@@ -132,7 +132,8 @@ final class InkySession {
             let (image, lines) = await editor.snapshotForInky()
             let skeleton = InkSkeleton.paths(in: editor.drawing, pageSize: editor.page.size, handwriting: lines.map(\.box))
             // Chemical structures in images, ink and PDF figures, with exact atom positions.
-            let (structures, shapes) = await PageStructureFinder.findAll(editor: editor, text: lines)
+            let findings = await PageStructureFinder.findEverything(editor: editor, text: lines)
+            let structures = findings.structures
             let inkStructure = structures.contains { $0.source == .ink }
             let request = await InkyContextBuilder.makeRequest(
                 question: asked,
@@ -154,7 +155,8 @@ final class InkySession {
                 // A recognized structure replaces the rough junction list.
                 inkAtoms: inkStructure ? [] : BondLayout.atoms(skeleton: skeleton, pageSize: editor.page.size),
                 structures: structures,
-                shapes: shapes,
+                shapes: findings.shapes,
+                parts: findings.parts,
                 // The page's biggest picture gets a closer look (labeling parts of a diagram).
                 focus: editor.page.images.max { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }?.frame
             )
@@ -219,6 +221,22 @@ final class InkySession {
                     }
                 } else {
                     showToast("Inky couldn't find \(a.shape) on this page.", isError: true)
+                }
+            case .labelParts(let a):
+                let output = PartLabeler.compile(
+                    a, parts: request.parts, pageSize: editor.page.size,
+                    avoid: editor.layoutContent + editor.visibleAnnotations.map { InkyAnnotationGeometry.bounds(for: $0, pageSize: editor.page.size) }
+                ) { text in
+                    let size = InkyLayout.labelTextSize(LabelAction(anchor: NormPoint(x: 0, y: 0), text: text, arrow: true), pageSize: editor.page.size)
+                    return CGSize(width: size.width * editor.page.size.width, height: size.height * editor.page.size.height)
+                }
+                for label in output.labels {
+                    editor.showsInkyLayer = true
+                    let count = editor.annotations.count
+                    editor.addAnnotation(.label(label), question: request.question, exact: true)
+                    if editor.annotations.count > count, let added = editor.annotations.last {
+                        perform(added, on: editor)
+                    }
                 }
             case .insertChemScheme, .insertDiagram, .insertMath, .insertPractice:
                 switch await FigurePreparer.prepare(action, editor: target) {
