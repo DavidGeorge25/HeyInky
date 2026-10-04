@@ -42,7 +42,7 @@ class Scanner(unittest.TestCase):
         found = []
         for i in range(0, len(text), 7):
             found += s.feed(text[i:i + 7])
-        self.assertEqual(len(found), 9)
+        self.assertEqual(len(found), 11)
 
 
 class Scoring(unittest.TestCase):

@@ -40,6 +40,8 @@ final class InkySession {
     var notebookTitle: String?
     /// Follow-up memory per page ("now explain why", "undo that").
     let conversation = InkyConversation()
+    /// Set by the notebook: adds a page after the current one, shows it, returns its editor.
+    @ObservationIgnored var onAddPage: ((AddPageAction.Paper) -> PageEditorModel?)?
 
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var toastTask: Task<Void, Never>?
@@ -105,6 +107,7 @@ final class InkySession {
         task = Task { [weak self] in
             guard let self else { return }
             let (image, lines) = await editor.snapshotForInky()
+            let skeleton = InkSkeleton.paths(in: editor.drawing, pageSize: editor.page.size, handwriting: lines.map(\.box))
             let request = await InkyContextBuilder.makeRequest(
                 question: asked,
                 pageImage: image,
@@ -120,34 +123,47 @@ final class InkySession {
                         isHidden: annotation.isHidden, question: annotation.question
                     )
                 },
-                history: conversation.history(for: editor.page.id)
+                history: conversation.history(for: editor.page.id),
+                inkPaths: skeleton,
+                inkAtoms: BondLayout.atoms(skeleton: skeleton, pageSize: editor.page.size)
             )
             await self.run(request, editor: editor)
         }
     }
 
-    /// Streams the response and applies actions as they arrive.
+    /// Streams the response and applies actions as they arrive. An `addPage` moves the rest of
+    /// the answer onto a new page (`onAddPage`).
     func run(_ request: InkyRequest, editor: PageEditorModel) async {
         var applied = 0
         var actions: [InkyAction] = []
         var removed: [UUID] = []
         let snapshot = editor.annotations
         let before = Set(snapshot.map(\.id))
+        /// Where actions go now (changes after `addPage`).
+        var target = editor
         // One undo step per Inky turn (all of its marks and removals), however it ends.
-        defer { editor.registerAnnotationUndo(restoring: snapshot, actionName: "Inky") }
+        defer {
+            editor.registerAnnotationUndo(restoring: snapshot, actionName: "Inky")
+            if target !== editor { target.registerAnnotationUndo(restoring: [], actionName: "Inky") }
+        }
+        func handle(_ action: InkyAction) async {
+            if case .addPage(let page) = action, let next = onAddPage?(page.paper) {
+                target = next
+                // Let the new page come on screen so Inky can perform there.
+                try? await Task.sleep(for: .milliseconds(450))
+            } else {
+                apply(action, editor: target, question: request.question)
+            }
+            actions.append(action)
+            applied += 1
+        }
         do {
             for try await event in client.respond(to: request) {
                 switch event {
                 case .action(let action):
-                    apply(action, editor: editor, question: request.question)
-                    actions.append(action)
-                    applied += 1
+                    await handle(action)
                 case .completed(let response):
-                    for action in response.actions.dropFirst(applied) {
-                        apply(action, editor: editor, question: request.question)
-                        actions.append(action)
-                        applied += 1
-                    }
+                    for action in response.actions.dropFirst(applied) { await handle(action) }
                     removed = response.removedAnnotationIDs
                     for id in removed { editor.deleteAnnotation(id, undoable: false) }
                 case .textDelta:
@@ -183,10 +199,14 @@ final class InkySession {
             editor.choreographer.afterPerformance { [weak self] in self?.showToast(say.text, isError: false) }
         case .openSidebar(let sidebar):
             self.sidebar = SidebarContent(markdown: sidebar.markdown, speakable: sidebar.speakable, question: question ?? "")
+        case .addPage:
+            break  // handled in `run` (needs the notebook)
         default:
             editor.showsInkyLayer = true
+            let count = editor.annotations.count
             editor.addAnnotation(action, question: question)
-            if let added = editor.annotations.last, added.action == action {
+            // (The editor may adjust the action, e.g. move a drawing's writing off other text.)
+            if editor.annotations.count > count, let added = editor.annotations.last {
                 editor.choreographer.perform(added, pageSize: editor.page.size)
             }
         }

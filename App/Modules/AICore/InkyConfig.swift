@@ -10,8 +10,27 @@ enum InkyConfig {
     static var modelName: String {
         UserDefaults.standard.string(forKey: "InkyModel").flatMap { $0.isEmpty ? nil : $0 } ?? defaultModelName
     }
-    static let reasoningEffort = "low"
-    static let maxOutputTokens = 4000
+    static let defaultReasoningEffort = "low"
+    /// `-InkyReasoning medium` overrides it.
+    static var reasoningEffort: String {
+        UserDefaults.standard.string(forKey: "InkyReasoning").flatMap { $0.isEmpty ? nil : $0 } ?? defaultReasoningEffort
+    }
+
+    /// Requests where Inky draws or works something out need more thought (counting atoms,
+    /// geometry, multi-step working); quick marks stay fast. An explicit override wins.
+    static func reasoningEffort(for question: String) -> String {
+        if let forced = UserDefaults.standard.string(forKey: "InkyReasoning"), !forced.isEmpty { return forced }
+        let q = question.lowercased()
+        return workKeywords.contains { q.contains($0) } ? "medium" : defaultReasoningEffort
+    }
+
+    static let workKeywords = [
+        "draw", "sketch", "add the", "hydrogen", "lone pair", "mechanism", "arrow", "solve", "work out", "work it",
+        "step", "explain", "why", "how does", "how do", "walk me", "show me how", "prove", "derive", "calculate", "balance",
+        "new page", "diagram",
+    ]
+    /// Includes reasoning tokens; drawn answers (many shapes, worked steps) are long.
+    static let maxOutputTokens = 12000
 
     static let defaultProxyURL = URL(string: "http://127.0.0.1:8787")!
 

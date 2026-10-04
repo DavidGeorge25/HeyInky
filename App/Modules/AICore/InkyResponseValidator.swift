@@ -65,6 +65,11 @@ enum InkyResponseValidator {
             case .success(let r): a.near = r
             }
             return .valid(.insertGraphCard(a))
+        case .draw(let a):
+            if let problem = drawProblem(a) { return .invalid("draw: \(problem)") }
+            return .valid(.draw(a))
+        case .addPage:
+            return .valid(action)
         case .openSidebar(let a):
             if a.markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .invalid("openSidebar markdown is empty") }
             return .valid(.openSidebar(a))
@@ -82,12 +87,51 @@ enum InkyResponseValidator {
         if response.actions.isEmpty && response.removeAnnotations.isEmpty {
             problems.append("the answer has no actions; include at least a say")
         }
+        if response.actions.filter({ $0.type == .addPage }).count > 1 {
+            problems.append("add at most one page per answer")
+        }
         let unknown = response.removeAnnotations.filter { request.annotationID(forShortID: $0) == nil }
         if !unknown.isEmpty {
             let known = request.pageAnnotations.indices.map { "m\($0 + 1)" }.joined(separator: ", ")
             problems.append("removeAnnotations has unknown ids \(unknown) (existing marks: \(known.isEmpty ? "none" : known))")
         }
         return problems
+    }
+
+    // MARK: Drawings
+
+    static let maxDrawShapes = 80
+    static let maxDrawPoints = 800
+
+    static func drawProblem(_ a: DrawAction) -> String? {
+        if a.shapes.isEmpty { return "add at least one shape" }
+        if a.shapes.count > maxDrawShapes { return "too many shapes (max \(maxDrawShapes)); draw the essentials" }
+        if a.shapes.reduce(0, { $0 + $1.points.count }) > maxDrawPoints { return "too many points (max \(maxDrawPoints))" }
+        for (i, shape) in a.shapes.enumerated() {
+            let n = shape.points.count
+            let name = "shape \(i + 1) (\(shape.kind.rawValue))"
+            if shape.points.contains(where: { !$0.x.isFinite || !$0.y.isFinite }) { return "\(name) has non-numeric points" }
+            switch shape.kind {
+            case .line, .dashedLine, .arrow, .doubleArrow, .polyline:
+                if n < 2 { return "\(name) needs at least 2 points" }
+            case .curvedArrow:
+                if n < 2 || n > 3 { return "\(name) needs [start, end] or [start, through, end]" }
+            case .polygon:
+                if n < 3 { return "\(name) needs at least 3 points" }
+            case .ellipse:
+                if n != 2 { return "\(name) needs exactly 2 points: its box's top-left and bottom-right" }
+            case .text:
+                if n < 1 { return "\(name) needs its top-left point" }
+                let text = shape.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                if text.isEmpty { return "\(name) has no text" }
+                if text.count > 400 { return "\(name) text is too long (max ~400 characters; split it or add a page)" }
+            }
+            if shape.kind != .text, n >= 2 {
+                let xs = shape.points.map(\.x), ys = shape.points.map(\.y)
+                if (xs.max()! - xs.min()!) + (ys.max()! - ys.min()!) < 0.002 { return "\(name) has zero length; its points are all the same" }
+            }
+        }
+        return nil
     }
 
     // MARK: Regions

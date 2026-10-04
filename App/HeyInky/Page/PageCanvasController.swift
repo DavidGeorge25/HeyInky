@@ -22,6 +22,9 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
     private let backgroundView = PageBackgroundView()
     private let overlayContainer = PassthroughView()
     private let lassoView = LassoCaptureView()
+    /// The Select tool's lasso / tap capture.
+    private let selectView = LassoCaptureView()
+    private var isApplyingDrawing = false
     private var inkyHost: UIHostingController<InkyLayerView>?
     private var lastLayoutWidth: CGFloat = 0
     private var lastBackgroundZoom: CGFloat = 0
@@ -77,6 +80,7 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
         inkyHost = host
         overlayContainer.wantsTouch = { [weak self] point in
             guard let self, self.overlayContainer.bounds.width > 0 else { return false }
+            if self.editor.isSelectMode { return self.selectionUIContains(point) }
             return self.editor.overlayWantsTouch(at: NormPoint(
                 x: point.x / self.overlayContainer.bounds.width,
                 y: point.y / self.overlayContainer.bounds.height
@@ -94,6 +98,22 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
         }
         canvas.addSubview(lassoView)
 
+        selectView.isUserInteractionEnabled = false
+        selectView.keepsLoop = false
+        selectView.onLassoChanged = { [weak self] path, finished in
+            guard let self, finished else { return }
+            let size = self.selectView.bounds.size
+            guard size.width > 0 else { return }
+            self.editor.select(lasso: path.map { NormPoint(x: $0.x / size.width, y: $0.y / size.height) })
+        }
+        selectView.onTap = { [weak self] point in
+            guard let self else { return }
+            let size = self.selectView.bounds.size
+            guard size.width > 0 else { return }
+            self.editor.select(at: NormPoint(x: point.x / size.width, y: point.y / size.height))
+        }
+        canvas.addSubview(selectView)
+
         let imageTap = UITapGestureRecognizer(target: self, action: #selector(handleImageTap(_:)))
         imageTap.allowedTouchTypes = [UITouch.TouchType.direct.rawValue as NSNumber]
         imageTap.cancelsTouchesInView = false
@@ -102,6 +122,10 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
         let pencil = UIPencilInteraction(delegate: self)
         view.addInteraction(pencil)
 
+        // The tool picker only shows while the canvas is first responder. Typing a question
+        // (or renaming, editing a graph…) takes that away; give it back when the keyboard goes.
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardDidHide), name: UIResponder.keyboardDidHideNotification, object: nil)
+
         editor.canvasController = self
     }
 
@@ -109,6 +133,8 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
         super.viewDidAppear(animated)
         tools.attach(to: canvas)
         tools.onInkySelected = { [weak self] in self?.onSummon?(nil) }
+        tools.onSelectToolChanged = { [weak self] on in self?.editor.isSelectMode = on }
+        editor.isSelectMode = tools.isSelectSelected
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -138,6 +164,7 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
         let frame = CGRect(origin: .zero, size: size)
         backgroundView.frame = frame
         lassoView.frame = frame
+        selectView.frame = frame
         let horizontal = max(0, (canvas.bounds.width - size.width) / 2)
         canvas.contentInset = UIEdgeInsets(top: 24, left: horizontal, bottom: 120, right: horizontal)
         if abs(zoom - lastBackgroundZoom) > 0.001, !canvas.isZooming {
@@ -164,9 +191,11 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
     /// Called from SwiftUI when observed editor state changes.
     func sync() {
         let inky = editor.isInkyMode
+        let select = editor.isSelectMode && !inky
         lassoView.isUserInteractionEnabled = inky
-        canvas.drawingGestureRecognizer.isEnabled = !inky
-        canvas.panGestureRecognizer.minimumNumberOfTouches = inky ? 2 : 1
+        selectView.isUserInteractionEnabled = select
+        canvas.drawingGestureRecognizer.isEnabled = !inky && !select
+        canvas.panGestureRecognizer.minimumNumberOfTouches = (inky || select) ? 2 : 1
         lassoView.setRegion(editor.lassoPath.isEmpty ? nil : editor.lassoPath.map {
             CGPoint(x: $0.x * lassoView.bounds.width, y: $0.y * lassoView.bounds.height)
         }, active: inky)
@@ -189,9 +218,35 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
         return CGPoint(x: p.x / bounds.width * editor.page.width, y: p.y / bounds.height * editor.page.height)
     }
 
+    /// Shows ink the editor changed (Select tool, its undo) without echoing it back.
+    func showDrawing(_ drawing: PKDrawing) {
+        guard canvas.drawing != drawing else { return }
+        isApplyingDrawing = true
+        canvas.drawing = drawing
+        isApplyingDrawing = false
+    }
+
+    /// The Select tool's box, handles and toolbar (or the Paste button) take touches; the rest
+    /// of the page goes to the lasso. Toolbars are a fixed size on screen, so this is in view points.
+    private func selectionUIContains(_ point: CGPoint) -> Bool {
+        let size = overlayContainer.bounds.size
+        if let selection = editor.selection {
+            var r = selection.bounds.cgRect(in: size).insetBy(dx: -30, dy: -30)
+            r = CGRect(x: r.minX, y: r.minY - 40, width: r.width, height: r.height + 80)
+            if r.width < 380 { r = r.insetBy(dx: (r.width - 380) / 2, dy: 0) }
+            return r.contains(point)
+        }
+        if let anchor = editor.pasteAnchor {
+            let c = anchor.cgPoint(in: size)
+            return CGRect(x: c.x - 20, y: c.y - 70, width: 160, height: 80).contains(point)
+        }
+        return false
+    }
+
     // MARK: PKCanvasViewDelegate
 
     func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+        guard !isApplyingDrawing else { return }
         editor.drawingDidChange(canvasView.drawing)
     }
 
@@ -208,10 +263,29 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
         backgroundView.setNeedsDisplay()
     }
 
+    /// Shows the tool picker again unless something else is being typed into.
+    func restoreToolPicker() {
+        guard view.window != nil, !Self.isEditingText(in: view.window) else { return }
+        tools.show(for: canvas)
+    }
+
+    @objc private func keyboardDidHide() {
+        restoreToolPicker()
+    }
+
+    private static func isEditingText(in window: UIWindow?) -> Bool {
+        guard let window else { return false }
+        func search(_ view: UIView) -> Bool {
+            if view.isFirstResponder, view is UITextInput { return true }
+            return view.subviews.contains(where: search)
+        }
+        return search(window)
+    }
+
     // MARK: Images
 
     @objc private func handleImageTap(_ gesture: UITapGestureRecognizer) {
-        guard !editor.isInkyMode, overlayContainer.bounds.width > 0 else { return }
+        guard !editor.isInkyMode, !editor.isSelectMode, overlayContainer.bounds.width > 0 else { return }
         let p = gesture.location(in: overlayContainer)
         let point = NormPoint(x: p.x / overlayContainer.bounds.width, y: p.y / overlayContainer.bounds.height)
         if let image = editor.image(at: point), editor.selectedAnnotationID == nil {
@@ -236,7 +310,6 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
     }
 }
 
-/// Paper / PDF / images, redrawn at the current zoom for crisp output.
 /// PencilKit registers stroke undo on the canvas's `undoManager`. Each page uses its editor's
 /// manager (shared with Inky annotation changes) instead of the window's.
 final class PageInkCanvasView: PKCanvasView {
@@ -244,6 +317,7 @@ final class PageInkCanvasView: PKCanvasView {
     override var undoManager: UndoManager? { pageUndoManager ?? super.undoManager }
 }
 
+/// Paper / PDF / images, redrawn at the current zoom for crisp output.
 final class PageBackgroundView: UIView {
     private weak var editor: PageEditorModel?
 
@@ -273,6 +347,10 @@ final class PassthroughView: UIView {
 /// Captures a freeform lasso loop while Inky is summoned and shows the selected region.
 final class LassoCaptureView: UIView {
     var onLassoChanged: (([CGPoint], Bool) -> Void)?
+    /// A touch that didn't move enough to be a loop.
+    var onTap: ((CGPoint) -> Void)?
+    /// Keep showing the finished loop (Inky's region) or clear it (Select tool shows its own box).
+    var keepsLoop = true
     private var points: [CGPoint] = []
     private let shape = CAShapeLayer()
 
@@ -322,11 +400,13 @@ final class LassoCaptureView: UIView {
     private func finish() {
         let finished = points
         points = []
-        guard finished.count > 3 else {
+        let extent = finished.reduce(CGRect.null) { $0.union(CGRect(origin: $1, size: .zero)) }
+        guard finished.count > 3, max(extent.width, extent.height) > 12 else {
             shape.path = nil
+            if let point = finished.first { onTap?(point) }
             return
         }
-        shape.path = Self.closedPath(finished)
+        shape.path = keepsLoop ? Self.closedPath(finished) : nil
         onLassoChanged?(finished, true)
     }
 
@@ -365,6 +445,7 @@ struct PageCanvasRepresentable: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: PageCanvasController, context: Context) {
         // Reading these registers Observation tracking, so SwiftUI calls us when they change.
         _ = editor.isInkyMode
+        _ = editor.isSelectMode
         _ = editor.lassoPath
         _ = editor.page
         controller.onSummon = onSummon

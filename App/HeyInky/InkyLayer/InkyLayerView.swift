@@ -66,6 +66,10 @@ struct InkyLayerView: View {
                 if let id = editor.selectedImageID, let image = editor.page.images.first(where: { $0.id == id }) {
                     ImageSelectionOverlay(editor: editor, image: image, viewSize: geo.size)
                 }
+
+                if editor.isSelectMode {
+                    SelectionOverlay(editor: editor, viewSize: geo.size)
+                }
             }
         }
         .alert("Edit", isPresented: Binding(get: { editing != nil }, set: { if !$0 { editing = nil } })) {
@@ -178,7 +182,10 @@ struct InkyLayerView: View {
         case .fillText(let a): "Inky text: \(a.text)"
         case .insertMoleculeCard(let a): "Molecule card \(a.caption ?? a.smiles)"
         case .insertGraphCard(let a): "Graph card \(a.spec.title ?? "")"
-        case .openSidebar, .say: ""
+        case .draw(let a):
+            "Inky drawing" + (a.caption.map { ": \($0)" } ?? "")
+                + { let t = a.shapes.compactMap { $0.kind == .text ? $0.text : nil }; return t.isEmpty ? "" : " — " + t.joined(separator: ", ") }()
+        case .addPage, .openSidebar, .say: ""
         }
     }
 }
@@ -191,10 +198,17 @@ struct InkyAnnotationView: View {
     let scale: CGFloat
     var progress: CGFloat = 1
 
+    /// The note tag's spot (`InkyLayout`) relative to the highlight, in view points.
+    private func noteOffset(_ a: HighlightAction) -> CGPoint? {
+        let candidates = InkyLayout.noteCandidates(a, pageSize: pageSize)
+        guard let note = candidates[safe: annotation.labelPlacement ?? 0] ?? candidates.first else { return nil }
+        return CGPoint(x: (note.x - a.region.x) * pageSize.width * scale, y: (note.y - a.region.y) * pageSize.height * scale)
+    }
+
     var body: some View {
         switch annotation.action {
         case .highlight(let a):
-            HighlightMark(action: a, scale: scale, progress: progress)
+            HighlightMark(action: a, scale: scale, progress: progress, noteOffset: noteOffset(a))
         case .circle(let a):
             CircleMark(action: a, scale: scale, seed: CircleMark.seed(for: annotation.id), progress: progress)
         case .star:
@@ -216,7 +230,9 @@ struct InkyAnnotationView: View {
                 GraphCardView(action: a)
             }
             .cardReveal(progress)
-        case .openSidebar, .say:
+        case .draw(let a):
+            DrawMark(action: a, seed: CircleMark.seed(for: annotation.id), pageSize: pageSize, scale: scale, progress: progress)
+        case .addPage, .openSidebar, .say:
             EmptyView()
         }
     }
@@ -306,5 +322,130 @@ struct ImageSelectionOverlay: View {
         let rect = CGRect(x: base.minX + dx, y: base.minY + dy, width: width, height: width / aspect)
         updated.frame = NormRect(rect, in: viewSize)
         editor.updateImage(updated)
+    }
+}
+
+/// The Select tool on the page: dashed box (drag to move), corner handle (drag to resize),
+/// and a toolbar — Ask Inky, Copy, Cut, Duplicate, Delete. With nothing selected, a tap on
+/// empty paper offers Paste there.
+struct SelectionOverlay: View {
+    let editor: PageEditorModel
+    let viewSize: CGSize
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            if let selection = editor.selection {
+                let rect = selection.bounds.cgRect(in: viewSize).insetBy(dx: -8, dy: -8)
+                box(rect)
+                handle(rect)
+                toolbar
+                    .fixedSize()
+                    .position(x: min(max(rect.midX, 190), viewSize.width - 190),
+                              y: rect.minY > 56 ? rect.minY - 30 : rect.maxY + 30)
+            } else if let anchor = editor.pasteAnchor {
+                let p = anchor.cgPoint(in: viewSize)
+                Button { editor.paste(at: anchor) } label: {
+                    Label("Paste", systemImage: "doc.on.clipboard")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("select.paste")
+                    .padding(4)
+                    .inkySurface(cornerRadius: 12)
+                    .fixedSize()
+                    .position(x: p.x + 50, y: max(24, p.y - 30))
+            }
+        }
+        .frame(width: viewSize.width, height: viewSize.height, alignment: .topLeading)
+    }
+
+    private func box(_ rect: CGRect) -> some View {
+        RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .strokeBorder(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.accent.opacity(0.05)))
+            .contentShape(Rectangle())
+            .frame(width: rect.width, height: rect.height)
+            .position(x: rect.midX, y: rect.midY)
+            .gesture(
+                DragGesture(minimumDistance: 2)
+                    .onChanged { value in
+                        editor.beginSelectionTransform()
+                        editor.updateSelectionTransform(translation: normalized(value.translation), scale: 1)
+                    }
+                    .onEnded { _ in editor.endSelectionTransform() }
+            )
+            .accessibilityElement()
+            .accessibilityLabel("Selection")
+            .accessibilityIdentifier("select.box")
+    }
+
+    /// Bottom-right corner: uniform scale about the top-left corner.
+    private func handle(_ rect: CGRect) -> some View {
+        Circle()
+            .fill(Theme.accent)
+            .frame(width: 22, height: 22)
+            .overlay(Circle().stroke(.white, lineWidth: 2))
+            .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
+            .padding(10)
+            .contentShape(Rectangle())
+            .position(x: rect.maxX, y: rect.maxY)
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        editor.beginSelectionTransform()
+                        let w = max(rect.width, 1), h = max(rect.height, 1)
+                        // Project the drag onto the box's diagonal so the corner follows the finger.
+                        let scale = 1 + (value.translation.width * w + value.translation.height * h) / (w * w + h * h)
+                        editor.updateSelectionTransform(translation: NormPoint(x: 0, y: 0), scale: max(0.15, scale))
+                    }
+                    .onEnded { _ in editor.endSelectionTransform() }
+            )
+            .accessibilityLabel("Resize")
+            .accessibilityIdentifier("select.resize")
+    }
+
+    private var toolbar: some View {
+        HStack(spacing: 2) {
+            Button {
+                editor.lassoSelectionForInky()
+                editor.onAskInkyAboutSelection?()
+            } label: {
+                Label("Ask Inky", systemImage: "sparkles")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Theme.accent))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("select.askInky")
+            if editor.selectedDrawingCount > 0 {
+                button("Make it my ink", "scribble", id: "select.makeInk") { editor.convertSelectedDrawingsToInk() }
+            }
+            button("Copy", "doc.on.doc", id: "select.copy") { editor.copySelection() }
+            button("Cut", "scissors", id: "select.cut") { editor.cutSelection() }
+            button("Duplicate", "plus.square.on.square", id: "select.duplicate") { editor.duplicateSelection() }
+            button("Delete", "trash", id: "select.delete", role: .destructive) { editor.deleteSelection() }
+        }
+        .padding(4)
+        .inkySurface(cornerRadius: 12)
+    }
+
+    private func button(_ title: String, _ systemImage: String, id: String, role: ButtonRole? = nil, action: @escaping () -> Void) -> some View {
+        Button(role: role, action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 14, weight: .medium))
+                .frame(width: 34, height: 30)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(role == .destructive ? Color.red : Color.primary)
+        .accessibilityLabel(title)
+        .accessibilityIdentifier(id)
+    }
+
+    private func normalized(_ translation: CGSize) -> NormPoint {
+        NormPoint(x: translation.width / max(viewSize.width, 1), y: translation.height / max(viewSize.height, 1))
     }
 }

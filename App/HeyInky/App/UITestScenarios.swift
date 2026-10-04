@@ -1,10 +1,11 @@
 #if DEBUG
+import PencilKit
 import UIKit
 
 /// QA content for UI tests and manual end-to-end runs (DEBUG builds only). Launch arguments:
 ///   -InkyUITestLibrary <name>   fixed library folder in tmp, so a relaunch sees the same notebooks
 ///                               (with `-InkyUITestReset YES` it is wiped first)
-///   -InkyUITestScenario <a,b>   seed notebooks: molecule, asymptotes, worksheet
+///   -InkyUITestScenario <a,b>   seed notebooks: molecule, asymptotes, worksheet, skeleton
 ///   -InkyUITestImage <path>     the molecule scenario's image (a handwritten structure)
 ///   -InkyUITestSpeech "<text>"  `SpeechInput` hears this instead of the microphone
 @MainActor
@@ -12,6 +13,7 @@ enum UITestScenarios {
     static let moleculeTitle = "Organic structures"
     static let asymptotesTitle = "Lecture 9 – Rational functions"
     static let worksheetTitle = "Warm-up worksheet"
+    static let skeletonTitle = "Hydrogen practice"
 
     /// Worksheet questions and their answers (the UI tests check Inky's fills against these).
     static let worksheet: [(question: String, answer: String)] = [
@@ -33,6 +35,7 @@ enum UITestScenarios {
             case "molecule": seedMolecule(into: store, imagePath: imagePath)
             case "asymptotes": seedPDF(title: asymptotesTitle, into: store, write: writeRationalSlide)
             case "worksheet": seedPDF(title: worksheetTitle, into: store, write: writeWorksheet)
+            case "skeleton": seedSkeleton(into: store)
             default: break
             }
         }
@@ -57,6 +60,43 @@ enum UITestScenarios {
             fresh.images[index] = placed
             store.updatePage(fresh, in: notebook.id)
         }
+    }
+
+    /// Methylcyclohexane drawn in pen ink the way a student would: the ring in one stroke, then
+    /// the methyl branch. (C₇H₁₄: 14 hidden hydrogens.)
+    private static func seedSkeleton(into store: NotebookStore) {
+        guard !exists(skeletonTitle, in: store) else { return }
+        let notebook = store.createNotebook(title: skeletonTitle, paper: .blank)
+        guard let page = notebook.pages.first else { return }
+        let center = CGPoint(x: 300, y: 380), r: CGFloat = 62
+        // Pointy-top hexagon, starting at the top vertex, closing back on itself.
+        let ring = (0...6).map { i -> CGPoint in
+            let angle = -CGFloat.pi / 2 + CGFloat(i) * .pi / 3
+            return CGPoint(x: center.x + r * cos(angle), y: center.y + r * sin(angle))
+        }
+        let upperRight = ring[1]
+        let branch = [upperRight, CGPoint(x: upperRight.x + r * cos(-.pi / 6), y: upperRight.y + r * sin(-.pi / 6))]
+        let drawing = PKDrawing(strokes: [handStroke(ring, seed: 1), handStroke(branch, seed: 2)])
+        store.saveDrawing(drawing, for: page.id, in: notebook.id)
+    }
+
+    private static func handStroke(_ corners: [CGPoint], seed: Int) -> PKStroke {
+        var points: [CGPoint] = []
+        for (a, b) in zip(corners, corners.dropFirst()) {
+            let steps = max(2, Int(hypot(b.x - a.x, b.y - a.y) / 3))
+            for i in 0..<steps {
+                let t = CGFloat(i) / CGFloat(steps)
+                let wobble = sin(CGFloat(points.count + seed * 17) * 0.21) * 0.8
+                points.append(CGPoint(x: a.x + (b.x - a.x) * t + wobble, y: a.y + (b.y - a.y) * t - wobble))
+            }
+        }
+        points.append(corners[corners.count - 1])
+        let strokePoints = points.enumerated().map {
+            PKStrokePoint(location: $0.element, timeOffset: Double($0.offset) * 0.01, size: CGSize(width: 3.2, height: 3.2),
+                          opacity: 1, force: 1, azimuth: 0, altitude: .pi / 2)
+        }
+        return PKStroke(ink: PKInk(.pen, color: UIColor(red: 0.15, green: 0.2, blue: 0.45, alpha: 1)),
+                        path: PKStrokePath(controlPoints: strokePoints, creationDate: Date(timeIntervalSince1970: 0)))
     }
 
     private static func seedPDF(title: String, into store: NotebookStore, write: () throws -> URL) {

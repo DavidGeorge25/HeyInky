@@ -1,5 +1,5 @@
 {
-  "description": "Hey Inky action contract v2. Source of truth for the model's structured output (OpenAI strict json_schema) and for the Swift Codable types in App/Modules/AICore/Contract/InkyAction.swift. Coordinates are normalized page space: (0,0) top-left, (1,1) bottom-right. Strict-mode rules: every object lists all properties in `required` and sets additionalProperties=false; optional values are nullable. Keep InkyActionSchemaSyncTests green when editing. Property ORDER matters: strict structured outputs generate keys in schema order, so `type` must stay first in every action.",
+  "description": "Hey Inky action contract v3. Source of truth for the model's structured output (OpenAI strict json_schema) and for the Swift Codable types in App/Modules/AICore/Contract/InkyAction.swift. Coordinates are normalized page space: (0,0) top-left, (1,1) bottom-right. Strict-mode rules: every object lists all properties in `required` and sets additionalProperties=false; optional values are nullable. Keep InkyActionSchemaSyncTests green when editing. Property ORDER matters: strict structured outputs generate keys in schema order, so `type` must stay first in every action.",
   "type": "object",
   "additionalProperties": false,
   "required": ["removeAnnotations", "actions"],
@@ -21,6 +21,8 @@
           { "$ref": "#/$defs/fillText" },
           { "$ref": "#/$defs/insertMoleculeCard" },
           { "$ref": "#/$defs/insertGraphCard" },
+          { "$ref": "#/$defs/draw" },
+          { "$ref": "#/$defs/addPage" },
           { "$ref": "#/$defs/openSidebar" },
           { "$ref": "#/$defs/say" }
         ]
@@ -225,6 +227,41 @@
         "type": { "type": "string", "enum": ["openSidebar"] },
         "markdown": { "type": "string" },
         "speakable": { "type": "boolean" }
+      }
+    },
+    "draw": {
+      "type": "object",
+      "description": "Inky draws on the page with real ink, like a tutor at the board: bonds and atoms, arrows (incl. curved mechanism arrows), diagrams, sketches of graphs, and handwritten working/steps. All points are normalized page coordinates.",
+      "additionalProperties": false,
+      "required": ["type", "ink", "color", "shapes", "caption"],
+      "properties": {
+        "type": { "type": "string", "enum": ["draw"] },
+        "ink": { "type": "string", "enum": ["pen", "marker", "pencil"], "description": "pen = crisp lines and writing (default); marker = thick translucent emphasis; pencil = light sketch/construction lines." },
+        "color": { "type": "string", "enum": ["indigo", "black", "blue", "red", "green", "orange"], "description": "indigo is Inky's own ink (default)." },
+        "shapes": { "type": "array", "items": { "$ref": "#/$defs/shape" } },
+        "caption": { "type": ["string", "null"], "description": "Few words naming what was drawn (shown in the Inky layer list)." }
+      }
+    },
+    "shape": {
+      "type": "object",
+      "description": "line/dashedLine/arrow/doubleArrow: from points[0] to points[last] (through any middle points). curvedArrow: [start, end] bows to the left of travel; [start, through, end] passes through the middle point. polyline: open path; polygon: closed path. ellipse: [top-left, bottom-right] of its box. text: handwritten text; a short label (≤4 characters, one line: \"H\", \"δ+\", \"OH\") is CENTERED on points[0] (put it at the bond end; the app writes it just past the end), longer text has its top-left at points[0]; use \\n for more lines.",
+      "additionalProperties": false,
+      "required": ["kind", "points", "text", "size"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["line", "dashedLine", "arrow", "doubleArrow", "curvedArrow", "polyline", "polygon", "ellipse", "text"] },
+        "points": { "type": "array", "items": { "$ref": "#/$defs/point" } },
+        "text": { "type": ["string", "null"], "description": "Only for kind=text." },
+        "size": { "type": "string", "enum": ["small", "medium", "large"], "description": "Text size (small ≈ notes, medium ≈ normal handwriting, large ≈ headings); for lines: stroke weight." }
+      }
+    },
+    "addPage": {
+      "type": "object",
+      "description": "Adds a fresh page right after this one and moves there; every later action in this answer goes on the new page (coordinates are on the new page). Use for longer worked solutions or diagrams that don't fit.",
+      "additionalProperties": false,
+      "required": ["type", "paper"],
+      "properties": {
+        "type": { "type": "string", "enum": ["addPage"] },
+        "paper": { "type": "string", "enum": ["blank", "lined", "grid", "dotted"] }
       }
     },
     "say": {

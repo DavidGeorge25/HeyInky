@@ -25,6 +25,17 @@ final class PageEditorModel {
 
     /// True while Inky is summoned: touches on the page draw a lasso instead of ink.
     var isInkyMode = false
+    /// The Select tool is active: touches lasso/tap to select instead of inking.
+    var isSelectMode = false {
+        didSet { if !isSelectMode { selection = nil; pasteAnchor = nil } }
+    }
+    /// What the Select tool has picked (see `PageEditorModel+Selection`).
+    var selection: PageSelection?
+    /// Where a tap on empty paper offered "Paste".
+    var pasteAnchor: NormPoint?
+    @ObservationIgnored var transformBase: (PageContentSnapshot, PageSelection)?
+    /// Set by the notebook: summon Inky about the current selection.
+    @ObservationIgnored var onAskInkyAboutSelection: (() -> Void)?
     private(set) var lassoPath: [NormPoint] = []
     private(set) var lassoRegion: NormRect?
 
@@ -57,6 +68,24 @@ final class PageEditorModel {
         }
     }
 
+    /// Replaces the ink (Select tool edits, undo of those). Updates the canvas without going
+    /// through PencilKit's own undo.
+    func applyDrawing(_ newDrawing: PKDrawing) {
+        drawing = newDrawing
+        canvasController?.showDrawing(newDrawing)
+        drawingDidChange(newDrawing)
+    }
+
+    func setImages(_ images: [PlacedImage], save: Bool) {
+        page.images = images
+        if save { store.updatePage(page, in: notebookID) }
+    }
+
+    func setAnnotations(_ list: [InkyAnnotation], save: Bool) {
+        annotations = list
+        if save { saveAnnotations() }
+    }
+
     func flush() {
         saveTask?.cancel()
         guard hasUnsavedInk else { return }
@@ -80,25 +109,26 @@ final class PageEditorModel {
 
     func addAnnotation(_ action: InkyAction, question: String?) {
         guard action.isPageAnnotation else { return }
+        var action = action
+        if case .draw(var drawing) = action {
+            // Clean angles for atoms added to the student's structure, then keep the writing readable.
+            let skeleton = InkSkeleton.paths(in: self.drawing, pageSize: page.size, handwriting: (lastRecognizedText ?? []).map(\.box))
+            drawing = BondLayout.refine(drawing, skeleton: skeleton, pageSize: page.size)
+            action = .draw(InkyLayout.placingDrawText(drawing, among: visibleAnnotations, pageSize: page.size))
+        }
         var annotation = InkyAnnotation(action: action, question: question)
-        if case .label(let label) = action { annotation.labelPlacement = freeLabelPlacement(for: label) }
+        annotation.labelPlacement = InkyLayout.bestPlacement(for: action, among: visibleAnnotations, content: layoutContent, pageSize: page.size)
         annotations.append(annotation)
         saveAnnotations()
     }
 
-    /// The first label placement whose text box doesn't overlap another visible label's (nil = default).
-    private func freeLabelPlacement(for label: LabelAction) -> Int? {
-        let taken = visibleAnnotations.compactMap { other -> NormRect? in
-            guard case .label(let l) = other.action else { return nil }
-            return InkyAnnotationGeometry.labelTextRect(l, pageSize: page.size, placement: other.labelPlacement ?? 0)
-                .offsetBy(dx: other.offset.x, dy: other.offset.y)
-        }
-        let margin = 4 / page.width
-        for placement in InkyAnnotationGeometry.labelPlacements {
-            let rect = InkyAnnotationGeometry.labelTextRect(label, pageSize: page.size, placement: placement).insetBy(dx: -margin, dy: -margin)
-            if !taken.contains(where: { $0.intersects(rect) }) { return placement == 0 ? nil : placement }
-        }
-        return nil
+    /// What's on the page that Inky's text shouldn't cover: ink, plus the text lines Inky last read
+    /// (PDF text layer / OCR of ink and images, cached by `snapshotForInky`).
+    var layoutContent: [NormRect] {
+        let size = page.size
+        let ink = drawing.strokes.map { NormRect($0.renderBounds, in: size) }
+        let text = (lastRecognizedText ?? PageRenderer.pdfTextLines(page: page, notebookID: notebookID, store: store)).map(\.box)
+        return ink + text
     }
 
     /// Cards call this for every slider/expression edit, so it isn't undoable by default;
@@ -230,6 +260,9 @@ final class PageEditorModel {
     // MARK: Snapshot for Inky
 
     /// Page rendered for the model (no grid; `InkyLocalization` adds it) plus text lines.
+    /// Text lines from the last `snapshotForInky` (nil = not read yet).
+    @ObservationIgnored private(set) var lastRecognizedText: [RecognizedTextLine]?
+
     func snapshotForInky() async -> (image: UIImage, text: [RecognizedTextLine]) {
         flush()
         let width = InkyLocalization.tuning.fullPageLongEdge * max(1, page.width / page.height) * 1.25
@@ -241,6 +274,8 @@ final class PageEditorModel {
         if let cg = ocrSource.cgImage {
             lines += await InkyLocalization.recognizeText(in: cg)
         }
-        return (full, lines.sorted { ($0.box.y, $0.box.x) < ($1.box.y, $1.box.x) })
+        lines.sort { ($0.box.y, $0.box.x) < ($1.box.y, $1.box.x) }
+        lastRecognizedText = lines
+        return (full, lines)
     }
 }

@@ -160,10 +160,10 @@ final class EndToEndUITests: XCTestCase {
         XCTAssertTrue(app.buttons["inky.summon"].waitForExistence(timeout: answerTimeout), "Inky finished")
 
         // Toolbar Undo takes back the whole Inky turn; Redo brings it back.
-        app.buttons["Undo"].tap()
+        app.navigationBars.buttons["Undo"].tap()
         XCTAssertTrue(highlight.waitForNonExistence(timeout: 5), "undo removes Inky's marks")
         XCTAssertFalse(star.exists)
-        app.buttons["Redo"].tap()
+        app.navigationBars.buttons["Redo"].tap()
         XCTAssertTrue(highlight.waitForExistence(timeout: 5), "redo restores them")
         XCTAssertTrue(star.waitForExistence(timeout: 5))
 

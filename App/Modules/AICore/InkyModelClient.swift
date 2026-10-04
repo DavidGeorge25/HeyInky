@@ -29,6 +29,12 @@ struct InkyRequest: Sendable {
     var history: [InkyTurn] = []
     /// Empty answer boxes found on the page (`InkyLocalization.detectBlanks`).
     var blanks: [NormRect] = []
+    /// The student's pen strokes simplified to their corners (normalized, drawing order), so Inky
+    /// can attach drawings exactly (bonds to atoms, arrows to points). Handwriting is left out.
+    var inkPaths: [[NormPoint]] = []
+    /// Junctions of those strokes (corners and line ends merged across strokes) with how many
+    /// lines meet there: the atoms of a skeletal structure and their bond counts.
+    var inkAtoms: [InkAtom] = []
     /// Set by `ValidatingInkyModelClient` on its one retry: what was wrong last time.
     var correction: InkyCorrection?
 
@@ -130,6 +136,13 @@ enum InkyStreamEvent: Sendable {
     case action(InkyAction)
     /// Final, fully decoded response.
     case completed(InkyResponse)
+}
+
+/// A junction in the student's pen strokes (see `InkyRequest.inkAtoms`).
+struct InkAtom: Hashable, Sendable {
+    var point: NormPoint
+    /// Lines meeting here (a double line drawn as two strokes may count once).
+    var bonds: Int
 }
 
 enum InkyClientError: LocalizedError, Equatable {

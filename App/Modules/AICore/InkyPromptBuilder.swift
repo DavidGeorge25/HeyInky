@@ -67,6 +67,20 @@ enum InkyPromptBuilder {
             for blank in request.blanks { lines.append(format(blank)) }
         }
 
+        if !request.inkPaths.isEmpty {
+            lines.append("")
+            lines.append("Pen strokes on the page (not handwriting), simplified to their corner points (x, y) in drawing order. In a skeletal structure every corner and free line end is a carbon; attach drawings to these exact points:")
+            for (index, path) in request.inkPaths.prefix(maxInkPaths).enumerated() {
+                lines.append("s\(index + 1): " + path.map { String(format: "(%.3f, %.3f)", $0.x, $0.y) }.joined(separator: " "))
+            }
+            if !request.inkAtoms.isEmpty {
+                lines.append("Junctions of those strokes (atoms of a skeletal structure) and how many lines meet at each — a carbon there has 4 − that many hydrogens (a double bond drawn as two lines counts 2):")
+                lines.append(request.inkAtoms.prefix(maxInkPaths).enumerated().map { i, atom in
+                    String(format: "a%d (%.3f, %.3f) %d line%@", i + 1, atom.point.x, atom.point.y, atom.bonds, atom.bonds == 1 ? "" : "s")
+                }.joined(separator: "; "))
+            }
+        }
+
         lines.append("")
         if request.pageAnnotations.isEmpty {
             lines.append("Inky marks already on the page: none.")
@@ -116,6 +130,7 @@ enum InkyPromptBuilder {
     }
 
     static let maxTextLines = 150
+    static let maxInkPaths = 80
     /// Word positions roughly double the text tokens; skip them on very dense pages.
     static let maxLinesWithWords = 60
 
@@ -133,6 +148,13 @@ enum InkyPromptBuilder {
         case .insertGraphCard(let a):
             let fns = a.spec.functions.map(\.expression).joined(separator: ", ")
             return "graph card \(a.spec.title.map { "\"\(clip($0, 60))\" " } ?? "")y = \(clip(fns, 120))"
+        case .draw(let a):
+            let texts = a.shapes.compactMap { $0.kind == .text ? $0.text : nil }.joined(separator: " / ")
+            let kinds = Dictionary(grouping: a.shapes.filter { $0.kind != .text }, by: \.kind).map { "\($0.value.count) \($0.key.rawValue)" }.sorted().joined(separator: ", ")
+            return "drew" + (a.caption.map { " \"\(clip($0, 60))\"" } ?? "") + (kinds.isEmpty ? "" : " (\(kinds))")
+                + (texts.isEmpty ? "" : " writing \"\(clip(texts, long ? 300 : 80))\"")
+        case .addPage(let a):
+            return "added a new \(a.paper.rawValue) page"
         case .openSidebar(let a):
             return "explained in the sidebar: \"\(clip(a.markdown.replacingOccurrences(of: "\n", with: " "), long ? 500 : 120))\""
         case .say(let a): return "said \"\(clip(a.text, 200))\""
@@ -168,10 +190,10 @@ enum InkyPromptBuilder {
                     "schema": schemaPlaceholder,
                 ],
             ],
-            "reasoning": ["effort": InkyConfig.reasoningEffort],
+            "reasoning": ["effort": InkyConfig.reasoningEffort(for: request.question)],
             "max_output_tokens": InkyConfig.maxOutputTokens,
             // Same prefix (instructions + schema) on every request: route them to the same cache.
-            "prompt_cache_key": "inky-v2",
+            "prompt_cache_key": "inky-v3",
             "stream": true,
         ]
     }

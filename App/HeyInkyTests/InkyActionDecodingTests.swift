@@ -29,7 +29,16 @@ struct InkyActionDecodingTests {
         #expect(g.spec.params[1].step == nil)
         #expect(g.spec.asymptotes.first?.orientation == .horizontal)
 
-        guard case .openSidebar(let s) = actions[7] else { Issue.record("expected sidebar"); return }
+        guard case .draw(let d) = actions[7] else { Issue.record("expected draw"); return }
+        #expect(d.ink == .pen && d.color == .indigo)
+        #expect(d.shapes.map(\.kind) == [.line, .text, .curvedArrow])
+        #expect(d.shapes[1].text == "H" && d.shapes[1].size == .small)
+        #expect(d.shapes[0].text == nil)
+
+        guard case .addPage(let p) = actions[8] else { Issue.record("expected addPage"); return }
+        #expect(p.paper == .grid)
+
+        guard case .openSidebar(let s) = actions[9] else { Issue.record("expected sidebar"); return }
         #expect(s.speakable)
         #expect(s.markdown.hasPrefix("# Entropy"))
     }
@@ -62,7 +71,7 @@ struct InkyActionDecodingTests {
 
     @Test func pageAnnotationClassification() throws {
         let types = try Fixtures.response("all_actions").actions.filter(\.isPageAnnotation).map(\.type)
-        #expect(types == [.highlight, .circle, .star, .label, .fillText, .insertMoleculeCard, .insertGraphCard])
+        #expect(types == [.highlight, .circle, .star, .label, .fillText, .insertMoleculeCard, .insertGraphCard, .draw])
     }
 
     @Test func normRectHelpers() {

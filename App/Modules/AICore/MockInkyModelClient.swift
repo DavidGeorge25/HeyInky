@@ -26,6 +26,23 @@ struct MockInkyModelClient: InkyModelClient {
         }
     }
 
+    /// A short C–H line pointing away from each corner of the first pen stroke, with an "H".
+    static func mockHydrogens(_ request: InkyRequest) -> DrawAction {
+        let path = request.inkPaths.first ?? [NormPoint(x: 0.4, y: 0.4), NormPoint(x: 0.5, y: 0.45), NormPoint(x: 0.6, y: 0.4)]
+        let aspect = request.pageAspectRatio
+        var shapes: [DrawAction.Shape] = []
+        for (i, c) in path.enumerated() {
+            let prev = path[max(0, i - 1)], next = path[min(path.count - 1, i + 1)]
+            var dx = (c.x - prev.x) + (c.x - next.x), dy = ((c.y - prev.y) + (c.y - next.y)) / aspect
+            let length = max(hypot(dx, dy), 0.0001)
+            dx /= length; dy /= length
+            let end = NormPoint(x: c.x + 0.035 * dx, y: c.y + 0.035 * dy * aspect)
+            shapes.append(.init(kind: .line, points: [c, end], text: nil, size: .medium))
+            shapes.append(.init(kind: .text, points: [NormPoint(x: end.x + dx * 0.004 - 0.008, y: end.y + dy * 0.004 - 0.012)], text: "H", size: .small))
+        }
+        return DrawAction(ink: .pen, color: .indigo, shapes: shapes, caption: "hydrogens")
+    }
+
     /// "undo that" removes the marks the previous turn created.
     static func cannedRemovals(for request: InkyRequest) -> [String] {
         guard request.question.lowercased().contains("undo") else { return [] }
@@ -36,6 +53,23 @@ struct MockInkyModelClient: InkyModelClient {
         let q = request.question.lowercased()
         if q.contains("undo") {
             return [.say(SayAction(text: "Okay, I took that back."))]
+        }
+        if q.contains("hydrogen") {
+            return [.say(SayAction(text: "Here are the hidden hydrogens."))] + [.draw(mockHydrogens(request))]
+        }
+        if q.contains("new page") {
+            let steps = ["2x + 6 = 14", "2x = 8", "x = 4"]
+            return [
+                .say(SayAction(text: "Worked it out on a new page.")),
+                .addPage(AddPageAction(paper: .grid)),
+                .draw(DrawAction(ink: .pen, color: .indigo, shapes: [
+                    .init(kind: .text, points: [NormPoint(x: 0.1, y: 0.06)], text: "Solving 2x + 6 = 14", size: .large),
+                ] + steps.enumerated().map { i, step in
+                    .init(kind: .text, points: [NormPoint(x: 0.12, y: 0.16 + Double(i) * 0.06)], text: step, size: .medium)
+                } + [
+                    .init(kind: .ellipse, points: [NormPoint(x: 0.1, y: 0.27), NormPoint(x: 0.3, y: 0.33)], text: nil, size: .medium),
+                ], caption: "worked solution")),
+            ]
         }
         if q.contains("functional group") {
             return [

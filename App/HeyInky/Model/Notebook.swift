@@ -75,8 +75,8 @@ struct InkyAnnotation: Codable, Identifiable, Hashable, Sendable {
     var createdAt: Date
     /// The question that produced it, for context in the layer list.
     var question: String?
-    /// Labels only: which side of the anchor the text sits on (`InkyAnnotationGeometry.labelPlacements`),
-    /// picked so labels don't cover each other. nil = default.
+    /// Labels and noted highlights: which candidate spot their text uses (`InkyLayout`), picked
+    /// when Inky adds them so text doesn't cover other text or marks. nil = default spot.
     var labelPlacement: Int?
 
     init(id: UUID = UUID(), action: InkyAction, offset: NormPoint = NormPoint(x: 0, y: 0), isHidden: Bool = false, createdAt: Date = .now, question: String? = nil) {

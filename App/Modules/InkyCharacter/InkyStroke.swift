@@ -6,7 +6,7 @@ import UIKit
 /// The renderers reveal the annotation with the same progress, so ink appears under the nib.
 struct InkyStroke: Equatable, Sendable {
     enum Kind: String, Sendable {
-        case highlight, circle, star, label, fillText, card
+        case highlight, circle, star, label, fillText, card, draw
     }
 
     let annotationID: UUID
@@ -19,6 +19,9 @@ struct InkyStroke: Equatable, Sendable {
     private let seed: Int
     /// Fraction of the bounds' width covered by fill text.
     private let textWidthFraction: CGFloat
+    /// Inky's own drawing: the pen paths the nib follows, and the user offset (page points).
+    private let drawLayout: DrawInk.Layout?
+    private let drawOffset: CGPoint
 
     struct LabelGeometry: Equatable, Sendable {
         var textRect: CGRect
@@ -35,6 +38,7 @@ struct InkyStroke: Equatable, Sendable {
         let offset = CGPoint(x: annotation.offset.x * pageSize.width, y: annotation.offset.y * pageSize.height)
         var label: LabelGeometry?
         var textWidthFraction: CGFloat = 1
+        var drawLayout: DrawInk.Layout?
         let kind: Kind
         let duration: TimeInterval
         switch annotation.action {
@@ -60,7 +64,13 @@ struct InkyStroke: Equatable, Sendable {
         case .insertMoleculeCard, .insertGraphCard:
             kind = .card
             duration = 0.45
-        case .openSidebar, .say:
+        case .draw(let a):
+            kind = .draw
+            let layout = DrawInk.layout(a, pageSize: pageSize, seed: CircleMark.seed(for: annotation.id))
+            drawLayout = layout
+            // A brisk but readable hand: ~420 pt of ink per second, a beat per stroke, capped.
+            duration = min(7, 0.3 + Double(layout.totalLength) / 420 + 0.06 * Double(layout.segments.count))
+        case .addPage, .openSidebar, .say:
             return nil
         }
         self.annotationID = annotation.id
@@ -70,6 +80,8 @@ struct InkyStroke: Equatable, Sendable {
         self.label = label
         self.seed = CircleMark.seed(for: annotation.id)
         self.textWidthFraction = textWidthFraction
+        self.drawLayout = drawLayout
+        self.drawOffset = offset
     }
 
     var start: CGPoint { tip(at: 0) }
@@ -104,6 +116,10 @@ struct InkyStroke: Equatable, Sendable {
             return ArrowShape.point(at: u, from: from, to: label.anchor)
         case .card:
             return CGPoint(x: b.midX, y: b.maxY)
+        case .draw:
+            guard let drawLayout else { return CGPoint(x: b.midX, y: b.midY) }
+            let nib = DrawInk.nib(drawLayout, at: p)
+            return CGPoint(x: nib.x + drawOffset.x, y: nib.y + drawOffset.y)
         }
     }
 }

@@ -31,6 +31,8 @@ struct InkyActionSchemaSyncTests {
         .fillText(FillTextAction(region: .unit, text: "t", handwritingStyle: false)),
         .insertMoleculeCard(InsertMoleculeCardAction(smiles: "C", near: .unit, highlightGroups: [], starGroups: [], caption: "c")),
         .insertGraphCard(InsertGraphCardAction(spec: GraphSpec(title: "t", xMin: 0, xMax: 1, yMin: 0, yMax: 1, xLabel: "x", yLabel: "y", functions: [], params: [], asymptotes: [], points: [], labels: []), near: .unit)),
+        .draw(DrawAction(ink: .pen, color: .indigo, shapes: [.init(kind: .line, points: [], text: "t", size: .medium)], caption: "c")),
+        .addPage(AddPageAction(paper: .grid)),
         .openSidebar(OpenSidebarAction(markdown: "m", speakable: true)),
         .say(SayAction(text: "s")),
     ]
@@ -53,11 +55,19 @@ struct InkyActionSchemaSyncTests {
         }
         #expect(enumValues("highlight", "color") == HighlightColor.allCases.map(\.rawValue))
         #expect(enumValues("circle", "style") == CircleStyle.allCases.map(\.rawValue))
+        #expect(enumValues("draw", "ink") == DrawAction.Ink.allCases.map(\.rawValue))
+        #expect(enumValues("draw", "color") == DrawAction.Color.allCases.map(\.rawValue))
+        #expect(enumValues("shape", "kind") == DrawAction.Shape.Kind.allCases.map(\.rawValue))
+        #expect(enumValues("shape", "size") == DrawAction.Shape.Size.allCases.map(\.rawValue))
+        #expect(enumValues("addPage", "paper") == AddPageAction.Paper.allCases.map(\.rawValue))
     }
 
     @Test func sharedPrimitivesMatch() throws {
         #expect(properties("region") == ["x", "y", "width", "height"])
         #expect(properties("point") == ["x", "y"])
+        let shape = DrawAction.Shape(kind: .text, points: [], text: "t", size: .small)
+        let shapeKeys = Set((try JSONSerialization.jsonObject(with: JSONEncoder().encode(shape)) as? [String: Any] ?? [:]).keys)
+        #expect(shapeKeys == properties("shape"))
         let spec = GraphSpec(title: "t", xMin: 0, xMax: 1, yMin: 0, yMax: 1, xLabel: "x", yLabel: "y", functions: [], params: [], asymptotes: [], points: [], labels: [])
         let keys = Set((try JSONSerialization.jsonObject(with: JSONEncoder().encode(spec)) as? [String: Any] ?? [:]).keys)
         #expect(keys == properties("graphSpec"))

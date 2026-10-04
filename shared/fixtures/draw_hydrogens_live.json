@@ -1,0 +1,363 @@
+{
+ "removeAnnotations": [],
+ "actions": [
+  {
+   "caption": "hidden hydrogens",
+   "color": "indigo",
+   "ink": "pen",
+   "shapes": [
+    {
+     "kind": "line",
+     "points": [
+      {
+       "x": 0.367,
+       "y": 0.301
+      },
+      {
+       "x": 0.352,
+       "y": 0.281
+      }
+     ],
+     "size": "small"
+    },
+    {
+     "kind": "text",
+     "points": [
+      {
+       "x": 0.344,
+       "y": 0.272
+      }
+     ],
+     "size": "small",
+     "text": "H"
+    },
+    {
+     "kind": "line",
+     "points": [
+      {
+       "x": 0.367,
+       "y": 0.301
+      },
+      {
+       "x": 0.386,
+       "y": 0.281
+      }
+     ],
+     "size": "small"
+    },
+    {
+     "kind": "text",
+     "points": [
+      {
+       "x": 0.389,
+       "y": 0.272
+      }
+     ],
+     "size": "small",
+     "text": "H"
+    },
+    {
+     "kind": "line",
+     "points": [
+      {
+       "x": 0.434,
+       "y": 0.333
+      },
+      {
+       "x": 0.456,
+       "y": 0.321
+      }
+     ],
+     "size": "small"
+    },
+    {
+     "kind": "text",
+     "points": [
+      {
+       "x": 0.461,
+       "y": 0.314
+      }
+     ],
+     "size": "small",
+     "text": "H"
+    },
+    {
+     "kind": "line",
+     "points": [
+      {
+       "x": 0.499,
+       "y": 0.301
+      },
+      {
+       "x": 0.52,
+       "y": 0.29
+      }
+     ],
+     "size": "small"
+    },
+    {
+     "kind": "text",
+     "points": [
+      {
+       "x": 0.525,
+       "y": 0.283
+      }
+     ],
+     "size": "small",
+     "text": "H"
+    },
+    {
+     "kind": "line",
+     "points": [
+      {
+       "x": 0.499,
+       "y": 0.301
+      },
+      {
+       "x": 0.52,
+       "y": 0.301
+      }
+     ],
+     "size": "small"
+    },
+    {
+     "kind": "text",
+     "points": [
+      {
+       "x": 0.525,
+       "y": 0.294
+      }
+     ],
+     "size": "small",
+     "text": "H"
+    },
+    {
+     "kind": "line",
+     "points": [
+      {
+       "x": 0.499,
+       "y": 0.301
+      },
+      {
+       "x": 0.52,
+       "y": 0.312
+      }
+     ],
+     "size": "small"
+    },
+    {
+     "kind": "text",
+     "points": [
+      {
+       "x": 0.525,
+       "y": 0.313
+      }
+     ],
+     "size": "small",
+     "text": "H"
+    },
+    {
+     "kind": "line",
+     "points": [
+      {
+       "x": 0.432,
+       "y": 0.39
+      },
+      {
+       "x": 0.451,
+       "y": 0.404
+      }
+     ],
+     "size": "small"
+    },
+    {
+     "kind": "text",
+     "points": [
+      {
+       "x": 0.456,
+       "y": 0.41
+      }
+     ],
+     "size": "small",
+     "text": "H"
+    },
+    {
+     "kind": "line",
+     "points": [
+      {
+       "x": 0.432,
+       "y": 0.39
+      },
+      {
+       "x": 0.43,
+       "y": 0.414
+      }
+     ],
+     "size": "small"
+    },
+    {
+     "kind": "text",
+     "points": [
+      {
+       "x": 0.423,
+       "y": 0.422
+      }
+     ],
+     "size": "small",
+     "text": "H"
+    },
+    {
+     "kind": "line",
+     "points": [
+      {
+       "x": 0.368,
+       "y": 0.418
+      },
+      {
+       "x": 0.353,
+       "y": 0.437
+      }
+     ],
+     "size": "small"
+    },
+    {
+     "kind": "text",
+     "points": [
+      {
+       "x": 0.343,
+       "y": 0.445
+      }
+     ],
+     "size": "small",
+     "text": "H"
+    },
+    {
+     "kind": "line",
+     "points": [
+      {
+       "x": 0.368,
+       "y": 0.418
+      },
+      {
+       "x": 0.388,
+       "y": 0.437
+      }
+     ],
+     "size": "small"
+    },
+    {
+     "kind": "text",
+     "points": [
+      {
+       "x": 0.392,
+       "y": 0.445
+      }
+     ],
+     "size": "small",
+     "text": "H"
+    },
+    {
+     "kind": "line",
+     "points": [
+      {
+       "x": 0.303,
+       "y": 0.388
+      },
+      {
+       "x": 0.282,
+       "y": 0.401
+      }
+     ],
+     "size": "small"
+    },
+    {
+     "kind": "text",
+     "points": [
+      {
+       "x": 0.269,
+       "y": 0.407
+      }
+     ],
+     "size": "small",
+     "text": "H"
+    },
+    {
+     "kind": "line",
+     "points": [
+      {
+       "x": 0.303,
+       "y": 0.388
+      },
+      {
+       "x": 0.282,
+       "y": 0.378
+      }
+     ],
+     "size": "small"
+    },
+    {
+     "kind": "text",
+     "points": [
+      {
+       "x": 0.269,
+       "y": 0.372
+      }
+     ],
+     "size": "small",
+     "text": "H"
+    },
+    {
+     "kind": "line",
+     "points": [
+      {
+       "x": 0.301,
+       "y": 0.347
+      },
+      {
+       "x": 0.28,
+       "y": 0.337
+      }
+     ],
+     "size": "small"
+    },
+    {
+     "kind": "text",
+     "points": [
+      {
+       "x": 0.264,
+       "y": 0.331
+      }
+     ],
+     "size": "small",
+     "text": "H"
+    },
+    {
+     "kind": "line",
+     "points": [
+      {
+       "x": 0.301,
+       "y": 0.347
+      },
+      {
+       "x": 0.28,
+       "y": 0.352
+      }
+     ],
+     "size": "small"
+    },
+    {
+     "kind": "text",
+     "points": [
+      {
+       "x": 0.264,
+       "y": 0.35
+      }
+     ],
+     "size": "small",
+     "text": "H"
+    }
+   ],
+   "type": "draw"
+  }
+ ]
+}

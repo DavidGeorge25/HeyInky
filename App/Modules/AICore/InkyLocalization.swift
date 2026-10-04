@@ -265,7 +265,9 @@ enum InkyContextBuilder {
         pageAspectRatio: Double,
         notebookTitle: String?,
         annotations: [InkyPageAnnotation] = [],
-        history: [InkyTurn] = []
+        history: [InkyTurn] = [],
+        inkPaths: [[NormPoint]] = [],
+        inkAtoms: [InkAtom] = []
     ) async -> InkyRequest {
         var blanks: [NormRect] = []
         if InkyLocalization.tuning.detectBlanks, let cg = pageImage.cgImage {
@@ -280,7 +282,9 @@ enum InkyContextBuilder {
             notebookTitle: notebookTitle,
             pageAnnotations: annotations,
             history: history,
-            blanks: blanks
+            blanks: blanks,
+            inkPaths: inkPaths,
+            inkAtoms: inkAtoms
         )
     }
 }

@@ -110,6 +110,8 @@ struct NotebookView: View {
                 .ignoresSafeArea(.container, edges: .bottom)
                 .onAppear {
                     tools.onInkyDeselected = { [weak session] in session?.dismiss(editor: editor) }
+                    editor.onAskInkyAboutSelection = { [weak session] in session?.summon(editor: editor) }
+                    session.onAddPage = { paper in addPageForInky(paper) }
                     setInkyHome(editor, areaSize: geo.size)
                 }
                 .onChange(of: geo.size) { _, size in setInkyHome(editor, areaSize: size) }
@@ -139,6 +141,9 @@ struct NotebookView: View {
                 }
             }
             .animation(.snappy(duration: 0.25), value: session.phase)
+            .onChange(of: session.phase) { _, phase in
+                if phase == .idle { editor.canvasController?.restoreToolPicker() }
+            }
         }
     }
 
@@ -260,6 +265,15 @@ struct NotebookView: View {
         pageIndex += 1
     }
 
+    /// Inky's `addPage`: a fresh page after this one, shown right away so Inky can work there.
+    private func addPageForInky(_ paper: AddPageAction.Paper) -> PageEditorModel? {
+        guard let style = PaperStyle(rawValue: paper.rawValue) else { return nil }
+        app.store.addPage(to: notebookID, at: pageIndex + 1, background: .paper(style))
+        pageIndex += 1
+        loadPage()
+        return editor
+    }
+
     private func deleteCurrentPage() {
         guard let editor else { return }
         let id = editor.page.id
@@ -340,7 +354,8 @@ struct InkyLayerMenu: View {
         case .fillText(let a): "Text · \(a.text)"
         case .insertMoleculeCard(let a): "Molecule · \(a.caption ?? a.smiles)"
         case .insertGraphCard(let a): "Graph · \(a.spec.title ?? "")"
-        case .openSidebar, .say: ""
+        case .draw(let a): a.caption.map { "Drawing · \($0)" } ?? "Drawing"
+        case .addPage, .openSidebar, .say: ""
         }
     }
 }

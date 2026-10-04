@@ -23,7 +23,7 @@ struct ResponsesStreamParserTests {
             }
             index = end
         }
-        #expect(actions.count == 9)
+        #expect(actions.count == 11)
         for event in try parser.consume(line: #"data: {"type":"response.completed","response":{}}"#) {
             if case .completed(let r) = event { completed = r }
         }

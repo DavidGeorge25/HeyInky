@@ -220,6 +220,35 @@ struct InsertGraphCardAction: Codable, Hashable, Sendable {
     var near: NormRect
 }
 
+/// Inky draws with real ink: strokes and handwritten text, in normalized page coordinates.
+struct DrawAction: Codable, Hashable, Sendable {
+    enum Ink: String, Codable, CaseIterable, Sendable { case pen, marker, pencil }
+    enum Color: String, Codable, CaseIterable, Sendable { case indigo, black, blue, red, green, orange }
+
+    struct Shape: Codable, Hashable, Sendable {
+        enum Kind: String, Codable, CaseIterable, Sendable {
+            case line, dashedLine, arrow, doubleArrow, curvedArrow, polyline, polygon, ellipse, text
+        }
+        enum Size: String, Codable, CaseIterable, Sendable { case small, medium, large }
+
+        var kind: Kind
+        var points: [NormPoint]
+        var text: String?
+        var size: Size
+    }
+
+    var ink: Ink
+    var color: Color
+    var shapes: [Shape]
+    var caption: String?
+}
+
+/// A fresh page after the current one; the rest of the answer goes there.
+struct AddPageAction: Codable, Hashable, Sendable {
+    enum Paper: String, Codable, CaseIterable, Sendable { case blank, lined, grid, dotted }
+    var paper: Paper
+}
+
 struct OpenSidebarAction: Codable, Hashable, Sendable {
     var markdown: String
     var speakable: Bool
@@ -231,7 +260,7 @@ struct SayAction: Codable, Hashable, Sendable {
 
 /// The discriminator values, in schema order.
 enum InkyActionType: String, Codable, CaseIterable, Sendable {
-    case highlight, circle, star, label, fillText, insertMoleculeCard, insertGraphCard, openSidebar, say
+    case highlight, circle, star, label, fillText, insertMoleculeCard, insertGraphCard, draw, addPage, openSidebar, say
 }
 
 /// One thing Inky does. Encoded flat with a `type` discriminator, exactly as in the schema.
@@ -243,6 +272,8 @@ enum InkyAction: Hashable, Sendable {
     case fillText(FillTextAction)
     case insertMoleculeCard(InsertMoleculeCardAction)
     case insertGraphCard(InsertGraphCardAction)
+    case draw(DrawAction)
+    case addPage(AddPageAction)
     case openSidebar(OpenSidebarAction)
     case say(SayAction)
 
@@ -255,15 +286,17 @@ enum InkyAction: Hashable, Sendable {
         case .fillText: .fillText
         case .insertMoleculeCard: .insertMoleculeCard
         case .insertGraphCard: .insertGraphCard
+        case .draw: .draw
+        case .addPage: .addPage
         case .openSidebar: .openSidebar
         case .say: .say
         }
     }
 
-    /// Actions that live on the page's Inky layer (everything except say/openSidebar).
+    /// Actions that live on the page's Inky layer (everything except say/openSidebar/addPage).
     var isPageAnnotation: Bool {
         switch type {
-        case .say, .openSidebar: false
+        case .say, .openSidebar, .addPage: false
         default: true
         }
     }
@@ -288,6 +321,8 @@ extension InkyAction: Codable {
         case .fillText: self = .fillText(try FillTextAction(from: decoder))
         case .insertMoleculeCard: self = .insertMoleculeCard(try InsertMoleculeCardAction(from: decoder))
         case .insertGraphCard: self = .insertGraphCard(try InsertGraphCardAction(from: decoder))
+        case .draw: self = .draw(try DrawAction(from: decoder))
+        case .addPage: self = .addPage(try AddPageAction(from: decoder))
         case .openSidebar: self = .openSidebar(try OpenSidebarAction(from: decoder))
         case .say: self = .say(try SayAction(from: decoder))
         }
@@ -304,6 +339,8 @@ extension InkyAction: Codable {
         case .fillText(let a): try a.encode(to: encoder)
         case .insertMoleculeCard(let a): try a.encode(to: encoder)
         case .insertGraphCard(let a): try a.encode(to: encoder)
+        case .draw(let a): try a.encode(to: encoder)
+        case .addPage(let a): try a.encode(to: encoder)
         case .openSidebar(let a): try a.encode(to: encoder)
         case .say(let a): try a.encode(to: encoder)
         }

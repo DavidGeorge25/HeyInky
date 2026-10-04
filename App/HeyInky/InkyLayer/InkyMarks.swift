@@ -10,21 +10,24 @@ struct HighlightMark: View {
     let action: HighlightAction
     let scale: CGFloat
     var progress: CGFloat = 1
+    /// Where the note tag goes, relative to the highlight's top-left, in view points
+    /// (from `InkyLayout.noteCandidates`). nil = above the right end.
+    var noteOffset: CGPoint?
 
     var body: some View {
         let color = Theme.highlightColor(action.color)
         MarkerSwipe(scale: scale)
             .fill(color.opacity(0.38))
-            .overlay(alignment: .topTrailing) {
+            .overlay(alignment: .topLeading) {
                 if let note = action.note, !note.isEmpty {
                     Text(note)
-                        .font(.system(size: 11 * scale, weight: .semibold, design: .rounded))
+                        .font(Font(InkyLayout.noteFont(scale: scale)))
                         .foregroundStyle(.black.opacity(0.75))
-                        .padding(.horizontal, 6 * scale)
-                        .padding(.vertical, 2 * scale)
+                        .padding(.horizontal, InkyLayout.notePadding.width * scale)
+                        .padding(.vertical, InkyLayout.notePadding.height * scale)
                         .background(Capsule().fill(color))
                         .fixedSize()
-                        .offset(y: -16 * scale)
+                        .offset(x: noteOffset?.x ?? 0, y: noteOffset?.y ?? -16 * scale)
                         .opacity(progress >= 1 ? 1 : 0)
                 }
             }
@@ -346,5 +349,61 @@ extension View {
             scaleEffect(0.86 + 0.14 * (1 - (1 - p) * (1 - p)), anchor: .bottom)
                 .opacity(Double(min(1, p * 2)))
         }
+    }
+}
+
+/// Inky's own drawing: real PencilKit ink (rendered from `DrawInk` strokes) plus handwriting.
+/// While Inky draws it, ink appears up to the nib (`progress`).
+struct DrawMark: View {
+    let action: DrawAction
+    let seed: Int
+    let pageSize: CGSize
+    let scale: CGFloat
+    var progress: CGFloat = 1
+    @Environment(\.displayScale) private var displayScale
+
+    var body: some View {
+        let layout = DrawInk.layout(action, pageSize: pageSize, seed: seed)
+        let textProgress = DrawInk.textProgress(layout, progress: progress)
+        let color = Color(DrawInk.uiColor(action.color))
+        ZStack(alignment: .topLeading) {
+            if let image = Self.image(layout, action: action, progress: progress, scale: scale * displayScale, seed: seed) {
+                Image(uiImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: layout.bounds.width * scale, height: layout.bounds.height * scale)
+            }
+            ForEach(Array(layout.segments.enumerated()), id: \.offset) { index, segment in
+                if let text = segment.text, let shown = textProgress[index], shown > 0 {
+                    Text(text.string)
+                        .font(Font(DrawInk.handwritingFont(size: text.fontSize * scale)))
+                        .foregroundStyle(color)
+                        .fixedSize()
+                        .revealed(shown)
+                        .offset(x: (text.origin.x - layout.bounds.minX) * scale, y: (text.origin.y - layout.bounds.minY) * scale)
+                }
+            }
+        }
+        .frame(width: layout.bounds.width * scale, height: layout.bounds.height * scale, alignment: .topLeading)
+    }
+
+    private static let cache = NSCache<NSString, UIImage>()
+
+    /// The ink as an image of the layout's bounds. Finished drawings are cached per zoom step.
+    static func image(_ layout: DrawInk.Layout, action: DrawAction, progress: CGFloat, scale: CGFloat, seed: Int) -> UIImage? {
+        // Bitmaps stay bounded when zoomed far in; quantized so zooming doesn't thrash the cache.
+        let maxSide = max(layout.bounds.width, layout.bounds.height, 1)
+        let renderScale = min((scale * 4).rounded(.up) / 4, 4096 / maxSide)
+        let key = "\(action.hashValue)-\(seed)-\(renderScale)" as NSString
+        if progress >= 1, let cached = cache.object(forKey: key) { return cached }
+        let drawing = DrawInk.drawing(layout, action: action, progress: progress)
+        guard !drawing.strokes.isEmpty else { return nil }
+        var image: UIImage?
+        // Paper is white: always render light ink (PencilKit inverts colors in dark mode).
+        UITraitCollection(userInterfaceStyle: .light).performAsCurrent {
+            image = drawing.image(from: layout.bounds, scale: renderScale)
+        }
+        if progress >= 1, let image { cache.setObject(image, forKey: key) }
+        return image
     }
 }

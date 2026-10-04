@@ -22,13 +22,13 @@ struct InkySessionTests {
         await session.run(Fixtures.sampleRequest(), editor: editor)
         #expect(session.phase == .idle)
         #expect(!editor.isInkyMode)
-        #expect(session.appliedActionCount == 9)
-        #expect(editor.annotations.count == 7)
+        #expect(session.appliedActionCount == 11)
+        #expect(editor.annotations.count == 8, "7 marks + the drawing; addPage is not a mark")
         #expect(session.toast?.text == "Highlighted the title.")
         #expect(session.sidebar?.speakable == true)
 
         // Persisted.
-        #expect(editor.store.annotations(for: editor.page.id, in: editor.notebookID).count == 7)
+        #expect(editor.store.annotations(for: editor.page.id, in: editor.notebookID).count == 8)
     }
 
     @Test func errorsKeepTheQuestionAndShowAToast() async throws {

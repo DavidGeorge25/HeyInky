@@ -57,7 +57,9 @@ final class GraphCardUITests: XCTestCase {
         XCTAssertTrue(slider.waitForExistence(timeout: 5))
         slider.adjust(toNormalizedSliderPosition: 0.9)
         let valueLabel = element("inky.graph.param.a.edit")
-        XCTAssertTrue(valueLabel.label.contains("2.7") || valueLabel.label.contains("2.6") || valueLabel.label.contains("2.8"), valueLabel.label)
+        // 90% of the track (0…3): the exact value depends on the track's length in points.
+        let value = Double(valueLabel.label.components(separatedBy: "=").last?.trimmingCharacters(in: .whitespaces) ?? "") ?? 0
+        XCTAssertTrue((2.5...3.0).contains(value), valueLabel.label)
 
         // Tap the slider's name to edit its range.
         valueLabel.tap()

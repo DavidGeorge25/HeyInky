@@ -169,6 +169,53 @@ def graph_problem(spec):
     return None
 
 
+MAX_DRAW_SHAPES = 80
+MAX_DRAW_POINTS = 800
+
+
+def draw_problem(a):
+    """Mirror of InkyResponseValidator.drawProblem."""
+    shapes = a["shapes"]
+    if not shapes:
+        return "add at least one shape"
+    if len(shapes) > MAX_DRAW_SHAPES:
+        return f"too many shapes (max {MAX_DRAW_SHAPES}); draw the essentials"
+    if sum(len(s["points"]) for s in shapes) > MAX_DRAW_POINTS:
+        return f"too many points (max {MAX_DRAW_POINTS})"
+    for i, shape in enumerate(shapes):
+        n = len(shape["points"])
+        kind = shape["kind"]
+        name = f"shape {i + 1} ({kind})"
+        if any(not (math.isfinite(p["x"]) and math.isfinite(p["y"])) for p in shape["points"]):
+            return f"{name} has non-numeric points"
+        if kind in ("line", "dashedLine", "arrow", "doubleArrow", "polyline"):
+            if n < 2:
+                return f"{name} needs at least 2 points"
+        elif kind == "curvedArrow":
+            if n < 2 or n > 3:
+                return f"{name} needs [start, end] or [start, through, end]"
+        elif kind == "polygon":
+            if n < 3:
+                return f"{name} needs at least 3 points"
+        elif kind == "ellipse":
+            if n != 2:
+                return f"{name} needs exactly 2 points: its box's top-left and bottom-right"
+        elif kind == "text":
+            if n < 1:
+                return f"{name} needs its top-left point"
+            text = (shape.get("text") or "").strip()
+            if not text:
+                return f"{name} has no text"
+            if len(text) > 400:
+                return f"{name} text is too long (max ~400 characters; split it or add a page)"
+        if kind != "text" and n >= 2:
+            xs = [p["x"] for p in shape["points"]]
+            ys = [p["y"] for p in shape["points"]]
+            if (max(xs) - min(xs)) + (max(ys) - min(ys)) < 0.002:
+                return f"{name} has zero length; its points are all the same"
+    return None
+
+
 def check(action):
     """Returns (fixed_action, None) or (None, problem)."""
     a = dict(action)
@@ -216,6 +263,13 @@ def check(action):
         if p:
             return None, p
         a["near"] = r
+        return a, None
+    if t == "draw":
+        p = draw_problem(a)
+        if p:
+            return None, f"draw: {p}"
+        return a, None
+    if t == "addPage":
         return a, None
     if t == "openSidebar":
         if not a["markdown"].strip():

@@ -16,33 +16,10 @@ enum InkyAnnotationGeometry {
         return UIFont(descriptor: rounded, size: labelFontSize * scale)
     }
 
-    /// Text box for a label: beside the anchor, flipped left near the right edge and
-    /// below near the top.
-    /// `placement` 0 is the default spot; 1–3 flip the box to the other side and/or below the
-    /// anchor (chosen when the default would collide with another label, see `PageEditorModel`).
-    static let labelPlacements = 0..<4
-
+    /// Text box for a label at one of its `InkyLayout.labelCandidates` (0 = default spot).
     static func labelTextRect(_ label: LabelAction, pageSize: CGSize, placement: Int = 0) -> NormRect {
-        let maxWidth = min(240, pageSize.width * 0.4)
-        let textSize = (label.text as NSString).boundingRect(
-            with: CGSize(width: maxWidth, height: .greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin], attributes: [.font: labelFont()], context: nil
-        ).size
-        // A little slack: SwiftUI's text can run a hair wider than NSString measures it.
-        let w = (textSize.width.rounded(.up) + 4 + 2 * labelPadding.width) / pageSize.width
-        let h = (textSize.height.rounded(.up) + 2 * labelPadding.height) / pageSize.height
-        let gapX = (label.arrow ? 36 : 8) / pageSize.width
-        let gapY = (label.arrow ? 28 : 0) / pageSize.height
-        let right = label.anchor.x + gapX, left = label.anchor.x - gapX - w
-        var onRight = right + w <= 0.98
-        let above = label.anchor.y - gapY - h, below = label.anchor.y + gapY
-        var onTop = above >= 0.02
-        if placement & 1 != 0 { onRight.toggle() }
-        if placement & 2 != 0 { onTop.toggle() }
-        let x = onRight ? right : left
-        var y = onTop ? above : below
-        if !label.arrow { y = label.anchor.y - h / 2 + (placement & 2 != 0 ? h * 1.15 : 0) }
-        return NormRect(x: min(max(x, 0.01), 0.99 - w), y: min(max(y, 0.01), 0.99 - h), width: w, height: h)
+        let candidates = InkyLayout.labelCandidates(label, pageSize: pageSize)
+        return candidates[safe: placement] ?? candidates[0]
     }
 
     static func cardRect(near: NormRect, pageSize: CGSize) -> NormRect {
@@ -72,7 +49,8 @@ enum InkyAnnotationGeometry {
         case .fillText(let a): a.region
         case .insertMoleculeCard(let a): cardRect(near: a.near, pageSize: pageSize)
         case .insertGraphCard(let a): cardRect(near: a.near, pageSize: pageSize)
-        case .openSidebar, .say: .zero
+        case .draw(let a): NormRect(DrawInk.layout(a, pageSize: pageSize).bounds, in: pageSize)
+        case .addPage, .openSidebar, .say: .zero
         }
     }
 
