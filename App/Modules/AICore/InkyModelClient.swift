@@ -39,6 +39,8 @@ struct InkyRequest: Sendable {
     var structures: [PageStructure] = []
     /// Closed shapes drawn on the page (`ShapeFinder`), ids P1, P2, ….
     var shapes: [PageShape] = []
+    /// The student wants Inky to talk them through it (voice on, or they asked by voice).
+    var narrate = false
     /// Set by `ValidatingInkyModelClient` on its one retry: what was wrong last time.
     var correction: InkyCorrection?
 

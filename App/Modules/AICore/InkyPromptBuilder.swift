@@ -39,6 +39,9 @@ enum InkyPromptBuilder {
         }
         let orientation = request.pageAspectRatio < 1 ? "portrait" : "landscape"
         lines.append(String(format: "Page aspect ratio (width/height): %.3f (%@)", request.pageAspectRatio, orientation))
+        if request.narrate {
+            lines.append("Voice: ON — the student wants to be talked through it. Put a `narrate` before each step you draw (one or two short spoken sentences, math in words).")
+        }
         if let lasso = request.lassoRegion {
             lines.append("The student lassoed this region: \(format(lasso)). Their request is about what is inside it.")
         }
@@ -241,6 +244,8 @@ enum InkyPromptBuilder {
             return "practice card" + (a.title.map { " \"\(clip($0, 60))\"" } ?? "") + " with \(a.problems.count) problem(s): " + clip(a.problems.map(\.prompt).joined(separator: " | "), long ? 400 : 120)
         case .insertDiagram(let a):
             return "diagram" + (a.title.map { " \"\(clip($0, 60))\"" } ?? "") + " at \(format(a.near))"
+        case .narrate(let a):
+            return "said aloud \"\(clip(a.text, long ? 300 : 80))\""
         case .addPage(let a):
             return "added a new \(a.paper.rawValue) page"
         case .openSidebar(let a):

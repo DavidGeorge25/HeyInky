@@ -101,7 +101,7 @@ extension InkyAction {
         case .insertDiagram(var a): a.near = rect(a.near); return .insertDiagram(a)
         case .insertMath(var a): a.near = rect(a.near); return .insertMath(a)
         case .insertPractice(var a): a.near = rect(a.near); return .insertPractice(a)
-        case .annotateStructure, .annotateShape, .addPage, .openSidebar, .say: return self
+        case .annotateStructure, .annotateShape, .narrate, .addPage, .openSidebar, .say: return self
         }
     }
 }

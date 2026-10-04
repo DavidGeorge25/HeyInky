@@ -6,6 +6,10 @@
       "text": "Here are the hidden hydrogens — 7 in total."
     },
     {
+      "type": "narrate",
+      "text": "First, let's find the hidden hydrogens."
+    },
+    {
       "type": "annotateStructure",
       "structure": "S1",
       "relabel": [],

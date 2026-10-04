@@ -62,6 +62,9 @@
             "$ref": "#/$defs/insertPractice"
           },
           {
+            "$ref": "#/$defs/narrate"
+          },
+          {
             "$ref": "#/$defs/addPage"
           },
           {
@@ -1464,6 +1467,26 @@
               }
             }
           }
+        }
+      }
+    },
+    "narrate": {
+      "type": "object",
+      "description": "Narrated teaching: Inky says this out loud while it draws the NEXT action (only when the request says voice is on). One or two short spoken sentences per step, math said in words (\"x squared minus five x\").",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "text"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "narrate"
+          ]
+        },
+        "text": {
+          "type": "string"
         }
       }
     },

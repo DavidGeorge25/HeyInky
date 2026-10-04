@@ -51,6 +51,8 @@ final class InkyChoreographer {
     /// Where Inky goes home after a performance (the floating button), in page points; nil =
     /// fade out where the last annotation was. Read when Inky leaves, so it follows scroll/zoom.
     @ObservationIgnored var homeLocator: (@MainActor () -> CGPoint?)?
+    /// Speaks a narration line and returns when it has been said (set by the session).
+    @ObservationIgnored var narrator: (@MainActor (String) async -> Void)?
 
     @ObservationIgnored private var queue: [InkyStroke] = []
     @ObservationIgnored private var afterPerformance: [@MainActor () -> Void] = []
@@ -77,8 +79,13 @@ final class InkyChoreographer {
     // MARK: Queue
 
     /// Queues an annotation that was just added to the page.
-    func perform(_ annotation: InkyAnnotation, pageSize: CGSize) {
-        guard hasStage, let stroke = InkyStroke(annotation: annotation, pageSize: pageSize) else { return }
+    func perform(_ annotation: InkyAnnotation, pageSize: CGSize, narration: String? = nil) {
+        guard hasStage, var stroke = InkyStroke(annotation: annotation, pageSize: pageSize) else {
+            // Nothing to draw on stage: still say it.
+            if let narration, let narrator { Task { await narrator(narration) } }
+            return
+        }
+        stroke.narration = narration
         pendingIDs.insert(stroke.annotationID)
         queue.append(stroke)
         if driver == nil {
@@ -156,7 +163,10 @@ final class InkyChoreographer {
             guard arrived else { return }
             InkyFeedback.play(.land)
             pendingIDs.remove(next.annotationID)
-            guard await play(.drawing, from: target, to: next.end, duration: next.duration) else { return }
+            // Talk while drawing; move on once both are done.
+            let speech: Task<Void, Never>? = next.narration.flatMap { text in narrator.map { say in Task { @MainActor in await say(text) } } }
+            guard await play(.drawing, from: target, to: next.end, duration: next.duration) else { speech?.cancel(); return }
+            await speech?.value
             stroke = nil
         }
     }
@@ -168,6 +178,7 @@ final class InkyChoreographer {
                 pendingIDs.remove(next.annotationID)
             }
             InkyFeedback.play(.land)
+            if let text = next.narration, let narrator { await narrator(text) }
             try? await Task.sleep(for: .seconds(0.15 * motionScale))
             if Task.isCancelled { return }
         }

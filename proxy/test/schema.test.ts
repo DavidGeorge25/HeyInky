@@ -42,7 +42,7 @@ test("every action type is listed in the root anyOf", () => {
     .filter(([, def]) => (def.properties as Node | undefined)?.type !== undefined)
     .map(([name]) => name);
   assert.deepEqual([...refs].sort(), [...actionDefs].sort());
-  assert.equal(refs.length, 17);
+  assert.equal(refs.length, 18);
 });
 
 test("`type` is the first property of every action (strict outputs follow key order)", () => {

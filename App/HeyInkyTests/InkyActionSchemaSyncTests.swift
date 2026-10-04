@@ -46,6 +46,7 @@ struct InkyActionSchemaSyncTests {
         .insertDiagram(InsertDiagramAction(near: .unit, title: "t", svg: "<svg/>", callouts: [.init(text: "t", x: 1, y: 2)], caption: "c")),
         .insertMath(InsertMathAction(near: .unit, title: "t", lines: [.init(latex: "x=1", note: "n")], align: true, boxLast: true, caption: "c")),
         .insertPractice(InsertPracticeAction(near: .unit, title: "t", problems: [.init(prompt: "p", choices: ["a", "b"], correctChoice: 0, hints: ["h"], answer: "a", solution: ["s"])])),
+        .narrate(NarrateAction(text: "n")),
         .addPage(AddPageAction(paper: .grid)),
         .openSidebar(OpenSidebarAction(markdown: "m", speakable: true)),
         .say(SayAction(text: "s")),

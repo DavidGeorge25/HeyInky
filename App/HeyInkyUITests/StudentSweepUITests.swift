@@ -33,9 +33,13 @@ final class StudentSweepUITests: XCTestCase {
         run(scenario: "stoich", notebook: "Chem – Balancing equations", ask: "balance these neatly", shot: "chem-balance")
     }
 
+    func testNarratedWalkthrough() throws {
+        run(scenario: "physics", notebook: "Physics – Forces", ask: "walk me through finding the acceleration", shot: "physics-narrated", voice: true)
+    }
+
     // MARK: Helpers
 
-    private func run(scenario: String, notebook: String, ask question: String, shot name: String) {
+    private func run(scenario: String, notebook: String, ask question: String, shot name: String, voice: Bool = false) {
         app = XCUIApplication()
         var arguments = ["-InkyUITestReset", "YES", "-InkyUITestScenario", scenario]
         if !isLive { arguments += ["-InkyUseMockClient", "YES"] }
@@ -47,6 +51,11 @@ final class StudentSweepUITests: XCTestCase {
         book.tap()
         XCTAssertTrue(app.buttons["inky.summon"].waitForExistence(timeout: 10))
         app.buttons["inky.summon"].tap()
+        if voice {
+            let toggle = app.buttons["inky.ask.voice"]
+            XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+            if !toggle.label.hasSuffix("on") { toggle.tap() }
+        }
         let field = app.descendants(matching: .any)["inky.ask.field"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()

@@ -36,6 +36,7 @@ struct InkyAskCard: View {
                         .onSubmit { session.submit(editor: editor) }
                         .accessibilityIdentifier("inky.ask.field")
 
+                    voiceButton
                     micButton
                     sendButton
                 }
@@ -66,6 +67,20 @@ struct InkyAskCard: View {
         .onAppear { focused = true }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("inky.ask")
+    }
+
+    /// Inky talks the student through its answer (narrated teaching).
+    private var voiceButton: some View {
+        Button { session.narrationOn.toggle() } label: {
+            Image(systemName: session.narrationOn ? "speaker.wave.2.fill" : "speaker.slash")
+                .font(.system(size: 14, weight: .semibold))
+                .contentTransition(.symbolEffect(.replace))
+                .foregroundStyle(session.narrationOn ? Theme.accent : Color.primary.opacity(0.4))
+                .frame(width: 32, height: 36)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(session.narrationOn ? "Inky talks you through it: on" : "Inky talks you through it: off")
+        .accessibilityIdentifier("inky.ask.voice")
     }
 
     private var micButton: some View {

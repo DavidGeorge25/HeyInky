@@ -508,6 +508,11 @@ struct InsertPracticeAction: Codable, Hashable, Sendable {
     var problems: [Problem]
 }
 
+/// Spoken while Inky draws the next action (narrated teaching).
+struct NarrateAction: Codable, Hashable, Sendable {
+    var text: String
+}
+
 /// A fresh page after the current one; the rest of the answer goes there.
 struct AddPageAction: Codable, Hashable, Sendable {
     enum Paper: String, Codable, CaseIterable, Sendable { case blank, lined, grid, dotted }
@@ -526,7 +531,7 @@ struct SayAction: Codable, Hashable, Sendable {
 /// The discriminator values, in schema order.
 enum InkyActionType: String, Codable, CaseIterable, Sendable {
     case highlight, circle, star, label, fillText, insertMoleculeCard, insertGraphCard, draw
-    case annotateStructure, annotateShape, insertChemScheme, insertDiagram, insertMath, insertPractice, addPage, openSidebar, say
+    case annotateStructure, annotateShape, insertChemScheme, insertDiagram, insertMath, insertPractice, narrate, addPage, openSidebar, say
 }
 
 /// One thing Inky does. Encoded flat with a `type` discriminator, exactly as in the schema.
@@ -545,6 +550,7 @@ enum InkyAction: Hashable, Sendable {
     case insertDiagram(InsertDiagramAction)
     case insertMath(InsertMathAction)
     case insertPractice(InsertPracticeAction)
+    case narrate(NarrateAction)
     case addPage(AddPageAction)
     case openSidebar(OpenSidebarAction)
     case say(SayAction)
@@ -565,6 +571,7 @@ enum InkyAction: Hashable, Sendable {
         case .insertDiagram: .insertDiagram
         case .insertMath: .insertMath
         case .insertPractice: .insertPractice
+        case .narrate: .narrate
         case .addPage: .addPage
         case .openSidebar: .openSidebar
         case .say: .say
@@ -574,7 +581,7 @@ enum InkyAction: Hashable, Sendable {
     /// Actions that live on the page's Inky layer (everything except say/openSidebar/addPage).
     var isPageAnnotation: Bool {
         switch type {
-        case .say, .openSidebar, .addPage: false
+        case .say, .openSidebar, .addPage, .narrate: false
         default: true
         }
     }
@@ -606,6 +613,7 @@ extension InkyAction: Codable {
         case .insertDiagram: self = .insertDiagram(try InsertDiagramAction(from: decoder))
         case .insertMath: self = .insertMath(try InsertMathAction(from: decoder))
         case .insertPractice: self = .insertPractice(try InsertPracticeAction(from: decoder))
+        case .narrate: self = .narrate(try NarrateAction(from: decoder))
         case .addPage: self = .addPage(try AddPageAction(from: decoder))
         case .openSidebar: self = .openSidebar(try OpenSidebarAction(from: decoder))
         case .say: self = .say(try SayAction(from: decoder))
@@ -630,6 +638,7 @@ extension InkyAction: Codable {
         case .insertDiagram(let a): try a.encode(to: encoder)
         case .insertMath(let a): try a.encode(to: encoder)
         case .insertPractice(let a): try a.encode(to: encoder)
+        case .narrate(let a): try a.encode(to: encoder)
         case .addPage(let a): try a.encode(to: encoder)
         case .openSidebar(let a): try a.encode(to: encoder)
         case .say(let a): try a.encode(to: encoder)

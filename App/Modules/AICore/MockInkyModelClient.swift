@@ -88,7 +88,8 @@ struct MockInkyModelClient: InkyModelClient {
             ]
         }
         if q.contains("quadratic") || q.contains("neatly") || q.contains("typeset") {
-            return [
+            let spoken: [InkyAction] = request.narrate ? [.narrate(NarrateAction(text: "Let's factor it: we need two numbers that multiply to six and add to minus five."))] : []
+            return spoken + [
                 .say(SayAction(text: "Here it is, step by step.")),
                 .insertMath(InsertMathAction(
                     near: NormRect(x: 0.1, y: 0.62, width: 0.6, height: 0.25), title: "Solving x² − 5x + 6 = 0",

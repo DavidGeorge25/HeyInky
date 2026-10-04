@@ -43,6 +43,17 @@ final class InkySession {
     /// Set by the notebook: adds a page after the current one, shows it, returns its editor.
     @ObservationIgnored var onAddPage: ((AddPageAction.Paper) -> PageEditorModel?)?
 
+    /// Inky talks the student through its answers (speaker toggle; remembered).
+    var narrationOn: Bool = UserDefaults.standard.bool(forKey: "InkyNarrate") {
+        didSet { UserDefaults.standard.set(narrationOn, forKey: "InkyNarrate") }
+    }
+    /// The current question was asked out loud, so Inky answers out loud too.
+    @ObservationIgnored private var askedByVoice = false
+    /// A `narrate` waiting for the next mark Inky draws.
+    @ObservationIgnored private var pendingNarration: String?
+    /// Say the reply out loud too (narrated turn).
+    @ObservationIgnored private var speakReplies = false
+
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var toastTask: Task<Void, Never>?
 
@@ -81,6 +92,9 @@ final class InkySession {
         task?.cancel()
         task = nil
         speechInput.stop()
+        speechOutput.stop()
+        pendingNarration = nil
+        askedByVoice = false
         phase = .idle
         editor?.isInkyMode = false
         editor?.clearLasso()
@@ -98,6 +112,7 @@ final class InkySession {
         if speechInput.isListening {
             speechInput.stop()
         } else {
+            askedByVoice = true
             speechInput.start { [weak self] text in
                 self?.question = text
             }
@@ -143,8 +158,18 @@ final class InkySession {
                 // The page's biggest picture gets a closer look (labeling parts of a diagram).
                 focus: editor.page.images.max { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }?.frame
             )
-            await self.run(request, editor: editor)
+            var narrated = request
+            narrated.narrate = self.narrationOn || self.askedByVoice
+            self.askedByVoice = false
+            await self.run(narrated, editor: editor)
         }
+    }
+
+    /// Lets Inky draw a mark, saying the pending narration while it does.
+    func perform(_ annotation: InkyAnnotation, on editor: PageEditorModel) {
+        let line = pendingNarration
+        pendingNarration = nil
+        editor.choreographer.perform(annotation, pageSize: editor.page.size, narration: line)
     }
 
     /// Streams the response and applies actions as they arrive. An `addPage` moves the rest of
@@ -162,8 +187,16 @@ final class InkySession {
             editor.registerAnnotationUndo(restoring: snapshot, actionName: "Inky")
             if target !== editor { target.registerAnnotationUndo(restoring: [], actionName: "Inky") }
         }
+        editor.choreographer.narrator = { [weak self] text in await self?.speechOutput.speakAndWait(text) }
+        speakReplies = request.narrate
         func handle(_ action: InkyAction) async {
             switch action {
+            case .narrate(let line):
+                if request.narrate {
+                    // Two in a row: say the first now (after what's being drawn).
+                    if let earlier = pendingNarration { target.choreographer.afterPerformance { [weak self] in Task { await self?.speechOutput.speakAndWait(earlier) } } }
+                    pendingNarration = line.text
+                }
             case .addPage(let page):
                 if let next = onAddPage?(page.paper) {
                     target = next
@@ -181,7 +214,7 @@ final class InkySession {
                         let count = editor.annotations.count
                         editor.addAnnotation(compiled, question: request.question, exact: true)
                         if editor.annotations.count > count, let added = editor.annotations.last {
-                            editor.choreographer.perform(added, pageSize: editor.page.size)
+                            perform(added, on: editor)
                         }
                     }
                 } else {
@@ -212,6 +245,10 @@ final class InkySession {
                 }
             }
             appliedActionCount = applied
+            if let leftover = pendingNarration {
+                pendingNarration = nil
+                target.choreographer.afterPerformance { [weak self] in Task { await self?.speechOutput.speakAndWait(leftover) } }
+            }
             conversation.record(InkyTurn(
                 question: request.question, actions: actions,
                 createdAnnotationIDs: editor.annotations.map(\.id).filter { !before.contains($0) },
@@ -237,7 +274,10 @@ final class InkySession {
         switch action {
         case .say(let say):
             // Inky replies once it has finished drawing on the page.
-            editor.choreographer.afterPerformance { [weak self] in self?.showToast(say.text, isError: false) }
+            editor.choreographer.afterPerformance { [weak self] in
+                self?.showToast(say.text, isError: false)
+                if self?.speakReplies == true { Task { await self?.speechOutput.speakAndWait(say.text) } }
+            }
         case .openSidebar(let sidebar):
             self.sidebar = SidebarContent(markdown: sidebar.markdown, speakable: sidebar.speakable, question: question ?? "")
         case .addPage:
@@ -248,7 +288,7 @@ final class InkySession {
             editor.addAnnotation(AnchorSnapper.snapped(action, editor: editor), question: question)
             // (The editor may adjust the action, e.g. move a drawing's writing off other text.)
             if editor.annotations.count > count, let added = editor.annotations.last {
-                editor.choreographer.perform(added, pageSize: editor.page.size)
+                perform(added, on: editor)
             }
         }
     }
@@ -288,7 +328,7 @@ final class InkySession {
             let count = editor.annotations.count
             editor.addAnnotation(compiled, question: request.question, exact: true)
             if editor.annotations.count > count, let added = editor.annotations.last {
-                editor.choreographer.perform(added, pageSize: editor.page.size)
+                perform(added, on: editor)
             }
         }
         if output.actions.isEmpty, let problem = output.problems.first {

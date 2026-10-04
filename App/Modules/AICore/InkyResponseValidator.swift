@@ -146,6 +146,10 @@ enum InkyResponseValidator {
             case .success(let r): a.near = r
             }
             return .valid(.insertPractice(a))
+        case .narrate(let a):
+            if a.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .invalid("narrate text is empty") }
+            if a.text.count > 400 { return .invalid("narrate is too long; one or two spoken sentences per step") }
+            return .valid(action)
         case .addPage:
             return .valid(action)
         case .openSidebar(let a):
