@@ -198,3 +198,14 @@ Newest last. Each entry: decision — why.
 
 48. **A zoomed, finer-grid view of the page's main image** is sent with every request (like the lasso
     crop), so labels pointing at parts of a diagram or photo land on the right part.
+
+49. **Pictures are labeled by part id, not by coordinates.** Live, the model's own anchor guesses on an image
+   landed in empty space. `ImagePartFinder` segments placed images and slide figures by color between dark
+   lines (regions: interior point = farthest from edges, outline on the drawn line, enclosing part; dark strokes
+   that aren't outlines or small in-region detail are grouped into "marks"). The model matches names to R1…
+   by color/shape/nesting/position; `PartLabeler` places textbook columns (rows when the sides have no room),
+   uncrosses leaders, and ends arrows on the part (or its outline for `edge`). Labels are ordinary `label`
+   annotations with an app-set `textAt`, so they stay editable. `x, y` remains as a fallback for unlisted things.
+50. **Diagram engine owns typography details the model gets wrong**: it drops model-defined markers for kit
+   arrowheads sized/colored per line, fits text from its anchor (and grows a rect for a line overflowing its
+   bottom when nothing is below), and subscripts chemical formulas (element-symbol check so "Q5"/"A1" stay).

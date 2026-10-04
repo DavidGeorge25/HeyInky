@@ -75,6 +75,8 @@ if you need a change in the shell, keep it minimal and mention it in your PR/com
 - New figures: `insertChemScheme` (`ChemSchemeView`/`ChemSchemeLayout`, RDKit `scheme`) and `insertDiagram`
   (`HeyInky/Figures`: `DiagramEngine` sanitizes/styles/checks SVG → vector PDF). `FigurePreparer` measures and
   places them in free space; `InkyDeepChecker` rejects bad ones before they reach the page (one retry).
+- Picture parts: `ImagePartFinder` (in `PageStructureFinder.findEverything`) → `PagePart` R1…; the model uses
+  `labelParts` and `PartLabeler` lays the labels out (`LabelAction.textAt`).
 - Never ask the model for geometry the app can compute. New annotation kinds that attach to page content
   should follow the same pattern: perceive it, give it ids, compile the marks in code.
 

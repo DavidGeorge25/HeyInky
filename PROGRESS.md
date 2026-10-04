@@ -2,7 +2,28 @@
 
 _Last updated: 2026-10-04 (integration, QA, Inky-as-tutor, drawing, notebook tools)._
 
-## Latest: precise marks and typeset figures (perceive → reason → place) ✅
+## Latest: student sweep — insights, typeset math, practice, physics, narration, picture labeling ✅
+Walked through student use cases live (gpt-5.4-mini) and fixed what fell short:
+- **Insights** on a recognized structure (`annotateStructure.insights`): functional groups, stereocenters,
+  hybridization, aromatic rings, formula/MW/name — computed by RDKit, placed by the app.
+- **`insertMath`**: MathJax (offline, mhchem) typeset, aligned derivations with gray step notes, boxed answer.
+- **`insertPractice`**: practice/quiz cards (multiple choice, hints, answer, worked solution, "Check my work").
+- **Shapes** (`ShapeFinder`, P1…) + **`annotateShape`**: free-body forces (normal truly perpendicular to the
+  incline), angle arcs, side labels, ticks. Live: block on a 30° ramp → correct FBD and a = 4.9 m/s².
+- **Narration** (`narrate`): Inky talks through each step while drawing it (speaker toggle / voice questions).
+- **Checking work**: algebra slip found and marked ("so x = 11"); stars only on correct answers.
+- **Picture labeling** (`ImagePartFinder` → R1… parts, `labelParts` → `PartLabeler`): live, the model's
+  free-placed `label` arrows on a cell image missed (membrane arrow below the cell). Now the app segments the
+  picture (regions with interior points, outlines, nesting; line-mark clusters like ER/Golgi), the model names
+  parts by id, and the app lays labels out in columns/rows with arrows ending exactly on each part.
+- **Diagram polish**: the model's own `<marker>`s (huge, black) are replaced by kit arrowheads in the line's
+  color; text fits its box from its anchor and boxes grow for overflowing lines; formulas auto-subscripted.
+- Lab data → graph card with best-fit + typeset slope ✅; lecture → study-notes page ✅.
+- **Not yet verified live**: `labelParts` with the real model and the triangle (law of cosines) scenario — the
+  OpenAI key hit its free-tier limits (gpt-5.4-mini 50 requests/day; gpt-5.4 10k tokens/min < one request).
+  Run `StudentSweepUITests` with `TEST_RUNNER_INKY_LIVE=1` once the quota resets.
+
+## Earlier: precise marks and typeset figures (perceive → reason → place) ✅
 Field report: "add the hidden hydrogens" on a hand-drawn image put H bonds floating next to the atoms, and
 "draw the resonance structures" wrote SMILES-like text in handwriting. Root cause: the model was asked to do
 geometry it can't do, and images gave it no geometry at all.
