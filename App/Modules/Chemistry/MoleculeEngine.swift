@@ -62,10 +62,12 @@ final class MoleculeEngine: NSObject, WKNavigationDelegate {
     }
 
     /// Depicts each SMILES of a scheme, aligned to the first where the skeletons match.
-    func scheme(steps: [String]) async throws -> SchemeAnalysis {
-        let key = (["\u{2}scheme"] + steps).joined(separator: "\u{0}")
+    /// `keepRadicals`: the scheme is about single electrons (fishhook arrows); otherwise atoms the
+    /// model bracketed only to number them keep their hydrogens.
+    func scheme(steps: [String], keepRadicals: Bool = false) async throws -> SchemeAnalysis {
+        let key = (["\u{2}scheme\(keepRadicals)"] + steps).joined(separator: "\u{0}")
         if let hit = schemeCache[key] { return hit }
-        let params: [String: Any] = ["steps": steps, "bondLength": 30, "highlightGroups": [], "starGroups": []]
+        let params: [String: Any] = ["steps": steps, "bondLength": 30, "highlightGroups": [], "starGroups": [], "keepRadicals": keepRadicals]
         let json = try await call("return await window.inkyChem.scheme(params);", arguments: ["params": params])
         guard let text = json as? String, let data = text.data(using: .utf8) else {
             throw MoleculeEngineError.engine("The chemistry engine returned nothing.")

@@ -1,4 +1,5 @@
 // Node entry point: `npm start` (Node >= 22.18 runs TypeScript directly).
+import fs from "node:fs";
 import http from "node:http";
 import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
@@ -30,16 +31,21 @@ export function createServer(env: ProxyEnv): http.Server {
     }
 
     res.writeHead(response.status, Object.fromEntries(response.headers));
+    // INKY_PROXY_LOG=<file>: append each response stream (local debugging; never in production).
+    const log = process.env.INKY_PROXY_LOG ? fs.createWriteStream(process.env.INKY_PROXY_LOG, { flags: "a" }) : null;
+    log?.write(`\n=== ${new Date().toISOString()} ${req.method} ${req.url} ${response.status}\n`);
     if (response.body) {
       try {
         for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
           res.write(chunk);
+          log?.write(chunk);
         }
       } catch {
         // client went away or upstream aborted
       }
     }
     res.end();
+    log?.end();
     console.log(`${req.method} ${req.url} -> ${response.status} (${Date.now() - started} ms)`);
   });
 }

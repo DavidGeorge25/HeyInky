@@ -42,7 +42,9 @@ final class PrecisionUITests: XCTestCase {
         launch(scenario: "molecule")
         openNotebook("Organic structures")
         ask(isLive ? "draw the resonance structures of the phenoxide ion" : "draw the resonance structures")
-        XCTAssertTrue(element("inky.annotation.insertChemScheme").waitForExistence(timeout: answerTimeout), "scheme inserted")
+        let inserted = element("inky.annotation.insertChemScheme").waitForExistence(timeout: answerTimeout)
+        if !inserted { shot("resonance-missing") }
+        XCTAssertTrue(inserted, "scheme inserted")
         let drawn = element("inky.figure.chemScheme").waitForExistence(timeout: 30)
         shot("resonance-check")
         XCTAssertTrue(drawn, "scheme drawn")

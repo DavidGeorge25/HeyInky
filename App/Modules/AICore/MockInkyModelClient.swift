@@ -89,15 +89,16 @@ struct MockInkyModelClient: InkyModelClient {
         }
         if q.contains("diagram") || q.contains(" cell") {
             let svg = """
-            <svg viewBox="0 0 420 240"><ellipse cx="150" cy="120" rx="130" ry="95" class="fill-green green"/>
-            <circle cx="140" cy="115" r="38" class="fill-accent accent"/><text x="140" y="120" class="small center">Nucleus</text>
-            <path d="M210 70 Q235 60 245 80 Q250 95 230 100 Q205 102 210 70 Z" class="fill-orange orange"/>
-            <line x1="245" y1="80" x2="320" y2="60" class="thin gray" marker-start="url(#dot)"/><text x="326" y="64" class="label">Mitochondrion</text>
-            <line x1="270" y1="150" x2="320" y2="170" class="thin gray" marker-start="url(#dot)"/><text x="326" y="174" class="label">Cell membrane</text></svg>
+            <svg viewBox="0 0 320 220"><ellipse cx="160" cy="110" rx="140" ry="95" class="fill-green green"/>
+            <circle cx="140" cy="110" r="38" class="fill-accent accent"/>
+            <path d="M215 60 Q240 50 250 70 Q255 85 235 90 Q210 92 215 60 Z" class="fill-orange orange"/></svg>
             """
             return [
                 .say(SayAction(text: "Here's a simple animal cell.")),
-                .insertDiagram(InsertDiagramAction(near: NormRect(x: 0.1, y: 0.6, width: 0.6, height: 0.3), title: "Animal cell", svg: svg, caption: nil)),
+                .insertDiagram(InsertDiagramAction(near: NormRect(x: 0.1, y: 0.6, width: 0.6, height: 0.3), title: "Animal cell", svg: svg,
+                                                   callouts: [.init(text: "Nucleus", x: 140, y: 110), .init(text: "Mitochondrion", x: 240, y: 72),
+                                                              .init(text: "Cell membrane", x: 290, y: 140), .init(text: "Cytoplasm", x: 70, y: 150)],
+                                                   caption: nil)),
             ]
         }
         if q.contains("new page") {

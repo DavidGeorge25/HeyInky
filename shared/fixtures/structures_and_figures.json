@@ -1,9 +1,118 @@
 {
   "removeAnnotations": [],
   "actions": [
-    { "type": "say", "text": "Here are the hidden hydrogens — 7 in total." },
-    { "type": "annotateStructure", "structure": "S1", "relabel": [], "hydrogens": ["all"], "lonePairs": ["a3"], "charges": [ { "atom": "a3", "text": "δ−" } ], "highlights": [ { "atoms": [], "group": "amide", "color": "yellow", "note": "amide" } ], "labels": [ { "atom": "a4", "text": "nucleophile" } ], "arrows": [ { "from": "a4", "to": "a4-a5", "kind": "curved" } ], "color": "indigo" },
-    { "type": "insertChemScheme", "near": { "x": 0.08, "y": 0.62, "width": 0.84, "height": 0.22 }, "title": "Phenoxide resonance", "steps": [ { "smiles": "[O-:1][C:2]1=CC=CC=C1", "label": null }, { "smiles": "[O:1]=[C:2]1[CH-:3]C=CC=C1", "label": null } ], "connectors": [ { "kind": "resonance", "above": null, "below": null } ], "arrows": [ { "step": 0, "from": "1", "to": "1-2", "kind": "curved" } ], "lonePairs": [ { "step": 0, "atom": "1" } ], "highlights": [ { "step": 1, "atoms": ["3"], "color": "pink" } ], "caption": null },
-    { "type": "insertDiagram", "near": { "x": 0.1, "y": 0.6, "width": 0.6, "height": 0.3 }, "title": "Animal cell", "svg": "<svg viewBox=\"0 0 300 160\"><circle cx=\"80\" cy=\"80\" r=\"40\" class=\"fill-accent accent\"/><text x=\"80\" y=\"85\" class=\"small center\">Nucleus</text></svg>", "caption": null }
+    {
+      "type": "say",
+      "text": "Here are the hidden hydrogens — 7 in total."
+    },
+    {
+      "type": "annotateStructure",
+      "structure": "S1",
+      "relabel": [],
+      "hydrogens": [
+        "all"
+      ],
+      "lonePairs": [
+        "a3"
+      ],
+      "charges": [
+        {
+          "atom": "a3",
+          "text": "δ−"
+        }
+      ],
+      "highlights": [
+        {
+          "atoms": [],
+          "group": "amide",
+          "color": "yellow",
+          "note": "amide"
+        }
+      ],
+      "labels": [
+        {
+          "atom": "a4",
+          "text": "nucleophile"
+        }
+      ],
+      "arrows": [
+        {
+          "from": "a4",
+          "to": "a4-a5",
+          "kind": "curved"
+        }
+      ],
+      "color": "indigo"
+    },
+    {
+      "type": "insertChemScheme",
+      "near": {
+        "x": 0.08,
+        "y": 0.62,
+        "width": 0.84,
+        "height": 0.22
+      },
+      "title": "Phenoxide resonance",
+      "steps": [
+        {
+          "smiles": "[O-:1][C:2]1=CC=CC=C1",
+          "label": null
+        },
+        {
+          "smiles": "[O:1]=[C:2]1[CH-:3]C=CC=C1",
+          "label": null
+        }
+      ],
+      "connectors": [
+        {
+          "kind": "resonance",
+          "above": null,
+          "below": null
+        }
+      ],
+      "arrows": [
+        {
+          "step": 0,
+          "from": "1",
+          "to": "1-2",
+          "kind": "curved"
+        }
+      ],
+      "lonePairs": [
+        {
+          "step": 0,
+          "atom": "1"
+        }
+      ],
+      "highlights": [
+        {
+          "step": 1,
+          "atoms": [
+            "3"
+          ],
+          "color": "pink"
+        }
+      ],
+      "caption": null
+    },
+    {
+      "type": "insertDiagram",
+      "near": {
+        "x": 0.1,
+        "y": 0.6,
+        "width": 0.6,
+        "height": 0.3
+      },
+      "title": "Animal cell",
+      "svg": "<svg viewBox=\"0 0 300 160\"><circle cx=\"80\" cy=\"80\" r=\"40\" class=\"fill-accent accent\"/><text x=\"80\" y=\"85\" class=\"small center\">Nucleus</text></svg>",
+      "callouts": [
+        {
+          "text": "Nucleus",
+          "x": 80,
+          "y": 80
+        }
+      ],
+      "caption": null
+    }
   ]
 }

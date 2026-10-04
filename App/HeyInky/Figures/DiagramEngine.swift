@@ -42,9 +42,10 @@ final class DiagramEngine: NSObject, WKNavigationDelegate {
 
     // MARK: Checking
 
-    func prepare(svg: String) async throws -> Report {
+    func prepare(svg: String, callouts: [InsertDiagramAction.Callout] = []) async throws -> Report {
         let view = try await checkerView()
-        let result = try await view.callAsyncJavaScript("return window.inkyDiagram.prepare(svg);", arguments: ["svg": svg], in: nil, contentWorld: .page)
+        let list: [[String: Any]] = callouts.map { ["text": $0.text, "x": $0.x, "y": $0.y] }
+        let result = try await view.callAsyncJavaScript("return window.inkyDiagram.prepare(svg, callouts);", arguments: ["svg": svg, "callouts": list], in: nil, contentWorld: .page)
         guard let text = result as? String, let data = text.data(using: .utf8) else { throw EngineError.script("no result") }
         return try JSONDecoder().decode(Report.self, from: data)
     }
@@ -235,7 +236,7 @@ final class DiagramEngine: NSObject, WKNavigationDelegate {
       return x * y;
     }
     window.inkyDiagram = {
-      prepare(text) {
+      prepare(text, callouts) {
         const problems = [];
         let source = String(text || '').trim();
         // Models often omit the namespace; without it nothing is an SVG element.
@@ -261,6 +262,61 @@ final class DiagramEngine: NSObject, WKNavigationDelegate {
         let box;
         try { box = svg.getBBox(); } catch (e) { box = { x: 0, y: 0, width: 0, height: 0 }; }
         if (!(box.width > 4 && box.height > 4)) problems.push('the figure is empty or too small');
+        // Callouts: label columns beside the drawing, ordered like their parts so leaders don't cross.
+        if (Array.isArray(callouts) && callouts.length && box.width > 4) {
+          const g = document.createElementNS(SVGNS, 'g');
+          svg.appendChild(g);
+          const cx = box.x + box.width / 2, gap = 26, lineH = 20;
+          for (const side of ['left', 'right']) {
+            const items = callouts.filter((c) => (side === 'left') === (Number(c.x) < cx))
+              .map((c) => ({ text: String(c.text || '').slice(0, 40), x: Number(c.x) || 0, y: Number(c.y) || 0 }))
+              .sort((a, b) => a.y - b.y);
+            // Label rows: as close to their part's height as possible, at least lineH apart.
+            const ys = items.map((c) => c.y);
+            for (let k = 1; k < ys.length; k++) ys[k] = Math.max(ys[k], ys[k - 1] + lineH);
+            for (let k = ys.length - 2; k >= 0; k--) ys[k] = Math.min(ys[k], ys[k + 1] - lineH);
+            // Uncross: swap two labels' rows while their leaders cross (rows stay sorted).
+            const tx0 = side === 'left' ? box.x - gap : box.x + box.width + gap;
+            const elbowX = side === 'left' ? box.x - gap / 2 : box.x + box.width + gap / 2;
+            const leaderSegs = (c, y) => [[{ x: tx0, y }, { x: elbowX, y }], [{ x: elbowX, y }, { x: c.x, y: c.y }]];
+            const crosses = (p, q, r, s2) => {
+              const d = (a, b, c2) => (b.x - a.x) * (c2.y - a.y) - (b.y - a.y) * (c2.x - a.x);
+              return d(p, q, r) * d(p, q, s2) < 0 && d(r, s2, p) * d(r, s2, q) < 0;
+            };
+            const order = items.map((_, k) => k);  // order[row] = item
+            for (let pass = 0; pass < 60; pass++) {
+              let swapped = false;
+              for (let a = 0; a < order.length && !swapped; a++) for (let b = a + 1; b < order.length && !swapped; b++) {
+                const A = leaderSegs(items[order[a]], ys[a]), B = leaderSegs(items[order[b]], ys[b]);
+                if (A.some(([p, q]) => B.some(([r, s2]) => crosses(p, q, r, s2)))) {
+                  [order[a], order[b]] = [order[b], order[a]];
+                  swapped = true;
+                }
+              }
+              if (!swapped) break;
+            }
+            const rowOf = new Map(order.map((item, row) => [item, row]));
+            items.forEach((c, k) => {
+              k = rowOf.get(k);
+              const t = document.createElementNS(SVGNS, 'text');
+              const tx = side === 'left' ? box.x - gap : box.x + box.width + gap;
+              t.setAttribute('x', String(tx)); t.setAttribute('y', String(ys[k] + 5));
+              t.setAttribute('text-anchor', side === 'left' ? 'end' : 'start');
+              t.setAttribute('font-size', '14'); t.setAttribute('fill', COLORS.ink); t.setAttribute('stroke', 'none');
+              t.textContent = c.text;
+              g.appendChild(t);
+              const l = document.createElementNS(SVGNS, 'polyline');
+              const lx = side === 'left' ? tx + 6 : tx - 6;
+              const elbow = side === 'left' ? box.x - gap / 2 : box.x + box.width + gap / 2;
+              l.setAttribute('points', [lx, ys[k], elbow, ys[k], c.x, c.y].join(' '));
+              l.setAttribute('fill', 'none'); l.setAttribute('stroke', COLORS.gray); l.setAttribute('stroke-width', '1.2');
+              l.setAttribute('stroke-linecap', 'round'); l.setAttribute('stroke-linejoin', 'round');
+              l.setAttribute('marker-end', 'url(#dot)');
+              g.insertBefore(l, g.firstChild);
+            });
+          }
+          try { box = svg.getBBox(); } catch (e) {}
+        }
         // Text checks.
         const texts = Array.from(svg.querySelectorAll('text')).filter((t) => t.textContent.trim().length);
         const boxes = texts.map((t) => { try { return t.getBBox(); } catch (e) { return null; } });
@@ -272,6 +328,64 @@ final class DiagramEngine: NSObject, WKNavigationDelegate {
           const o = overlap(a, b);
           if (o > 0.15 * Math.min(a.width * a.height, b.width * b.height)) {
             problems.push('labels "' + texts[i].textContent.trim().slice(0, 30) + '" and "' + texts[j].textContent.trim().slice(0, 30) + '" overlap');
+          }
+        }
+        // Lines through labels and crossing leader lines read as mistakes.
+        const rootCTM = svg.getCTM();
+        const toRoot = (el) => { const m = el.getCTM(); return rootCTM && m ? rootCTM.inverse().multiply(m) : null; };
+        const textRects = texts.map((t, i) => {
+          const b = boxes[i], m = toRoot(t);
+          if (!b || !m) return null;
+          const pts = [[b.x, b.y], [b.x + b.width, b.y + b.height]].map(([x, y]) => new DOMPoint(x, y).matrixTransform(m));
+          return { x: Math.min(pts[0].x, pts[1].x), y: Math.min(pts[0].y, pts[1].y), w: Math.abs(pts[1].x - pts[0].x), h: Math.abs(pts[1].y - pts[0].y), text: texts[i].textContent.trim().slice(0, 30) };
+        });
+        const segments = [];
+        for (const el of svg.querySelectorAll('line,polyline')) {
+          if (el.closest('defs') || el.closest('marker')) continue;
+          const m = toRoot(el);
+          if (!m) continue;
+          let pts = [];
+          if (el.nodeName.toLowerCase() === 'line') {
+            pts = [[+el.getAttribute('x1') || 0, +el.getAttribute('y1') || 0], [+el.getAttribute('x2') || 0, +el.getAttribute('y2') || 0]];
+          } else {
+            const nums = (el.getAttribute('points') || '').trim().split(/[\\s,]+/).map(Number);
+            for (let k = 0; k + 1 < nums.length; k += 2) pts.push([nums[k], nums[k + 1]]);
+          }
+          pts = pts.map(([x, y]) => new DOMPoint(x, y).matrixTransform(m));
+          for (let k = 0; k + 1 < pts.length; k++) segments.push({ a: pts[k], b: pts[k + 1], el });
+        }
+        const segBox = (s, r) => {
+          // Liang–Barsky: does the segment pass through rect r (shrunk so touching an edge is fine)?
+          const x0 = r.x + 2, y0 = r.y + 2, x1 = r.x + r.w - 2, y1 = r.y + r.h - 2;
+          if (x1 <= x0 || y1 <= y0) return false;
+          let t0 = 0, t1 = 1; const dx = s.b.x - s.a.x, dy = s.b.y - s.a.y;
+          for (const [p, q] of [[-dx, s.a.x - x0], [dx, x1 - s.a.x], [-dy, s.a.y - y0], [dy, y1 - s.a.y]]) {
+            if (p === 0) { if (q < 0) return false; continue; }
+            const t = q / p;
+            if (p < 0) { if (t > t1) return false; if (t > t0) t0 = t; } else { if (t < t0) return false; if (t < t1) t1 = t; }
+          }
+          return t1 - t0 > 0.02;
+        };
+        const near = (p, r) => Math.max(r.x - p.x, 0, p.x - (r.x + r.w)) + Math.max(r.y - p.y, 0, p.y - (r.y + r.h)) < 16;
+        const leaderOf = (s) => textRects.findIndex((r) => r && (near(s.a, r) || near(s.b, r)));
+        let throughCount = 0;
+        for (const seg of segments) {
+          textRects.forEach((r, i) => {
+            if (!r || throughCount >= 3) return;
+            if (segBox(seg, r)) { throughCount += 1; problems.push('a line runs through the label "' + r.text + '"; route leader lines around labels'); }
+          });
+        }
+        const cross = (p, q, r, s) => {
+          const d = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+          return d(p, q, r) * d(p, q, s) < 0 && d(r, s, p) * d(r, s, q) < 0;
+        };
+        const leaders = segments.map((s) => ({ s, label: leaderOf(s) })).filter((x) => x.label >= 0);
+        let crossings = 0;
+        for (let i = 0; i < leaders.length && crossings < 2; i++) for (let j = i + 1; j < leaders.length && crossings < 2; j++) {
+          if (leaders[i].label === leaders[j].label || leaders[i].s.el === leaders[j].s.el) continue;
+          if (cross(leaders[i].s.a, leaders[i].s.b, leaders[j].s.a, leaders[j].s.b)) {
+            crossings += 1;
+            problems.push('the leader lines for "' + textRects[leaders[i].label].text + '" and "' + textRects[leaders[j].label].text + '" cross; put each label on the side of its part');
           }
         }
         // Fit: content plus room for strokes and markers.

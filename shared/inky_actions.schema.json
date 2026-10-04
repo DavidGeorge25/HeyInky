@@ -1067,6 +1067,7 @@
         "near",
         "title",
         "svg",
+        "callouts",
         "caption"
       ],
       "properties": {
@@ -1088,6 +1089,30 @@
         "svg": {
           "type": "string",
           "description": "One <svg viewBox=\"0 0 W H\"> element using the style kit (classes and markers described in the instructions). No scripts, images, or external links."
+        },
+        "callouts": {
+          "type": "array",
+          "description": "Names of parts, laid out by the app: label columns beside the drawing with tidy, non-crossing leader lines ending in a dot on the part. Give the point ON the part in SVG units. Use these instead of drawing your own labels and leader lines.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "text",
+              "x",
+              "y"
+            ],
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            }
+          }
         },
         "caption": {
           "type": [

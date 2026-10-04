@@ -222,7 +222,7 @@ final class InkySession {
         default:
             editor.showsInkyLayer = true
             let count = editor.annotations.count
-            editor.addAnnotation(action, question: question)
+            editor.addAnnotation(AnchorSnapper.snapped(action, editor: editor), question: question)
             // (The editor may adjust the action, e.g. move a drawing's writing off other text.)
             if editor.annotations.count > count, let added = editor.annotations.last {
                 editor.choreographer.perform(added, pageSize: editor.page.size)

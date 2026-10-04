@@ -419,14 +419,36 @@
       return RDKit.get_mol(generic, JSON.stringify({ sanitize: false }));
     }
 
+    // Adds the hydrogens RDKit finds missing (radical electrons) to bracketed atoms, by SMILES token.
+    function withoutRadicals(smiles, details) {
+      const mol = RDKit.get_mol(smiles, details);
+      if (!mol || !mol.is_valid()) { if (mol) mol.delete(); return smiles; }
+      const atoms = JSON.parse(mol.get_json()).molecules[0].atoms || [];
+      mol.delete();
+      const radicals = atoms.map((a) => a.nRad || 0);
+      if (!radicals.some((r) => r > 0)) return smiles;
+      let k = -1;
+      return smiles.replace(/\[[^\]]+\]|Br|Cl|[BCNOPSFI]|[bcnops]/g, (token) => {
+        k += 1;
+        const n = radicals[k] || 0;
+        if (!n || token[0] !== '[') return token;
+        const m = token.match(/^\[(\d*)([A-Z][a-z]?|[a-z]{1,2})(@*)(?:H(\d*))?(.*)\]$/);
+        if (!m) return token;
+        const h = (m[4] !== undefined ? (m[4] === '' ? 1 : parseInt(m[4], 10)) : 0) + n;
+        return '[' + m[1] + m[2] + m[3] + 'H' + (h > 1 ? h : '') + m[5] + ']';
+      });
+    }
+
     function scheme(params) {
       const steps = params.steps || [];
       const results = [];
       let template = null;
       try {
         for (const raw of steps) {
-          const smiles = String(raw || '').trim();
           const details = JSON.stringify({ setAromaticity: false });
+          // Atoms bracketed only to carry a map number ("[C:3]", "[C-:3]") have no H's in SMILES and
+          // would be drawn as radicals; unless the scheme is about radicals, give them their H's.
+          const smiles = params.keepRadicals ? String(raw || '').trim() : withoutRadicals(String(raw || '').trim(), details);
           const mapped = RDKit.get_mol(smiles, details);
           if (!mapped || !mapped.is_valid()) {
             if (mapped) mapped.delete();

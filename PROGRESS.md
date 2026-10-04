@@ -2,6 +2,35 @@
 
 _Last updated: 2026-10-04 (integration, QA, Inky-as-tutor, drawing, notebook tools)._
 
+## Latest: precise marks and typeset figures (perceive → reason → place) ✅
+Field report: "add the hidden hydrogens" on a hand-drawn image put H bonds floating next to the atoms, and
+"draw the resonance structures" wrote SMILES-like text in handwriting. Root cause: the model was asked to do
+geometry it can't do, and images gave it no geometry at all.
+
+- **Perception** (`HeyInky/Perception`): images, pen ink and PDF figures → line art → bond graph → atom labels →
+  RDKit. The hand-drawn acetaminophen image is read exactly (11 atoms, 11 bonds, 4 double bonds, O/NH/OH,
+  `CC(=O)Nc1ccc(O)cc1`, 7 hidden H); pen-drawn molecules too. Structures go to the model as S1 with atom ids.
+- **`annotateStructure`**: hydrogens, lone pairs, charges, group highlights (RDKit SMARTS on the student's
+  drawing), atom labels, curved/fishhook arrows — the model names atoms, `StructureAnnotator` places
+  everything (H's on the carbon, in the open angles, at the drawing's bond length).
+- **`insertChemScheme`**: typeset resonance/reaction/mechanism figures (RDKit, Kekulé forms kept, forms aligned,
+  atom-map arrows). Deep check rejects non-parsing steps and "resonance forms" that are different molecules.
+- **`insertDiagram`**: model SVG + Inky's style kit, sanitized; **callouts** laid out by the app (label columns,
+  uncrossed leaders); checked for overlapping labels, lines through text, crossing leaders and tiny text; one
+  retry; vector PDF.
+- Figures are placed in free space; label arrows on images snap onto the drawing; zoomed fine-grid view of the
+  main image for labeling.
+- Live (gpt-5.4-mini): hydrogens on the image ✅ exact; lone pairs + amide ✅; phenoxide resonance ✅ (a bad
+  seven-membered "form" from one run is now caught by the deep check); labeled animal cell ✅ (clean after
+  callouts). Screenshots were reviewed for each.
+- Tests: `PerceptionTests` (15), `PrecisionUITests` (4 flows, mock + live); full suite green.
+
+### Next
+- Condensed labels ("CO2H", "OMe", "CH2CH3") in drawings; wedge/dash bonds; charges written in drawings.
+- Snap callout points onto the part's outline/interior from the rendered SVG (the model can still point a
+  callout at the wrong part).
+- Perception on photos of paper (perspective, shadows) — thresholding is local, but no deskew yet.
+
 ## Latest: Inky tutors on the page + notebook tools ✅
 - **Inky draws** (`draw` action, schema v3): real PencilKit ink + handwriting — bonds/atoms, arrows,
   curved mechanism arrows, dashed lines, polygons, ellipses, worked steps. Inky's character draws each

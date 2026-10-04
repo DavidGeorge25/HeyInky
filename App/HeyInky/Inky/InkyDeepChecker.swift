@@ -16,11 +16,18 @@ enum InkyDeepChecker {
     static func check(_ action: InkyAction, request: InkyRequest, isFinalAttempt: Bool) async -> InkyResponseValidator.Outcome {
         switch action {
         case .insertChemScheme(let a):
-            guard let analysis = try? await MoleculeEngine.shared.scheme(steps: a.steps.map(\.smiles)) else {
+            guard let analysis = try? await MoleculeEngine.shared.scheme(steps: a.steps.map(\.smiles), keepRadicals: a.arrows.contains { $0.kind == .fishhook }) else {
                 return .valid(action)  // engine unavailable: let the view report it
             }
             for (i, step) in analysis.steps.enumerated() where !step.ok {
                 return .invalid("insertChemScheme step \(i) \"\(step.input)\": \(step.error ?? "RDKit couldn't parse it") — check valences, charges in brackets and ring closures")
+            }
+            // Resonance forms differ only in where electrons are: same atoms, same net charge.
+            for (gap, connector) in a.connectors.enumerated() where connector.kind == .resonance && gap + 1 < analysis.steps.count {
+                guard let left = analysis.steps[gap].depiction, let right = analysis.steps[gap + 1].depiction else { continue }
+                if left.formula != right.formula || left.charge != right.charge {
+                    return .invalid("insertChemScheme: steps \(gap) and \(gap + 1) are joined by a resonance arrow but aren't the same atoms (\(left.formula) charge \(left.charge) vs \(right.formula) charge \(right.charge)) — resonance forms only move electrons; check ring sizes and hydrogens (\"\(a.steps[gap + 1].smiles)\")")
+                }
             }
             for arrow in a.arrows where arrow.step < analysis.steps.count {
                 let maps = analysis.steps[arrow.step].maps
@@ -31,7 +38,7 @@ enum InkyDeepChecker {
             }
             return .valid(action)
         case .insertDiagram(let a):
-            guard let report = try? await DiagramEngine.shared.prepare(svg: a.svg) else { return .valid(action) }
+            guard let report = try? await DiagramEngine.shared.prepare(svg: a.svg, callouts: a.callouts) else { return .valid(action) }
             if report.svg.isEmpty || report.width < 5 {
                 return .invalid("insertDiagram: \(report.problems.first ?? "the SVG drew nothing")")
             }

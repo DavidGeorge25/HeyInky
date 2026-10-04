@@ -207,6 +207,22 @@ struct PerceptionTests {
         }
     }
 
+    @Test func deepCheckRejectsResonanceFormsThatAreDifferentMolecules() async {
+        // The model once wrote a seven-membered ring as a "resonance form" of phenoxide.
+        func scheme(_ steps: [String]) -> InkyAction {
+            .insertChemScheme(InsertChemSchemeAction(near: NormRect(x: 0.1, y: 0.5, width: 0.8, height: 0.2), title: nil,
+                                                     steps: steps.map { .init(smiles: $0, label: nil) },
+                                                     connectors: Array(repeating: .init(kind: .resonance, above: nil, below: nil), count: steps.count - 1),
+                                                     arrows: [], lonePairs: [], highlights: [], caption: nil))
+        }
+        let request = Fixtures.sampleRequest()
+        let bad = await InkyDeepChecker.check(scheme(["[O-]C1=CC=CC=C1", "O=C1C=CC[CH-]C=C1"]), request: request, isFinalAttempt: false)
+        guard case .invalid(let problem) = bad else { Issue.record("seven-membered ring accepted"); return }
+        #expect(problem.contains("resonance"))
+        let good = await InkyDeepChecker.check(scheme(["[O-]C1=CC=CC=C1", "O=C1C=C[CH-]C=C1"]), request: request, isFinalAttempt: false)
+        if case .invalid(let p) = good { Issue.record("valid resonance rejected: \(p)") }
+    }
+
     @Test func schemeValidationRepairsConnectorsAndCatchesMissingMaps() {
         let ok = InsertChemSchemeAction(near: .unit, title: nil, steps: [.init(smiles: "C[O-:1]", label: nil), .init(smiles: "CO", label: nil)],
                                         connectors: [], arrows: [], lonePairs: [], highlights: [], caption: nil)
@@ -235,6 +251,20 @@ struct PerceptionTests {
         let bad = try await DiagramEngine.shared.prepare(svg: overlapping)
         #expect(bad.problems.contains { $0.contains("overlap") })
 
+        let struck = #"<svg viewBox="0 0 300 120"><text x="100" y="60">Nucleus</text><line x1="20" y1="55" x2="280" y2="55"/><text x="10" y="110">A</text><text x="250" y="110">B</text><line x1="20" y1="100" x2="240" y2="20"/><line x1="245" y1="100" x2="20" y2="20"/></svg>"#
+        let lines = try await DiagramEngine.shared.prepare(svg: struck)
+        #expect(lines.problems.contains { $0.contains("runs through the label \"Nucleus\"") }, "\(lines.problems)")
+        #expect(lines.problems.contains { $0.contains("cross") }, "\(lines.problems)")
+
+        // Callouts are laid out by the app: clean even when parts sit close together.
+        let cell = #"<svg viewBox="0 0 300 200"><ellipse cx="150" cy="100" rx="130" ry="85"/><circle cx="130" cy="100" r="35"/><circle cx="200" cy="70" r="12"/></svg>"#
+        let callouts: [InsertDiagramAction.Callout] = [.init(text: "Nucleus", x: 130, y: 100), .init(text: "Mitochondrion", x: 200, y: 70),
+                                                       .init(text: "Ribosome", x: 205, y: 80), .init(text: "Cytoplasm", x: 60, y: 140),
+                                                       .init(text: "Cell membrane", x: 30, y: 60)]
+        let laidOut = try await DiagramEngine.shared.prepare(svg: cell, callouts: callouts)
+        #expect(laidOut.ok, "\(laidOut.problems)")
+        #expect(laidOut.textCount == 5)
+
         let tiny = #"<svg viewBox="0 0 3000 2000"><rect x="0" y="0" width="3000" height="2000"/><text x="100" y="100" font-size="12">tiny</text></svg>"#
         let small = try await DiagramEngine.shared.prepare(svg: tiny)
         #expect(DiagramEngine.displayProblems(for: small, pageSize: CGSize(width: 816, height: 1056)).contains { $0.contains("pt on the page") })
@@ -242,6 +272,20 @@ struct PerceptionTests {
         let unsafe = #"<svg viewBox="0 0 100 100"><script>alert(1)</script><a href="https://x.com"><rect width="50" height="50"/></a><circle cx="50" cy="50" r="20"/></svg>"#
         let cleaned = try await DiagramEngine.shared.prepare(svg: unsafe)
         #expect(!cleaned.svg.contains("<script") && !cleaned.svg.contains("https://"))
+    }
+
+    @Test func labelArrowsSnapOntoTheDrawingNotNextToIt() throws {
+        let editor = try Self.imageEditor()
+        let frame = editor.page.images[0].frame
+        // Just right of the "O" of the carbonyl in the image: blank paper a hair off the letter.
+        let s = NormPoint(x: frame.x + frame.width * (128.0 / 520), y: frame.y + frame.height * (88.0 / 260))
+        guard case .label(let moved) = AnchorSnapper.snapped(.label(LabelAction(anchor: s, text: "carbonyl O", arrow: true)), editor: editor) else { Issue.record("not a label"); return }
+        #expect(moved.anchor != s, "moved onto the ink")
+        #expect(abs(moved.anchor.x - s.x) < 0.02 && abs(moved.anchor.y - s.y) < 0.02, "but only a little")
+        // On the ink already: untouched. Far from anything: untouched.
+        let far = NormPoint(x: frame.x + frame.width * 0.95, y: frame.y + frame.height * 0.9)
+        guard case .label(let kept) = AnchorSnapper.snapped(.label(LabelAction(anchor: far, text: "x", arrow: true)), editor: editor) else { return }
+        #expect(kept.anchor == far)
     }
 
     @Test func figuresArePlacedInFreeSpace() {

@@ -80,14 +80,15 @@ struct DiagramFigureView: View {
         .accessibilityElement()
         .accessibilityLabel("Diagram" + (action.title.map { ": \($0)" } ?? ""))
         .accessibilityIdentifier("inky.figure.diagram")
-        .task(id: action.svg) {
-            if let cached = Self.memory[action.svg] { page = cached.page(at: 0); return }
+        .task(id: action) {
+            let key = action.svg + action.callouts.map { "\u{1}\($0.text)@\($0.x),\($0.y)" }.joined()
+            if let cached = Self.memory[key] { page = cached.page(at: 0); return }
             do {
-                let report = try await DiagramEngine.shared.prepare(svg: action.svg)
+                let report = try await DiagramEngine.shared.prepare(svg: action.svg, callouts: action.callouts)
                 guard !report.svg.isEmpty else { failed = report.problems.first ?? "This diagram couldn't be drawn."; return }
                 let data = try await DiagramEngine.shared.pdf(for: report)
                 guard let document = PDFDocument(data: data) else { failed = "This diagram couldn't be drawn."; return }
-                Self.memory[action.svg] = document
+                Self.memory[key] = document
                 page = document.page(at: 0)
             } catch {
                 failed = error.localizedDescription
@@ -147,7 +148,7 @@ enum FigurePreparer {
         switch action {
         case .insertChemScheme(var a):
             do {
-                let analysis = try await MoleculeEngine.shared.scheme(steps: a.steps.map(\.smiles))
+                let analysis = try await MoleculeEngine.shared.scheme(steps: a.steps.map(\.smiles), keepRadicals: a.arrows.contains { $0.kind == .fishhook })
                 if let bad = analysis.steps.first(where: { !$0.ok }) {
                     return .failed("Inky couldn't draw \(bad.input).")
                 }
@@ -161,8 +162,10 @@ enum FigurePreparer {
             }
         case .insertDiagram(var a):
             do {
-                let report = try await DiagramEngine.shared.prepare(svg: a.svg)
+                let report = try await DiagramEngine.shared.prepare(svg: a.svg, callouts: a.callouts)
                 guard !report.svg.isEmpty else { return .failed(report.problems.first ?? "Inky's diagram couldn't be drawn.") }
+                // A title written inside the figure isn't repeated above it.
+                if let title = a.title, report.svg.contains(">\(title)<") { a.title = nil }
                 let natural = DiagramEngine.displaySize(for: report, pageSize: pageSize)
                 let chrome = InkyFigureFrame<EmptyView>.chrome(title: a.title, caption: a.caption)
                 let size = FigurePlacement.fitted(CGSize(width: natural.width + chrome.width, height: natural.height + chrome.height), pageSize: pageSize)

@@ -40,7 +40,7 @@ struct InkyActionSchemaSyncTests {
             near: .unit, title: "t", steps: [.init(smiles: "C", label: "l")], connectors: [.init(kind: .resonance, above: "a", below: "b")],
             arrows: [.init(step: 0, from: "1", to: "2", kind: .fishhook)], lonePairs: [.init(step: 0, atom: "1")],
             highlights: [.init(step: 0, atoms: ["1"], color: .pink)], caption: "c")),
-        .insertDiagram(InsertDiagramAction(near: .unit, title: "t", svg: "<svg/>", caption: "c")),
+        .insertDiagram(InsertDiagramAction(near: .unit, title: "t", svg: "<svg/>", callouts: [.init(text: "t", x: 1, y: 2)], caption: "c")),
         .addPage(AddPageAction(paper: .grid)),
         .openSidebar(OpenSidebarAction(markdown: "m", speakable: true)),
         .say(SayAction(text: "s")),

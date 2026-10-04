@@ -40,9 +40,10 @@ struct ChemSchemeLayout: Equatable, Sendable {
 
     init(analysis: SchemeAnalysis, action: InsertChemSchemeAction, maxWidth: CGFloat) {
         let depictions = analysis.steps.map(\.depiction)
+        var bond = Self.designBond
         func scale(_ d: MoleculeDepiction) -> CGFloat {
             let drawn = (d.drawnBondLength ?? d.bondLength)
-            return Self.designBond / max(drawn, 1)
+            return bond / max(drawn, 1)
         }
         func gap(_ i: Int) -> CGFloat {
             guard i < action.connectors.count else { return Self.gapPlus }
@@ -56,18 +57,31 @@ struct ChemSchemeLayout: Equatable, Sendable {
             let text = max((c.above ?? "").count, (c.below ?? "").count)
             return max(base, CGFloat(text) * 7 + 24)
         }
-        // Rows: greedy wrap at maxWidth.
+        // One row when shrinking a little is enough; otherwise balanced rows.
+        func widths() -> [CGFloat] { depictions.map { d in (d.map { $0.width * scale($0) } ?? 60) + 2 * Self.stepPad } }
+        func oneRow() -> CGFloat { widths().reduce(0, +) + (0..<max(0, depictions.count - 1)).map(gap).reduce(0, +) }
+        let natural = oneRow()
+        var rowCount = 1
+        if natural > maxWidth {
+            let shrink = maxWidth / natural
+            if shrink >= 0.72 {
+                bond = Self.designBond * shrink * 0.98
+            } else {
+                rowCount = Int((natural / maxWidth).rounded(.up))
+            }
+        }
         var rows: [[Int]] = [[]]
+        let w = widths()
+        let target = (natural / CGFloat(rowCount)) * 1.02
         var rowWidth: CGFloat = 0
-        for (i, d) in depictions.enumerated() {
-            let w = (d.map { $0.width * scale($0) } ?? 60) + 2 * Self.stepPad
+        for i in depictions.indices {
             let extra = rows[rows.count - 1].isEmpty ? 0 : gap(i - 1)
-            if !rows[rows.count - 1].isEmpty && rowWidth + extra + w > maxWidth {
+            if !rows[rows.count - 1].isEmpty && rows.count < rowCount && rowWidth + extra + w[i] / 2 > target {
                 rows.append([i])
-                rowWidth = w
+                rowWidth = w[i]
             } else {
                 rows[rows.count - 1].append(i)
-                rowWidth += extra + w
+                rowWidth += extra + w[i]
             }
         }
         var y: CGFloat = 0
@@ -158,7 +172,7 @@ struct ChemSchemeView: View {
         .accessibilityIdentifier("inky.figure.chemScheme")
         .task(id: action.steps.map(\.smiles)) {
             do {
-                let result = try await MoleculeEngine.shared.scheme(steps: action.steps.map(\.smiles))
+                let result = try await MoleculeEngine.shared.scheme(steps: action.steps.map(\.smiles), keepRadicals: action.arrows.contains { $0.kind == .fishhook })
                 if result.steps.contains(where: { !$0.ok }) {
                     failed = result.error ?? "A structure couldn't be drawn."
                 }
@@ -226,7 +240,7 @@ enum ChemSchemeRenderer {
                 guard let i = maps[lp.atom], i < d.atoms.count else { continue }
                 let dir = MoleculeCanvas.awayDirection(atom: i, in: d)
                 let c = d.atoms[i].point.applying(transform)
-                let center = CGPoint(x: c.x + dir.dx * 11, y: c.y + dir.dy * 11)
+                let center = CGPoint(x: c.x + dir.dx * 15, y: c.y + dir.dy * 15)
                 let n = CGPoint(x: -dir.dy, y: dir.dx)
                 for s in [-1.0, 1.0] {
                     let p = CGPoint(x: center.x + n.x * 3.2 * s, y: center.y + n.y * 3.2 * s)
@@ -272,7 +286,7 @@ enum ChemSchemeRenderer {
         let c = d.atoms[i].point.applying(transform)
         guard asSource else { return c }
         let dir = MoleculeCanvas.awayDirection(atom: i, in: d)
-        return CGPoint(x: c.x + dir.dx * 11, y: c.y + dir.dy * 11)
+        return CGPoint(x: c.x + dir.dx * 15, y: c.y + dir.dy * 15)
     }
 
     static func drawCurvedArrow(from: CGPoint, to rawTo: CGPoint, centroid: CGPoint, fishhook: Bool, in context: inout GraphicsContext) {
@@ -281,17 +295,19 @@ enum ChemSchemeRenderer {
         let dist = max(hypot(d.x, d.y), 1)
         var n = CGPoint(x: -d.y / dist, y: d.x / dist)
         if (mid.x - centroid.x) * n.x + (mid.y - centroid.y) * n.y < 0 { n = CGPoint(x: -n.x, y: -n.y) }
-        let bow = max(dist * 0.45, ChemSchemeLayout.designBond * 0.5)
+        // A clear arc even between neighbours (lone pair → its own bond).
+        let bow = max(dist * 0.55, ChemSchemeLayout.designBond * 0.7)
         let control = CGPoint(x: mid.x + n.x * bow, y: mid.y + n.y * bow)
         let back = CGPoint(x: rawTo.x - control.x, y: rawTo.y - control.y)
         let bl = max(hypot(back.x, back.y), 1)
         let u = CGPoint(x: back.x / bl, y: back.y / bl)
-        let to = CGPoint(x: rawTo.x - u.x * 4, y: rawTo.y - u.y * 4)
+        // Stop short of the target so the head doesn't sit on an atom label.
+        let to = CGPoint(x: rawTo.x - u.x * 6, y: rawTo.y - u.y * 6)
         var path = Path()
         path.move(to: from)
         path.addQuadCurve(to: to, control: control)
-        context.stroke(path, with: .color(arrowRed), style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
-        let head: CGFloat = 7
+        context.stroke(path, with: .color(arrowRed), style: StrokeStyle(lineWidth: 1.8, lineCap: .round))
+        let head: CGFloat = 8
         var tip = Path()
         let outer: CGFloat = (n.x * -u.y + n.y * u.x) > 0 ? 1 : -1
         let sides: [CGFloat] = fishhook ? [outer] : [1, -1]

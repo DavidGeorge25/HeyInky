@@ -338,10 +338,38 @@ struct InsertChemSchemeAction: Codable, Hashable, Sendable {
 
 /// A stylized figure written as SVG with Inky's style kit; rendered, checked and fitted by the app.
 struct InsertDiagramAction: Codable, Hashable, Sendable {
+    /// A part to name: the app lays out the label and a non-crossing leader line to (x, y).
+    struct Callout: Codable, Hashable, Sendable {
+        var text: String
+        /// On the part, in SVG units.
+        var x: Double
+        var y: Double
+    }
+
     var near: NormRect
     var title: String?
     var svg: String
+    var callouts: [Callout]
     var caption: String?
+
+    init(near: NormRect, title: String?, svg: String, callouts: [Callout] = [], caption: String?) {
+        self.near = near
+        self.title = title
+        self.svg = svg
+        self.callouts = callouts
+        self.caption = caption
+    }
+
+    private enum CodingKeys: String, CodingKey { case near, title, svg, callouts, caption }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        near = try c.decode(NormRect.self, forKey: .near)
+        title = try c.decodeIfPresent(String.self, forKey: .title)
+        svg = try c.decode(String.self, forKey: .svg)
+        callouts = try c.decodeIfPresent([Callout].self, forKey: .callouts) ?? []
+        caption = try c.decodeIfPresent(String.self, forKey: .caption)
+    }
 }
 
 /// A fresh page after the current one; the rest of the answer goes there.

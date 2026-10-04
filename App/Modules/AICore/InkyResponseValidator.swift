@@ -91,6 +91,8 @@ enum InkyResponseValidator {
                 return .invalid("insertDiagram: no scripts, images or foreignObject in the SVG")
             }
             a.svg = svg
+            if a.callouts.count > 24 { return .invalid("insertDiagram: too many callouts (max 24)") }
+            a.callouts = a.callouts.filter { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
             switch checkRegion(a.near, what: "insertDiagram near") {
             case .failure(let p): return .invalid(p.description)
             case .success(let r): a.near = r
