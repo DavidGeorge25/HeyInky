@@ -35,8 +35,15 @@ struct InkyRequest: Sendable {
     /// Junctions of those strokes (corners and line ends merged across strokes) with how many
     /// lines meet there: the atoms of a skeletal structure and their bond counts.
     var inkAtoms: [InkAtom] = []
+    /// Chemical structures recognized on the page (`PageStructureFinder`), ids S1, S2, ….
+    var structures: [PageStructure] = []
     /// Set by `ValidatingInkyModelClient` on its one retry: what was wrong last time.
     var correction: InkyCorrection?
+
+    func structure(_ id: String) -> PageStructure? {
+        let key = id.trimmingCharacters(in: .whitespaces).uppercased()
+        return structures.first { $0.id.uppercased() == key }
+    }
 
     /// The short id the model sees for a page annotation.
     func shortID(for annotationID: UUID) -> String? {

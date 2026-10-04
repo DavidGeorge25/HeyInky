@@ -5,8 +5,11 @@ import Testing
 @Suite("InkyAction decoding")
 struct InkyActionDecodingTests {
     @Test func decodesEveryActionTypeFromSharedFixture() throws {
+        // all_actions has one of each original type; the structure/figure actions have their own fixture.
         let response = try Fixtures.response("all_actions")
-        #expect(response.actions.map(\.type) == InkyActionType.allCases)
+        let more = try Fixtures.response("structures_and_figures")
+        let covered = Set(response.actions.map(\.type) + more.actions.map(\.type))
+        #expect(covered == Set(InkyActionType.allCases))
     }
 
     @Test func decodesFieldsExactly() throws {

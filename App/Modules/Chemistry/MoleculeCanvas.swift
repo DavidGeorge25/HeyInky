@@ -165,7 +165,7 @@ struct MoleculeCanvas: View {
     }
 
     /// Unit vector pointing away from an atom's bonds (where a tag won't collide with them).
-    static func awayDirection(atom: Int, in molecule: MoleculeDepiction) -> CGVector {
+    nonisolated static func awayDirection(atom: Int, in molecule: MoleculeDepiction) -> CGVector {
         let p = molecule.atoms[atom].point
         var sum = CGVector.zero
         for bond in molecule.bonds where bond.a == atom || bond.b == atom {

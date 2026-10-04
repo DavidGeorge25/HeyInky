@@ -28,7 +28,8 @@ enum InkyLocalization {
     /// resolution with the page's aspect ratio. Returns images in the order they are sent.
     @MainActor
     static func modelImages(
-        pageImage: UIImage, lasso: NormRect?, lassoPath: [NormPoint] = [], annotations: [InkyPageAnnotation] = []
+        pageImage: UIImage, lasso: NormRect?, lassoPath: [NormPoint] = [], annotations: [InkyPageAnnotation] = [],
+        focus: NormRect? = nil
     ) -> [InkyImage] {
         var images: [InkyImage] = []
         let marks = annotations.enumerated().compactMap { index, mark -> (id: String, bounds: NormRect)? in
@@ -53,6 +54,19 @@ enum InkyLocalization {
             )
             if let png = crop.pngData() {
                 images.append(InkyImage(pngData: png, caption: "Zoomed view of the lassoed area (grid labels are full-page coordinates):"))
+            }
+        } else if let focus, focus.width > 0.05, focus.height > 0.05, focus.width * focus.height < 0.7 {
+            // A figure on the page (a placed image): a closer, finer grid for pointing at its parts.
+            let pad = tuning.cropPadding
+            let visible = NormRect(x: focus.x - pad, y: focus.y - pad, width: focus.width + 2 * pad, height: focus.height + 2 * pad).clamped
+            let span = max(visible.width, visible.height)
+            let step = span < 0.25 ? 0.02 : (span < 0.5 ? 0.05 : 0.1)
+            let crop = renderWithGrid(
+                source: pageImage, visible: visible, longEdge: tuning.cropLongEdge, step: step,
+                lasso: nil, lassoPath: [], marks: marks
+            )
+            if let png = crop.pngData() {
+                images.append(InkyImage(pngData: png, caption: "Zoomed view of the figure on the page, finer grid (grid labels are full-page coordinates):"))
             }
         }
         return images
@@ -267,7 +281,9 @@ enum InkyContextBuilder {
         annotations: [InkyPageAnnotation] = [],
         history: [InkyTurn] = [],
         inkPaths: [[NormPoint]] = [],
-        inkAtoms: [InkAtom] = []
+        inkAtoms: [InkAtom] = [],
+        structures: [PageStructure] = [],
+        focus: NormRect? = nil
     ) async -> InkyRequest {
         var blanks: [NormRect] = []
         if InkyLocalization.tuning.detectBlanks, let cg = pageImage.cgImage {
@@ -275,7 +291,7 @@ enum InkyContextBuilder {
         }
         return InkyRequest(
             question: question,
-            images: InkyLocalization.modelImages(pageImage: pageImage, lasso: lassoRegion, lassoPath: lassoPath, annotations: annotations),
+            images: InkyLocalization.modelImages(pageImage: pageImage, lasso: lassoRegion, lassoPath: lassoPath, annotations: annotations, focus: focus),
             recognizedText: recognizedText,
             lassoRegion: lassoRegion,
             pageAspectRatio: pageAspectRatio,
@@ -284,7 +300,8 @@ enum InkyContextBuilder {
             history: history,
             blanks: blanks,
             inkPaths: inkPaths,
-            inkAtoms: inkAtoms
+            inkAtoms: inkAtoms,
+            structures: structures
         )
     }
 }

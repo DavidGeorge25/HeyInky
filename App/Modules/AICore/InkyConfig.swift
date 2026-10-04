@@ -53,6 +53,10 @@ enum InkyConfig {
 }
 
 enum InkyClientFactory {
+    /// Set once at launch by the app (`InkyDeepChecker`): checks that need RDKit or the diagram
+    /// renderer, run on every action before it reaches the page.
+    nonisolated(unsafe) static var deepCheck: ValidatingInkyModelClient.DeepCheck?
+
     /// Every client is wrapped in `ValidatingInkyModelClient` (checks + one retry).
     static func makeDefault() -> any InkyModelClient {
         if InkyConfig.useMockClient {

@@ -29,6 +29,8 @@ struct MoleculeDepiction: Decodable, Sendable, Equatable {
     var width: CGFloat
     var height: CGFloat
     var bondLength: CGFloat
+    /// Median bond length as drawn (RDKit can shrink a depiction below `bondLength`).
+    var drawnBondLength: CGFloat?
     var primitives: [Primitive]
     var atoms: [Atom]
     var bonds: [Bond]
@@ -140,4 +142,67 @@ struct RGB: Sendable, Equatable, Hashable {
 
     var isBlack: Bool { r < 0.05 && g < 0.05 && b < 0.05 }
     var color: Color { Color(.sRGB, red: r, green: g, blue: b) }
+}
+
+/// A molecule built from a drawing's bond graph (`MoleculeEngine.molecule(fromGraph:)`).
+/// Atoms are in the drawing's order.
+struct GraphMolecule: Decodable, Sendable, Equatable {
+    struct Atom: Decodable, Sendable, Equatable {
+        var index: Int
+        var symbol: String
+        var hydrogens: Int
+        var charge: Int
+        var aromatic: Bool
+    }
+
+    var ok: Bool
+    var error: String?
+    var smiles: String?
+    var formula: String?
+    var atoms: [Atom]
+    /// Bonds whose order had to be lowered for RDKit to accept the drawing (misread double lines).
+    var loweredBonds: [Int]
+    var groups: [MoleculeDepiction.GroupHit]
+    var highlights: [MoleculeDepiction.PatternHit]
+
+    private enum CodingKeys: String, CodingKey { case ok, error, smiles, formula, atoms, loweredBonds, groups, highlights }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        ok = try c.decode(Bool.self, forKey: .ok)
+        error = try c.decodeIfPresent(String.self, forKey: .error)
+        smiles = try c.decodeIfPresent(String.self, forKey: .smiles)
+        formula = try c.decodeIfPresent(String.self, forKey: .formula)
+        atoms = try c.decodeIfPresent([Atom].self, forKey: .atoms) ?? []
+        loweredBonds = try c.decodeIfPresent([Int].self, forKey: .loweredBonds) ?? []
+        groups = try c.decodeIfPresent([MoleculeDepiction.GroupHit].self, forKey: .groups) ?? []
+        highlights = try c.decodeIfPresent([MoleculeDepiction.PatternHit].self, forKey: .highlights) ?? []
+    }
+}
+
+/// Structures of a chemistry scheme, each laid out like the first where the skeleton allows.
+struct SchemeAnalysis: Decodable, Sendable, Equatable {
+    struct Step: Decodable, Sendable, Equatable {
+        var ok: Bool
+        var error: String?
+        var input: String
+        /// Atom index by atom-map number written in the SMILES ("[O-:1]" → "1": 0).
+        var maps: [String: Int]
+        var depiction: MoleculeDepiction?
+
+        private enum CodingKeys: String, CodingKey { case ok, error, input, maps }
+
+        init(from decoder: any Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            ok = try c.decode(Bool.self, forKey: .ok)
+            error = try c.decodeIfPresent(String.self, forKey: .error)
+            input = try c.decodeIfPresent(String.self, forKey: .input) ?? ""
+            maps = try c.decodeIfPresent([String: Int].self, forKey: .maps) ?? [:]
+            depiction = ok ? try MoleculeDepiction(from: decoder) : nil
+        }
+    }
+
+    var ok: Bool
+    var error: String?
+    var steps: [Step]
 }

@@ -42,7 +42,7 @@ test("every action type is listed in the root anyOf", () => {
     .filter(([, def]) => (def.properties as Node | undefined)?.type !== undefined)
     .map(([name]) => name);
   assert.deepEqual([...refs].sort(), [...actionDefs].sort());
-  assert.equal(refs.length, 11);
+  assert.equal(refs.length, 14);
 });
 
 test("`type` is the first property of every action (strict outputs follow key order)", () => {
@@ -53,7 +53,7 @@ test("`type` is the first property of every action (strict outputs follow key or
 });
 
 test("valid fixtures validate", () => {
-  for (const name of ["all_actions.json", "highlight_title.json", "undo_last.json"]) {
+  for (const name of ["all_actions.json", "highlight_title.json", "undo_last.json", "structures_and_figures.json"]) {
     const data = JSON.parse(fs.readFileSync(path.join(fixturesDir, name), "utf8"));
     assert.ok(validate(data), `${name}: ${ajv.errorsText(validate.errors)}`);
   }

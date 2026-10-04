@@ -97,7 +97,9 @@ extension InkyAction {
             // Shapes and line positions scale; pen width and handwriting size stay true to paper.
             for i in a.shapes.indices { a.shapes[i].points = a.shapes[i].points.map(point) }
             return .draw(a)
-        case .addPage, .openSidebar, .say: return self
+        case .insertChemScheme(var a): a.near = rect(a.near); return .insertChemScheme(a)
+        case .insertDiagram(var a): a.near = rect(a.near); return .insertDiagram(a)
+        case .annotateStructure, .addPage, .openSidebar, .say: return self
         }
     }
 }

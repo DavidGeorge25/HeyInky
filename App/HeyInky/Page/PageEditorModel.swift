@@ -173,10 +173,12 @@ final class PageEditorModel {
         showsInkyLayer ? annotations.filter { !$0.isHidden } : []
     }
 
-    func addAnnotation(_ action: InkyAction, question: String?) {
+    /// - Parameter exact: geometry was computed by the app (`StructureAnnotator`); don't re-aim
+    ///   bonds or move text.
+    func addAnnotation(_ action: InkyAction, question: String?, exact: Bool = false) {
         guard action.isPageAnnotation else { return }
         var action = action
-        if case .draw(var drawing) = action {
+        if !exact, case .draw(var drawing) = action {
             // Clean angles for atoms added to the student's structure, then keep the writing readable.
             let skeleton = InkSkeleton.paths(in: self.drawing, pageSize: page.size, handwriting: (lastRecognizedText ?? []).map(\.box))
             drawing = BondLayout.refine(drawing, skeleton: skeleton, pageSize: page.size)
@@ -186,6 +188,11 @@ final class PageEditorModel {
         annotation.labelPlacement = InkyLayout.bestPlacement(for: action, among: visibleAnnotations, content: layoutContent, pageSize: page.size)
         annotations.append(annotation)
         saveAnnotations()
+    }
+
+    /// Everything a new figure shouldn't cover: ink, text, images and Inky's visible marks.
+    var figureObstacles: [NormRect] {
+        layoutContent + page.images.map(\.frame) + visibleAnnotations.map { InkyAnnotationGeometry.bounds(for: $0, pageSize: page.size) }
     }
 
     /// What's on the page that Inky's text shouldn't cover: ink, plus the text lines Inky last read

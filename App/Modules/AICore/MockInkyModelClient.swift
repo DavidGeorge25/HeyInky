@@ -55,7 +55,50 @@ struct MockInkyModelClient: InkyModelClient {
             return [.say(SayAction(text: "Okay, I took that back."))]
         }
         if q.contains("hydrogen") {
+            // A recognized structure: name the atoms, the app places the H's exactly.
+            if let structure = request.structures.first {
+                let hidden = structure.atoms.reduce(0) { $0 + $1.hiddenHydrogens }
+                return [
+                    .say(SayAction(text: "Here are the hidden hydrogens — \(hidden) in total.")),
+                    .annotateStructure(AnnotateStructureAction(
+                        structure: structure.id, relabel: [], hydrogens: ["all"], lonePairs: [], charges: [],
+                        highlights: [], labels: [], arrows: [], color: .indigo)),
+                ]
+            }
             return [.say(SayAction(text: "Here are the hidden hydrogens."))] + [.draw(mockHydrogens(request))]
+        }
+        if q.contains("lone pair"), let structure = request.structures.first {
+            return [
+                .say(SayAction(text: "Lone pairs added.")),
+                .annotateStructure(AnnotateStructureAction(
+                    structure: structure.id, relabel: [], hydrogens: [], lonePairs: ["all"], charges: [],
+                    highlights: [.init(atoms: [], group: "amide", color: .yellow, note: "amide")], labels: [], arrows: [], color: .indigo)),
+            ]
+        }
+        if q.contains("resonance") {
+            return [
+                .say(SayAction(text: "Here are the resonance structures of phenoxide.")),
+                .insertChemScheme(InsertChemSchemeAction(
+                    near: NormRect(x: 0.08, y: 0.62, width: 0.84, height: 0.22), title: "Phenoxide resonance",
+                    steps: [.init(smiles: "[O-:1][C:2]1=CC=CC=C1", label: nil), .init(smiles: "[O:1]=[C:2]1[CH-:3]C=CC=C1", label: nil),
+                            .init(smiles: "[O:1]=[C:2]1C=C[CH-:4]C=C1", label: nil)],
+                    connectors: [.init(kind: .resonance, above: nil, below: nil), .init(kind: .resonance, above: nil, below: nil)],
+                    arrows: [.init(step: 0, from: "1", to: "1-2", kind: .curved)], lonePairs: [.init(step: 0, atom: "1")],
+                    highlights: [], caption: "The negative charge spreads to the ortho and para carbons.")),
+            ]
+        }
+        if q.contains("diagram") || q.contains(" cell") {
+            let svg = """
+            <svg viewBox="0 0 420 240"><ellipse cx="150" cy="120" rx="130" ry="95" class="fill-green green"/>
+            <circle cx="140" cy="115" r="38" class="fill-accent accent"/><text x="140" y="120" class="small center">Nucleus</text>
+            <path d="M210 70 Q235 60 245 80 Q250 95 230 100 Q205 102 210 70 Z" class="fill-orange orange"/>
+            <line x1="245" y1="80" x2="320" y2="60" class="thin gray" marker-start="url(#dot)"/><text x="326" y="64" class="label">Mitochondrion</text>
+            <line x1="270" y1="150" x2="320" y2="170" class="thin gray" marker-start="url(#dot)"/><text x="326" y="174" class="label">Cell membrane</text></svg>
+            """
+            return [
+                .say(SayAction(text: "Here's a simple animal cell.")),
+                .insertDiagram(InsertDiagramAction(near: NormRect(x: 0.1, y: 0.6, width: 0.6, height: 0.3), title: "Animal cell", svg: svg, caption: nil)),
+            ]
         }
         if q.contains("new page") {
             let steps = ["2x + 6 = 14", "2x = 8", "x = 4"]

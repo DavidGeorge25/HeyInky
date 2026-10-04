@@ -228,6 +228,15 @@
       try {
         try { mol.set_new_coords(true); } catch (_) { mol.set_new_coords(); }
         try { mol.normalize_depiction(1); mol.straighten_depiction(); } catch (_) { /* optional */ }
+        return depict(mol, smiles, params, true);
+      } finally {
+        mol.delete();
+      }
+    }
+
+    // Depiction + analysis of a molecule that already has 2D coordinates.
+    function depict(mol, smiles, params, canRelayout) {
+      {
         const json = JSON.parse(mol.get_json()).molecules[0];
         const defaults = { z: 6, impHs: 0, chg: 0 };
         const atoms = (json.atoms || []).map((a) => ({ ...defaults, ...a }));
@@ -245,7 +254,7 @@
         };
         let draw = JSON.parse(mol.get_svg_with_highlights(JSON.stringify(drawOptions)));
         const usable = (d) => d.drawCoords.length === atoms.length && d.drawCoords.every((p) => p && p[0] !== null && p[1] !== null);
-        if (!usable(draw)) {
+        if (!usable(draw) && canRelayout) {
           // CoordGen can't lay out a few edge cases (e.g. [H][H]); RDKit's own depictor can.
           mol.set_new_coords(false);
           draw = JSON.parse(mol.get_svg_with_highlights(JSON.stringify(drawOptions)));
@@ -276,6 +285,12 @@
           width: svg.width,
           height: svg.height,
           bondLength: params.bondLength || 30,
+          // Bond length as actually drawn (RDKit may shrink some depictions), for schemes that
+          // scale every structure to the same bond length.
+          drawnBondLength: (() => {
+            const ls = bonds.map((b) => Math.hypot(draw.drawCoords[b.a][0] - draw.drawCoords[b.b][0], draw.drawCoords[b.a][1] - draw.drawCoords[b.b][1])).sort((x, y) => x - y);
+            return ls.length ? ls[Math.floor(ls.length / 2)] : (params.bondLength || 30);
+          })(),
           primitives: svg.primitives,
           atoms: atoms.map((a, i) => ({
             index: i,
@@ -296,9 +311,161 @@
           stereobonds: (stereo.CIP_bonds || []).map(([a, b, label]) => ({ a, b, label: String(label).replace(/[()]/g, '') }))
             .filter((s) => /^[EZ]$/.test(s.label)),
         };
+      }
+    }
+
+
+    // ---- Recognized drawings -------------------------------------------------------------
+
+    // A bond graph read from a drawing (atoms in drawing order with their 2D positions) as an
+    // RDKit molecule: SMILES, hydrogens per atom (same order), and pattern matches. If RDKit
+    // rejects it (an atom over its valence, usually a misread double bond), the fewest bond
+    // orders are lowered until it accepts, and those bonds are reported.
+    function molblockFor(atoms, bonds) {
+      const pad = (v, n) => String(v).padStart(n);
+      let mb = '\n  InkyRecognizer\n\n' + pad(atoms.length, 3) + pad(bonds.length, 3) + '  0  0  0  0  0  0  0  0999 V2000\n';
+      for (const a of atoms) {
+        const sym = (!a.symbol || a.symbol === '?') ? '*' : a.symbol;
+        const chg = { 0: 0, 1: 3, 2: 2, 3: 1, '-1': 5, '-2': 6, '-3': 7 }[a.charge || 0] || 0;
+        mb += pad(Number(a.x).toFixed(4), 10) + pad((-Number(a.y)).toFixed(4), 10) + pad('0.0000', 10) + ' ' + sym.padEnd(3) +
+          ' 0' + pad(chg, 3) + '  0  0  0  0  0  0  0  0  0  0\n';
+      }
+      for (const b of bonds) mb += pad(b.a + 1, 3) + pad(b.b + 1, 3) + pad(b.order, 3) + '  0\n';
+      return mb + 'M  END\n';
+    }
+
+    function fromGraph(params) {
+      const atoms = params.atoms || [], bonds = params.bonds || [];
+      if (!atoms.length) return { ok: false, error: 'No atoms.' };
+      const tryBuild = (bs) => {
+        const mol = RDKit.get_mol(molblockFor(atoms, bs));
+        if (mol && mol.is_valid()) return mol;
+        if (mol) mol.delete();
+        return null;
+      };
+      let used = bonds.map((b) => ({ ...b }));
+      let mol = tryBuild(used);
+      const lowered = [];
+      if (!mol) {
+        // Lower one multiple bond at a time, then pairs.
+        const multi = used.map((b, i) => (b.order > 1 ? i : -1)).filter((i) => i >= 0);
+        outer: for (const i of multi) {
+          const trial = used.map((b, k) => (k === i ? { ...b, order: b.order - 1 } : b));
+          mol = tryBuild(trial);
+          if (mol) { used = trial; lowered.push(i); break outer; }
+        }
+        if (!mol) {
+          outer2: for (const i of multi) for (const j of multi) {
+            if (j <= i) continue;
+            const trial = used.map((b, k) => (k === i || k === j ? { ...b, order: b.order - 1 } : b));
+            mol = tryBuild(trial);
+            if (mol) { used = trial; lowered.push(i, j); break outer2; }
+          }
+        }
+      }
+      if (!mol) return { ok: false, error: 'RDKit could not make a valid molecule from the drawing.' };
+      try {
+        const json = JSON.parse(mol.get_json()).molecules[0];
+        const defaults = { z: 6, impHs: 0, chg: 0 };
+        const ratoms = (json.atoms || []).map((a) => ({ ...defaults, ...a }));
+        const rbonds = (json.bonds || []).map((b) => ({ a: b.atoms[0], b: b.atoms[1], order: b.bo === undefined ? 1 : b.bo }));
+        const aromatic = new Set();
+        const qa = RDKit.get_qmol('[a]');
+        for (const m of matchQuery(mol, qa)) m.atoms.forEach((i) => aromatic.add(i));
+        qa.delete();
+        const detected = detectGroups(mol, rbonds);
+        return {
+          ok: true,
+          smiles: mol.get_smiles(),
+          formula: formulaOf(ratoms),
+          atoms: ratoms.map((a, i) => ({ index: i, symbol: SYMBOLS[a.z] || '*', hydrogens: a.impHs || 0, charge: a.chg || 0, aromatic: aromatic.has(i) })),
+          loweredBonds: lowered,
+          groups: detected.map((g) => ({ id: g.id, name: g.name, matches: g.matches })),
+          highlights: resolvePatterns(mol, rbonds, params.highlightGroups || [], detected),
+        };
       } finally {
         mol.delete();
       }
+    }
+
+    // ---- Schemes ---------------------------------------------------------------------------
+
+    // Atom index by atom-map number, read from the V3000 molblock's aamap field.
+    function atomMaps(mol) {
+      const maps = {};
+      let mb = '';
+      try { mb = mol.get_v3Kmolblock(); } catch (_) { return maps; }
+      let inAtoms = false, index = 0;
+      for (const line of mb.split('\n')) {
+        if (line.includes('BEGIN ATOM')) { inAtoms = true; continue; }
+        if (line.includes('END ATOM')) break;
+        if (!inAtoms) continue;
+        // "M  V30 <idx> <symbol> <x> <y> <z> <aamap> [props]"
+        const tokens = line.trim().split(/\s+/);
+        const map = parseInt(tokens[7], 10);
+        if (map > 0) maps[String(map)] = index;
+        index += 1;
+      }
+      return maps;
+    }
+
+    // A template with the same skeleton but any bond orders and no charges, so every resonance
+    // form (and most steps of a mechanism) lines up with the first structure.
+    function genericTemplate(mol) {
+      const lines = mol.get_molblock().split('\n');
+      const na = parseInt(lines[3].slice(0, 3), 10), nb = parseInt(lines[3].slice(3, 6), 10);
+      for (let i = 4 + na; i < 4 + na + nb; i++) lines[i] = lines[i].slice(0, 6) + '  8' + lines[i].slice(9);
+      const generic = lines.filter((l) => !l.startsWith('M  CHG') && !l.startsWith('M  RAD')).join('\n');
+      return RDKit.get_mol(generic, JSON.stringify({ sanitize: false }));
+    }
+
+    function scheme(params) {
+      const steps = params.steps || [];
+      const results = [];
+      let template = null;
+      try {
+        for (const raw of steps) {
+          const smiles = String(raw || '').trim();
+          const details = JSON.stringify({ setAromaticity: false });
+          const mapped = RDKit.get_mol(smiles, details);
+          if (!mapped || !mapped.is_valid()) {
+            if (mapped) mapped.delete();
+            results.push({ ok: false, input: smiles, error: 'RDKit could not parse this SMILES.', maps: {} });
+            continue;
+          }
+          const maps = atomMaps(mapped);
+          mapped.delete();
+          // Same SMILES without map numbers: identical atom order, no "O:1" labels in the drawing.
+          const plain = smiles.replace(/:(\d+)\]/g, ']');
+          const mol = RDKit.get_mol(plain, details);
+          if (!mol || !mol.is_valid()) {
+            if (mol) mol.delete();
+            results.push({ ok: false, input: smiles, error: 'RDKit could not parse this SMILES.', maps: {} });
+            continue;
+          }
+          try {
+            let aligned = false;
+            if (template) {
+              try {
+                const r = mol.generate_aligned_coords(template, JSON.stringify({ useCoordGen: true, acceptFailure: false }));
+                aligned = !!r && r !== '{}' && r !== '';
+              } catch (_) { aligned = false; }
+            }
+            if (!aligned) {
+              try { mol.set_new_coords(true); } catch (_) { mol.set_new_coords(); }
+              try { mol.normalize_depiction(1); mol.straighten_depiction(); } catch (_) { /* optional */ }
+              if (!template) template = genericTemplate(mol);
+            }
+            const d = depict(mol, plain, params, false);
+            results.push({ ...d, input: smiles, maps, aligned });
+          } finally {
+            mol.delete();
+          }
+        }
+      } finally {
+        if (template) template.delete();
+      }
+      return { ok: results.length > 0 && results.every((r) => r.ok), steps: results, error: (results.find((r) => !r.ok) || {}).error || null };
     }
 
     // `smiles` may be a reaction ("A.B>>C" or "A>reagent>C"): each species is depicted on its own.
@@ -327,7 +494,7 @@
       return { ok: one.ok, input: text, error: one.ok ? null : one.error, molecules: one.ok ? [one] : [], arrowAfter: null, agents: [] };
     }
 
-    return { analyze, library: groups.map(({ queries, ...g }) => g), version: RDKit.version() };
+    return { analyze, fromGraph, scheme, library: groups.map(({ queries, ...g }) => g), version: RDKit.version() };
   }
 
   const api = { create };

@@ -66,6 +66,18 @@ if you need a change in the shell, keep it minimal and mention it in your PR/com
 - **Persistence**: JSON + `PKDrawing` files per notebook (see `NotebookStore` header). Ink autosaves
   800 ms after the last stroke and on page change/background.
 
+### Precision: perceive → reason → place
+- `HeyInky/Perception`: `LineArt` (raster → polylines), `StructureRecognizer` (bond graph), `AtomLabelReader`
+  (O/OH/NH… from shape + Vision), `PageStructureFinder` (images, ink, PDF → `PageStructure` S1… with atom ids,
+  SMILES and hidden H's via RDKit `fromGraph`). Sent to the model in the context packet.
+- The model marks structures by id with `annotateStructure`; `StructureAnnotator` computes exact geometry and
+  emits ordinary `draw`/`label` actions (`addAnnotation(exact: true)`).
+- New figures: `insertChemScheme` (`ChemSchemeView`/`ChemSchemeLayout`, RDKit `scheme`) and `insertDiagram`
+  (`HeyInky/Figures`: `DiagramEngine` sanitizes/styles/checks SVG → vector PDF). `FigurePreparer` measures and
+  places them in free space; `InkyDeepChecker` rejects bad ones before they reach the page (one retry).
+- Never ask the model for geometry the app can compute. New annotation kinds that attach to page content
+  should follow the same pattern: perceive it, give it ids, compile the marks in code.
+
 ## Build & test from the CLI
 ```bash
 brew install xcodegen                 # once

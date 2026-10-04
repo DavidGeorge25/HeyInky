@@ -108,6 +108,9 @@ final class InkySession {
             guard let self else { return }
             let (image, lines) = await editor.snapshotForInky()
             let skeleton = InkSkeleton.paths(in: editor.drawing, pageSize: editor.page.size, handwriting: lines.map(\.box))
+            // Chemical structures in images, ink and PDF figures, with exact atom positions.
+            let structures = await PageStructureFinder.find(editor: editor, text: lines)
+            let inkStructure = structures.contains { $0.source == .ink }
             let request = await InkyContextBuilder.makeRequest(
                 question: asked,
                 pageImage: image,
@@ -125,7 +128,11 @@ final class InkySession {
                 },
                 history: conversation.history(for: editor.page.id),
                 inkPaths: skeleton,
-                inkAtoms: BondLayout.atoms(skeleton: skeleton, pageSize: editor.page.size)
+                // A recognized structure replaces the rough junction list.
+                inkAtoms: inkStructure ? [] : BondLayout.atoms(skeleton: skeleton, pageSize: editor.page.size),
+                structures: structures,
+                // The page's biggest picture gets a closer look (labeling parts of a diagram).
+                focus: editor.page.images.max { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }?.frame
             )
             await self.run(request, editor: editor)
         }
@@ -147,11 +154,22 @@ final class InkySession {
             if target !== editor { target.registerAnnotationUndo(restoring: [], actionName: "Inky") }
         }
         func handle(_ action: InkyAction) async {
-            if case .addPage(let page) = action, let next = onAddPage?(page.paper) {
-                target = next
-                // Let the new page come on screen so Inky can perform there.
-                try? await Task.sleep(for: .milliseconds(450))
-            } else {
+            switch action {
+            case .addPage(let page):
+                if let next = onAddPage?(page.paper) {
+                    target = next
+                    // Let the new page come on screen so Inky can perform there.
+                    try? await Task.sleep(for: .milliseconds(450))
+                }
+            case .annotateStructure(let a):
+                // Structures belong to the page Inky looked at.
+                await applyStructureAnnotation(a, request: request, editor: editor)
+            case .insertChemScheme, .insertDiagram:
+                switch await FigurePreparer.prepare(action, editor: target) {
+                case .ready(let prepared): apply(prepared, editor: target, question: request.question)
+                case .failed(let message): showToast(message, isError: true)
+                }
+            default:
                 apply(action, editor: target, question: request.question)
             }
             actions.append(action)
@@ -209,6 +227,47 @@ final class InkySession {
             if editor.annotations.count > count, let added = editor.annotations.last {
                 editor.choreographer.perform(added, pageSize: editor.page.size)
             }
+        }
+    }
+
+    /// Compiles marks on a recognized structure into exact ink and labels, then lets Inky draw them.
+    func applyStructureAnnotation(_ action: AnnotateStructureAction, request: InkyRequest, editor: PageEditorModel) async {
+        guard let structure = request.structure(action.structure) else {
+            showToast("Inky couldn't find \(action.structure) on this page.", isError: true)
+            return
+        }
+        var groupAtoms: [Int: [Int]] = [:]
+        let relabeled = StructureAnnotator.applyRelabels(action.relabel, to: structure)
+        for (h, highlight) in action.highlights.enumerated() {
+            guard let group = highlight.group, !group.isEmpty else { continue }
+            if let molecule = try? await MoleculeEngine.shared.molecule(
+                fromGraph: Self.engineAtoms(relabeled, pageSize: editor.page.size),
+                bonds: relabeled.bonds.map { ["a": $0.a, "b": $0.b, "order": $0.order] },
+                highlightGroups: [group]
+            ), molecule.ok {
+                groupAtoms[h] = Array(Set(molecule.highlights.first?.matches.flatMap(\.atoms) ?? []))
+            }
+        }
+        let output = StructureAnnotator.compile(action, structure: structure, pageSize: editor.page.size, groupAtoms: groupAtoms)
+        for compiled in output.actions {
+            editor.showsInkyLayer = true
+            let count = editor.annotations.count
+            editor.addAnnotation(compiled, question: request.question, exact: true)
+            if editor.annotations.count > count, let added = editor.annotations.last {
+                editor.choreographer.perform(added, pageSize: editor.page.size)
+            }
+        }
+        if output.actions.isEmpty, let problem = output.problems.first {
+            showToast("Inky couldn't mark that: \(problem).", isError: true)
+        }
+    }
+
+    /// A structure's atoms as RDKit input (positions in bond-length units).
+    static func engineAtoms(_ structure: PageStructure, pageSize: CGSize) -> [[String: Any]] {
+        let unit = max(1, structure.bondLength)
+        return structure.atoms.map { atom in
+            let p = atom.point.cgPoint(in: pageSize)
+            return ["symbol": atom.element == "?" ? "*" : atom.element, "x": Double(p.x) / unit, "y": Double(p.y) / unit, "charge": atom.charge]
         }
     }
 

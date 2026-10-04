@@ -50,7 +50,10 @@ enum InkyAnnotationGeometry {
         case .insertMoleculeCard(let a): cardRect(near: a.near, pageSize: pageSize)
         case .insertGraphCard(let a): cardRect(near: a.near, pageSize: pageSize)
         case .draw(let a): NormRect(DrawInk.layout(a, pageSize: pageSize).bounds, in: pageSize)
-        case .addPage, .openSidebar, .say: .zero
+        // Figures are measured and placed when Inky adds them; `near` is their frame.
+        case .insertChemScheme(let a): a.near
+        case .insertDiagram(let a): a.near
+        case .annotateStructure, .addPage, .openSidebar, .say: .zero
         }
     }
 
@@ -70,10 +73,10 @@ enum InkyAnnotationGeometry {
 }
 
 extension InkyAction {
-    /// Molecule and graph cards: interactive views rather than marks.
+    /// Molecule and graph cards (interactive) and Inky's figures: views rather than ink marks.
     var isCard: Bool {
         switch self {
-        case .insertMoleculeCard, .insertGraphCard: true
+        case .insertMoleculeCard, .insertGraphCard, .insertChemScheme, .insertDiagram: true
         default: false
         }
     }

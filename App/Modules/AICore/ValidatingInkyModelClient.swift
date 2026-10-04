@@ -8,12 +8,18 @@ import Foundation
 /// Event contract for consumers is unchanged: `.action`s as they become valid, then exactly
 /// one `.completed` whose `actions` are exactly the forwarded actions, in order.
 struct ValidatingInkyModelClient: InkyModelClient {
+    /// App-side check for one action: `.valid` (possibly adjusted) or `.invalid(problem)`.
+    /// The Bool is true on the last attempt, when minor problems should be let through.
+    typealias DeepCheck = @Sendable (InkyAction, InkyRequest, Bool) async -> InkyResponseValidator.Outcome
+
     let base: any InkyModelClient
     var maxRetries = 1
+    var deepCheck: DeepCheck? = InkyClientFactory.deepCheck
 
     func respond(to request: InkyRequest) -> AsyncThrowingStream<InkyStreamEvent, Error> {
         let base = self.base
         let maxRetries = self.maxRetries
+        let deepCheck = self.deepCheck
         return AsyncThrowingStream { continuation in
             let task = Task {
                 var forwarded: [InkyAction] = []
@@ -26,9 +32,19 @@ struct ValidatingInkyModelClient: InkyModelClient {
                     var streamedThisAttempt = 0
                     var completedResponse: InkyResponse?
 
-                    func accept(_ action: InkyAction) {
-                        switch InkyResponseValidator.check(action) {
-                        case .valid(let fixed):
+                    let isFinalAttempt = attempt >= maxRetries
+                    func accept(_ action: InkyAction) async {
+                        switch InkyResponseValidator.check(action, request: request) {
+                        case .valid(var fixed):
+                            // Deeper checks that need the app (RDKit, the diagram renderer).
+                            if let deepCheck {
+                                switch await deepCheck(fixed, request, isFinalAttempt) {
+                                case .valid(let checked): fixed = checked
+                                case .invalid(let problem):
+                                    problems.append(problem)
+                                    return
+                                }
+                            }
                             // A retry must not repeat what is already on the page.
                             if attempt > 0, forwarded.contains(fixed) { return }
                             forwarded.append(fixed)
@@ -45,9 +61,9 @@ struct ValidatingInkyModelClient: InkyModelClient {
                                 continuation.yield(event)
                             case .action(let action):
                                 streamedThisAttempt += 1
-                                accept(action)
+                                await accept(action)
                             case .completed(let response):
-                                for action in response.actions.dropFirst(streamedThisAttempt) { accept(action) }
+                                for action in response.actions.dropFirst(streamedThisAttempt) { await accept(action) }
                                 completedResponse = response
                             }
                         }

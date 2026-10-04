@@ -16,7 +16,17 @@
       window.inkyChem.core = InkyChemCore.create(RDKit, library);
       return window.inkyChem.core.version;
     })(),
-    // Called from Swift via callAsyncJavaScript; returns a JSON string.
+    // Called from Swift via callAsyncJavaScript; each returns a JSON string.
+    async fromGraph(params) {
+      await window.inkyChem.ready;
+      try { return JSON.stringify(window.inkyChem.core.fromGraph(params)); }
+      catch (e) { return JSON.stringify({ ok: false, error: String(e && e.message || e) }); }
+    },
+    async scheme(params) {
+      await window.inkyChem.ready;
+      try { return JSON.stringify(window.inkyChem.core.scheme(params)); }
+      catch (e) { return JSON.stringify({ ok: false, steps: [], error: String(e && e.message || e) }); }
+    },
     async analyze(params) {
       await window.inkyChem.ready;
       try {

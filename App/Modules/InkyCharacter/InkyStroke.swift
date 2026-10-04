@@ -61,7 +61,7 @@ struct InkyStroke: Equatable, Sendable {
             kind = .fillText
             textWidthFraction = FillTextMark.textWidthFraction(a, size: bounds.size, scale: 1)
             duration = min(1.4, max(0.5, 0.3 + 0.05 * Double(a.text.count)))
-        case .insertMoleculeCard, .insertGraphCard:
+        case .insertMoleculeCard, .insertGraphCard, .insertChemScheme, .insertDiagram:
             kind = .card
             duration = 0.45
         case .draw(let a):
@@ -70,7 +70,7 @@ struct InkyStroke: Equatable, Sendable {
             drawLayout = layout
             // A brisk but readable hand: ~420 pt of ink per second, a beat per stroke, capped.
             duration = min(7, 0.3 + Double(layout.totalLength) / 420 + 0.06 * Double(layout.segments.count))
-        case .addPage, .openSidebar, .say:
+        case .annotateStructure, .addPage, .openSidebar, .say:
             return nil
         }
         self.annotationID = annotation.id

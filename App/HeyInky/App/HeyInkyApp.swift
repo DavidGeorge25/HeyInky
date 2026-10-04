@@ -43,6 +43,7 @@ final class AppModel {
             UITestScenarios.seed(scenarios, into: store, imagePath: defaults.string(forKey: "InkyUITestImage"))
         }
         #endif
+        InkyDeepChecker.install()
         return AppModel(store: store, client: InkyClientFactory.makeDefault())
     }
 

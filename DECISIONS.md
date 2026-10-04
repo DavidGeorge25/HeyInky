@@ -156,3 +156,45 @@ Newest last. Each entry: decision — why.
     from the pen-lift time because touches report no movement while still), typed text boxes as page
     content (drawn by `PageRenderer`, so thumbnails/export/Inky see them), handwriting → text via on-device
     Vision, PDF export with or without Inky's marks.
+
+41. **Perceive → reason → place.** Precision comes from the app, not the model: the app turns images, pen
+    ink and PDF figures into exact geometry (`HeyInky/Perception`), the model refers to it by id, and code
+    computes every position. — Asked to "add the hidden hydrogens" on an image, the model had no geometry and
+    guessed bonds that floated beside the atoms; re-aiming its lines (decision 35) only worked for pen ink.
+    Models are good at chemistry and bad at trigonometry, so they no longer do trigonometry.
+
+42. **One raster pipeline for every source** (photos, screenshots, PDF slides, Apple Pencil ink): threshold
+    against a local background → Zhang–Suen thinning (+ staircase removal) → path tracing and cleanup → RDP
+    polylines → `StructureRecognizer` (bond length, letter clusters, parallel lines → double/triple bonds,
+    gaps to labels bridged) → RDKit (`fromGraph`) for SMILES and per-atom hydrogens, repairing a misread
+    double bond by lowering the fewest bond orders. Every threshold is relative to the drawing's own bond
+    length and stroke width. Ink is cropped to the drawing so pen lines stay several pixels wide.
+
+43. **Atom labels are read by shape first, OCR second, the model last.** Page OCR misses lone handwritten
+    letters ("O") and garbles pairs ("Но-"). Holes + width decide O/OH/N/NH; Vision on the isolated,
+    enlarged letters settles the rest; label order follows the bond's side (OCR often reverses it); unsure
+    labels are marked "?" and the model can `relabel` them from the image. Carbon hydrogens never depend on
+    labels.
+
+44. **`annotateStructure` compiles to ordinary `draw`/`label` marks** (persisted as such), so Inky's
+    stroke-by-stroke drawing, undo, selection and export work unchanged; `addAnnotation(exact:)` skips the
+    old heuristics. Hydrogens fan into the open angles at the drawing's bond length (×0.6), lone pairs are
+    counted from valence, group highlights come from RDKit SMARTS matches on the student's own drawing.
+
+45. **New pictures are typeset, not handwritten.** `insertChemScheme` (RDKit structures, Kekulé forms kept,
+    every step aligned to the first, atom-map numbers for arrows/lone pairs) and `insertDiagram` (model-written
+    SVG with Inky's style kit). Both are measured and placed in free space at apply time (`FigurePreparer`);
+    `near` becomes the final frame. Diagrams render to vector PDF (cached by content hash).
+
+46. **"Make sure it's displayed right" is a check the model must pass.** A deep-check hook in
+    `ValidatingInkyModelClient` runs app-side checks before an action reaches the page: every scheme step
+    must parse in RDKit with the map numbers its arrows use; a diagram must render with no overlapping
+    labels, no empty output and text ≥ 8.5 pt at its page size. Failures go back to the model for its one
+    retry; on the last attempt a diagram with only cosmetic issues is shown rather than dropped.
+
+47. **SVG is sanitized and styled by the app**: allow-listed elements only, no scripts/foreignObject/external
+    links, missing namespace added, defaults (ink stroke, no fill, 14 px rounded text) applied only where the
+    model didn't specify, kit classes (colors, soft fills, line styles, text sizes, arrow markers) override.
+
+48. **A zoomed, finer-grid view of the page's main image** is sent with every request (like the lasso
+    crop), so labels pointing at parts of a diagram or photo land on the right part.

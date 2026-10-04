@@ -223,7 +223,7 @@ struct InsertGraphCardAction: Codable, Hashable, Sendable {
 /// Inky draws with real ink: strokes and handwritten text, in normalized page coordinates.
 struct DrawAction: Codable, Hashable, Sendable {
     enum Ink: String, Codable, CaseIterable, Sendable { case pen, marker, pencil }
-    enum Color: String, Codable, CaseIterable, Sendable { case indigo, black, blue, red, green, orange }
+    enum Color: String, Codable, CaseIterable, Sendable { case indigo, black, blue, red, green, orange, yellow, pink }
 
     struct Shape: Codable, Hashable, Sendable {
         enum Kind: String, Codable, CaseIterable, Sendable {
@@ -240,6 +240,107 @@ struct DrawAction: Codable, Hashable, Sendable {
     var ink: Ink
     var color: Color
     var shapes: [Shape]
+    var caption: String?
+}
+
+/// Marks on a structure recognized on the page (`PageStructure`), named by atom id. The app
+/// computes the geometry (`StructureAnnotator`); the model only says what to add.
+struct AnnotateStructureAction: Codable, Hashable, Sendable {
+    struct Relabel: Codable, Hashable, Sendable {
+        var atom: String
+        var symbol: String
+    }
+
+    struct Charge: Codable, Hashable, Sendable {
+        var atom: String
+        var text: String
+    }
+
+    struct Highlight: Codable, Hashable, Sendable {
+        var atoms: [String]
+        /// Functional group name or SMARTS, matched by RDKit on the recognized molecule.
+        var group: String?
+        var color: HighlightColor
+        var note: String?
+    }
+
+    struct AtomLabel: Codable, Hashable, Sendable {
+        var atom: String
+        var text: String
+    }
+
+    enum ArrowKind: String, Codable, CaseIterable, Sendable { case curved, fishhook }
+
+    struct Arrow: Codable, Hashable, Sendable {
+        /// Atom id (its lone pair) or bond "a3-a4".
+        var from: String
+        /// Atom id, or "a4-a7" (a bond, or the gap between two atoms).
+        var to: String
+        var kind: ArrowKind
+    }
+
+    var structure: String
+    var relabel: [Relabel]
+    /// Atom ids, or ["all"].
+    var hydrogens: [String]
+    /// Atom ids, or ["all"].
+    var lonePairs: [String]
+    var charges: [Charge]
+    var highlights: [Highlight]
+    var labels: [AtomLabel]
+    var arrows: [Arrow]
+    var color: DrawAction.Color
+}
+
+/// A typeset chemistry figure (RDKit structures in a row with connectors and electron arrows).
+/// Atoms are referenced by SMILES atom-map numbers ("[O-:1]" → "1").
+struct InsertChemSchemeAction: Codable, Hashable, Sendable {
+    struct Step: Codable, Hashable, Sendable {
+        var smiles: String
+        var label: String?
+    }
+
+    enum ConnectorKind: String, Codable, CaseIterable, Sendable { case resonance, reaction, equilibrium, plus, none }
+
+    struct Connector: Codable, Hashable, Sendable {
+        var kind: ConnectorKind
+        var above: String?
+        var below: String?
+    }
+
+    struct Arrow: Codable, Hashable, Sendable {
+        var step: Int
+        var from: String
+        var to: String
+        var kind: AnnotateStructureAction.ArrowKind
+    }
+
+    struct LonePair: Codable, Hashable, Sendable {
+        var step: Int
+        var atom: String
+    }
+
+    struct Highlight: Codable, Hashable, Sendable {
+        var step: Int
+        var atoms: [String]
+        var color: HighlightColor
+    }
+
+    var near: NormRect
+    var title: String?
+    var steps: [Step]
+    var connectors: [Connector]
+    var arrows: [Arrow]
+    var lonePairs: [LonePair]
+    var highlights: [Highlight]
+    var caption: String?
+}
+
+/// A stylized figure written as SVG with Inky's style kit; rendered, checked and fitted by the app.
+struct InsertDiagramAction: Codable, Hashable, Sendable {
+    var near: NormRect
+    var title: String?
+    var svg: String
     var caption: String?
 }
 
@@ -260,7 +361,8 @@ struct SayAction: Codable, Hashable, Sendable {
 
 /// The discriminator values, in schema order.
 enum InkyActionType: String, Codable, CaseIterable, Sendable {
-    case highlight, circle, star, label, fillText, insertMoleculeCard, insertGraphCard, draw, addPage, openSidebar, say
+    case highlight, circle, star, label, fillText, insertMoleculeCard, insertGraphCard, draw
+    case annotateStructure, insertChemScheme, insertDiagram, addPage, openSidebar, say
 }
 
 /// One thing Inky does. Encoded flat with a `type` discriminator, exactly as in the schema.
@@ -273,6 +375,9 @@ enum InkyAction: Hashable, Sendable {
     case insertMoleculeCard(InsertMoleculeCardAction)
     case insertGraphCard(InsertGraphCardAction)
     case draw(DrawAction)
+    case annotateStructure(AnnotateStructureAction)
+    case insertChemScheme(InsertChemSchemeAction)
+    case insertDiagram(InsertDiagramAction)
     case addPage(AddPageAction)
     case openSidebar(OpenSidebarAction)
     case say(SayAction)
@@ -287,6 +392,9 @@ enum InkyAction: Hashable, Sendable {
         case .insertMoleculeCard: .insertMoleculeCard
         case .insertGraphCard: .insertGraphCard
         case .draw: .draw
+        case .annotateStructure: .annotateStructure
+        case .insertChemScheme: .insertChemScheme
+        case .insertDiagram: .insertDiagram
         case .addPage: .addPage
         case .openSidebar: .openSidebar
         case .say: .say
@@ -322,6 +430,9 @@ extension InkyAction: Codable {
         case .insertMoleculeCard: self = .insertMoleculeCard(try InsertMoleculeCardAction(from: decoder))
         case .insertGraphCard: self = .insertGraphCard(try InsertGraphCardAction(from: decoder))
         case .draw: self = .draw(try DrawAction(from: decoder))
+        case .annotateStructure: self = .annotateStructure(try AnnotateStructureAction(from: decoder))
+        case .insertChemScheme: self = .insertChemScheme(try InsertChemSchemeAction(from: decoder))
+        case .insertDiagram: self = .insertDiagram(try InsertDiagramAction(from: decoder))
         case .addPage: self = .addPage(try AddPageAction(from: decoder))
         case .openSidebar: self = .openSidebar(try OpenSidebarAction(from: decoder))
         case .say: self = .say(try SayAction(from: decoder))
@@ -340,6 +451,9 @@ extension InkyAction: Codable {
         case .insertMoleculeCard(let a): try a.encode(to: encoder)
         case .insertGraphCard(let a): try a.encode(to: encoder)
         case .draw(let a): try a.encode(to: encoder)
+        case .annotateStructure(let a): try a.encode(to: encoder)
+        case .insertChemScheme(let a): try a.encode(to: encoder)
+        case .insertDiagram(let a): try a.encode(to: encoder)
         case .addPage(let a): try a.encode(to: encoder)
         case .openSidebar(let a): try a.encode(to: encoder)
         case .say(let a): try a.encode(to: encoder)

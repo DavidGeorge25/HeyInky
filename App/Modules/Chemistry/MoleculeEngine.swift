@@ -50,6 +50,33 @@ final class MoleculeEngine: NSObject, WKNavigationDelegate {
         return analysis
     }
 
+    /// A molecule from a drawing's bond graph (atoms in drawing order). Coordinates only help
+    /// RDKit perceive stereo/rings sensibly; units don't matter.
+    func molecule(fromGraph atoms: [[String: Any]], bonds: [[String: Any]], highlightGroups: [String] = []) async throws -> GraphMolecule {
+        let params: [String: Any] = ["atoms": atoms, "bonds": bonds, "highlightGroups": highlightGroups]
+        let json = try await call("return await window.inkyChem.fromGraph(params);", arguments: ["params": params])
+        guard let text = json as? String, let data = text.data(using: .utf8) else {
+            throw MoleculeEngineError.engine("The chemistry engine returned nothing.")
+        }
+        return try JSONDecoder().decode(GraphMolecule.self, from: data)
+    }
+
+    /// Depicts each SMILES of a scheme, aligned to the first where the skeletons match.
+    func scheme(steps: [String]) async throws -> SchemeAnalysis {
+        let key = (["\u{2}scheme"] + steps).joined(separator: "\u{0}")
+        if let hit = schemeCache[key] { return hit }
+        let params: [String: Any] = ["steps": steps, "bondLength": 30, "highlightGroups": [], "starGroups": []]
+        let json = try await call("return await window.inkyChem.scheme(params);", arguments: ["params": params])
+        guard let text = json as? String, let data = text.data(using: .utf8) else {
+            throw MoleculeEngineError.engine("The chemistry engine returned nothing.")
+        }
+        let result = try JSONDecoder().decode(SchemeAnalysis.self, from: data)
+        schemeCache[key] = result
+        return result
+    }
+
+    private var schemeCache: [String: SchemeAnalysis] = [:]
+
     /// The RDKit version (also a cheap readiness probe).
     func version() async throws -> String {
         (try await call("return await window.inkyChem.ready;", arguments: [:]) as? String) ?? "?"

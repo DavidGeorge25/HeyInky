@@ -42,6 +42,8 @@ enum DrawInk {
         case .red: UIColor(red: 0.90, green: 0.28, blue: 0.30, alpha: 1)
         case .green: UIColor(red: 0.19, green: 0.62, blue: 0.40, alpha: 1)
         case .orange: UIColor(red: 0.95, green: 0.45, blue: 0.10, alpha: 1)
+        case .yellow: UIColor(red: 1.0, green: 0.80, blue: 0.12, alpha: 1)
+        case .pink: UIColor(red: 0.96, green: 0.42, blue: 0.66, alpha: 1)
         }
     }
 

@@ -190,7 +190,9 @@ struct InkyLayerView: View {
         case .draw(let a):
             "Inky drawing" + (a.caption.map { ": \($0)" } ?? "")
                 + { let t = a.shapes.compactMap { $0.kind == .text ? $0.text : nil }; return t.isEmpty ? "" : " — " + t.joined(separator: ", ") }()
-        case .addPage, .openSidebar, .say: ""
+        case .insertChemScheme(let a): ChemSchemeView.accessibilityText(a)
+        case .insertDiagram(let a): "Diagram" + (a.title.map { ": \($0)" } ?? "")
+        case .annotateStructure, .addPage, .openSidebar, .say: ""
         }
     }
 }
@@ -237,7 +239,17 @@ struct InkyAnnotationView: View {
             .cardReveal(progress)
         case .draw(let a):
             DrawMark(action: a, seed: CircleMark.seed(for: annotation.id), pageSize: pageSize, scale: scale, progress: progress)
-        case .addPage, .openSidebar, .say:
+        case .insertChemScheme(let a):
+            InkyFigureFrame(title: nil, caption: nil, scale: scale) {
+                ChemSchemeView(action: a, pageWidth: pageSize.width)
+            }
+            .cardReveal(progress)
+        case .insertDiagram(let a):
+            InkyFigureFrame(title: a.title, caption: a.caption, scale: scale) {
+                DiagramFigureView(action: a)
+            }
+            .cardReveal(progress)
+        case .annotateStructure, .addPage, .openSidebar, .say:
             EmptyView()
         }
     }

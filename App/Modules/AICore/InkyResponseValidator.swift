@@ -17,6 +17,11 @@ enum InkyResponseValidator {
     static let maxMarkArea = 0.85
 
     static func check(_ action: InkyAction) -> Outcome {
+        check(action, request: nil)
+    }
+
+    /// `request` lets structure marks be checked against the structures the model was shown.
+    static func check(_ action: InkyAction, request: InkyRequest?) -> Outcome {
         switch action {
         case .highlight(var a):
             switch checkRegion(a.region, what: "highlight") {
@@ -68,6 +73,29 @@ enum InkyResponseValidator {
         case .draw(let a):
             if let problem = drawProblem(a) { return .invalid("draw: \(problem)") }
             return .valid(.draw(a))
+        case .annotateStructure(let a):
+            if let problem = structureProblem(a, request: request) { return .invalid("annotateStructure: \(problem)") }
+            return .valid(action)
+        case .insertChemScheme(var a):
+            if let problem = schemeProblem(&a) { return .invalid("insertChemScheme: \(problem)") }
+            switch checkRegion(a.near, what: "insertChemScheme near") {
+            case .failure(let p): return .invalid(p.description)
+            case .success(let r): a.near = r
+            }
+            return .valid(.insertChemScheme(a))
+        case .insertDiagram(var a):
+            let svg = a.svg.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !svg.lowercased().hasPrefix("<svg") { return .invalid("insertDiagram: svg must be a single <svg …> element") }
+            if svg.count > maxDiagramLength { return .invalid("insertDiagram: the SVG is too long (max \(maxDiagramLength) characters); simplify it") }
+            if svg.lowercased().contains("<script") || svg.lowercased().contains("<foreignobject") || svg.lowercased().contains("<image") {
+                return .invalid("insertDiagram: no scripts, images or foreignObject in the SVG")
+            }
+            a.svg = svg
+            switch checkRegion(a.near, what: "insertDiagram near") {
+            case .failure(let p): return .invalid(p.description)
+            case .success(let r): a.near = r
+            }
+            return .valid(.insertDiagram(a))
         case .addPage:
             return .valid(action)
         case .openSidebar(let a):
@@ -96,6 +124,82 @@ enum InkyResponseValidator {
             problems.append("removeAnnotations has unknown ids \(unknown) (existing marks: \(known.isEmpty ? "none" : known))")
         }
         return problems
+    }
+
+    // MARK: Structures and figures
+
+    static let maxDiagramLength = 40_000
+    static let maxSchemeSteps = 8
+
+    static func structureProblem(_ a: AnnotateStructureAction, request: InkyRequest?) -> String? {
+        guard let request else { return nil }
+        guard let structure = request.structure(a.structure) else {
+            if request.structures.isEmpty { return "no structures were recognized on this page, so there is nothing to annotate by id; use draw instead" }
+            return "there is no structure \(a.structure) (recognized: \(request.structures.map(\.id).joined(separator: ", ")))"
+        }
+        func known(_ id: String) -> Bool { id.lowercased() == "all" || structure.atomIndex(id) != nil }
+        var ids = a.hydrogens + a.lonePairs + a.relabel.map(\.atom) + a.charges.map(\.atom) + a.labels.map(\.atom)
+        ids += a.highlights.flatMap(\.atoms)
+        for arrow in a.arrows {
+            ids += [arrow.from, arrow.to].flatMap { $0.split(whereSeparator: { $0 == "-" || $0 == "–" || $0 == "=" || $0 == "," }).map(String.init) }
+        }
+        let unknown = Set(ids.filter { !known($0) })
+        if !unknown.isEmpty {
+            return "\(structure.id) has no atom(s) \(unknown.sorted().joined(separator: ", ")) (atoms are a1…a\(structure.atoms.count))"
+        }
+        if a.highlights.contains(where: { $0.atoms.isEmpty && ($0.group ?? "").isEmpty }) {
+            return "each highlight needs atoms or a group"
+        }
+        if a.hydrogens.isEmpty && a.lonePairs.isEmpty && a.charges.isEmpty && a.highlights.isEmpty && a.labels.isEmpty && a.arrows.isEmpty {
+            return "nothing to add; fill at least one list"
+        }
+        return nil
+    }
+
+    static func schemeProblem(_ a: inout InsertChemSchemeAction) -> String? {
+        if a.steps.isEmpty { return "add at least one structure" }
+        if a.steps.count > maxSchemeSteps { return "too many structures (max \(maxSchemeSteps))" }
+        for (i, step) in a.steps.enumerated() {
+            let smiles = step.smiles.trimmingCharacters(in: .whitespacesAndNewlines)
+            if smiles.contains(">") { return "step \(i) is a reaction SMILES; give each structure as its own step with a reaction connector" }
+            if let problem = smilesProblem(smiles) { return "step \(i) smiles \"\(smiles)\" is not valid SMILES: \(problem)" }
+            a.steps[i].smiles = smiles
+        }
+        // One connector per gap: repair small miscounts rather than reject.
+        let gaps = a.steps.count - 1
+        if a.connectors.count > gaps { a.connectors = Array(a.connectors.prefix(gaps)) }
+        while a.connectors.count < gaps {
+            a.connectors.append(.init(kind: a.connectors.last?.kind ?? .reaction, above: nil, below: nil))
+        }
+        func maps(_ step: Int) -> Set<String> {
+            guard step >= 0, step < a.steps.count else { return [] }
+            let smiles = a.steps[step].smiles
+            var found = Set<String>()
+            var digits = ""
+            var inMap = false
+            for c in smiles {
+                if c == ":" { inMap = true; digits = ""; continue }
+                if inMap {
+                    if c.isNumber { digits.append(c) } else { if c == "]", !digits.isEmpty { found.insert(digits) }; inMap = false }
+                }
+            }
+            return found
+        }
+        for arrow in a.arrows {
+            guard arrow.step >= 0, arrow.step < a.steps.count else { return "arrow step \(arrow.step) doesn't exist (steps are 0…\(a.steps.count - 1))" }
+            let available = maps(arrow.step)
+            let refs = [arrow.from, arrow.to].flatMap { $0.split(whereSeparator: { $0 == "-" || $0 == "=" || $0 == "," }).map { $0.trimmingCharacters(in: .whitespaces) } }
+            if let missing = refs.first(where: { !available.contains($0) }) {
+                return "arrow refers to atom map number \(missing), but step \(arrow.step)'s SMILES has no atom written with :\(missing) (e.g. [O-:\(missing)])"
+            }
+        }
+        for lp in a.lonePairs where !maps(lp.step).contains(lp.atom) {
+            return "lone pair refers to atom map number \(lp.atom), which step \(lp.step)'s SMILES doesn't have"
+        }
+        for h in a.highlights where !h.atoms.allSatisfy(maps(h.step).contains) {
+            return "a highlight refers to atom map numbers missing from step \(h.step)'s SMILES"
+        }
+        return nil
     }
 
     // MARK: Drawings

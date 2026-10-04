@@ -385,7 +385,9 @@ struct InkyLayerMenu: View {
         case .insertMoleculeCard(let a): "Molecule · \(a.caption ?? a.smiles)"
         case .insertGraphCard(let a): "Graph · \(a.spec.title ?? "")"
         case .draw(let a): a.caption.map { "Drawing · \($0)" } ?? "Drawing"
-        case .addPage, .openSidebar, .say: ""
+        case .insertChemScheme(let a): a.title.map { "Chemistry · \($0)" } ?? "Chemistry figure"
+        case .insertDiagram(let a): a.title.map { "Diagram · \($0)" } ?? "Diagram"
+        case .annotateStructure, .addPage, .openSidebar, .say: ""
         }
     }
 }

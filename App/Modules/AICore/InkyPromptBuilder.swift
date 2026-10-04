@@ -81,6 +81,11 @@ enum InkyPromptBuilder {
             }
         }
 
+        if !request.structures.isEmpty {
+            lines.append("")
+            lines.append(structureText(request.structures))
+        }
+
         lines.append("")
         if request.pageAnnotations.isEmpty {
             lines.append("Inky marks already on the page: none.")
@@ -108,6 +113,41 @@ enum InkyPromptBuilder {
                 } else if turn.actions.contains(where: \.isPageAnnotation) {
                     lines.append("   Marks from that turn: none left on the page")
                 }
+            }
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    /// Recognized structures as an atom/bond table the model can refer to by id.
+    static func structureText(_ structures: [PageStructure]) -> String {
+        var lines = ["Chemical structures recognized on the page (positions are exact — mark them with `annotateStructure` by atom id; the app places everything precisely):"]
+        for s in structures.prefix(6) {
+            let source = switch s.source {
+            case .image: "in an image"
+            case .ink: "in the student's ink"
+            case .pdf: "on the slide"
+            }
+            var head = "\(s.id) — drawn \(source) at \(format(s.region))"
+            head += s.smiles.map { ", SMILES \($0)" } ?? ", SMILES unverified (RDKit couldn't confirm the drawing)"
+            lines.append(head)
+            let atoms = s.atoms.prefix(60).map { atom -> String in
+                var t = "\(atom.id) \(atom.element)"
+                if let label = atom.label { t += atom.unsure ? " \"\(label)\"?" : " \"\(label)\"" }
+                t += String(format: " (%.3f, %.3f)", atom.point.x, atom.point.y)
+                if atom.hiddenHydrogens > 0 { t += " +\(atom.hiddenHydrogens)H" }
+                if atom.charge != 0 { t += atom.charge > 0 ? " charge +\(atom.charge)" : " charge \(atom.charge)" }
+                return t
+            }
+            lines.append("  atoms: " + atoms.joined(separator: "; "))
+            let bonds = s.bonds.prefix(80).map { b -> String in
+                let symbol = b.order == 2 ? "=" : b.order == 3 ? "≡" : "–"
+                return "\(s.atoms[b.a].id)\(symbol)\(s.atoms[b.b].id)"
+            }
+            lines.append("  bonds: " + bonds.joined(separator: " "))
+            let hidden = s.atoms.reduce(0) { $0 + $1.hiddenHydrogens }
+            lines.append("  hidden hydrogens in total: \(hidden)")
+            if s.atoms.contains(where: \.unsure) {
+                lines.append("  Labels marked ? were hard to read: check them in the image and fix any wrong ones with `relabel`.")
             }
         }
         return lines.joined(separator: "\n")
@@ -153,6 +193,20 @@ enum InkyPromptBuilder {
             let kinds = Dictionary(grouping: a.shapes.filter { $0.kind != .text }, by: \.kind).map { "\($0.value.count) \($0.key.rawValue)" }.sorted().joined(separator: ", ")
             return "drew" + (a.caption.map { " \"\(clip($0, 60))\"" } ?? "") + (kinds.isEmpty ? "" : " (\(kinds))")
                 + (texts.isEmpty ? "" : " writing \"\(clip(texts, long ? 300 : 80))\"")
+        case .annotateStructure(let a):
+            var parts: [String] = []
+            if !a.hydrogens.isEmpty { parts.append("hydrogens on \(a.hydrogens.joined(separator: ","))") }
+            if !a.lonePairs.isEmpty { parts.append("lone pairs on \(a.lonePairs.joined(separator: ","))") }
+            if !a.charges.isEmpty { parts.append(a.charges.map { "\($0.text) on \($0.atom)" }.joined(separator: ", ")) }
+            if !a.highlights.isEmpty { parts.append("highlighted " + a.highlights.map { $0.group ?? $0.atoms.joined(separator: ",") }.joined(separator: "; ")) }
+            if !a.labels.isEmpty { parts.append("labels " + a.labels.map { "\"\($0.text)\" at \($0.atom)" }.joined(separator: ", ")) }
+            if !a.arrows.isEmpty { parts.append("arrows " + a.arrows.map { "\($0.from)→\($0.to)" }.joined(separator: ", ")) }
+            return "marked \(a.structure): " + (parts.isEmpty ? "nothing" : parts.joined(separator: "; "))
+        case .insertChemScheme(let a):
+            let kinds = a.connectors.map(\.kind.rawValue).joined(separator: "/")
+            return "chemistry figure" + (a.title.map { " \"\(clip($0, 60))\"" } ?? "") + " (\(a.steps.count) structures\(kinds.isEmpty ? "" : ", \(kinds)")): " + clip(a.steps.map(\.smiles).joined(separator: " | "), long ? 400 : 120) + " at \(format(a.near))"
+        case .insertDiagram(let a):
+            return "diagram" + (a.title.map { " \"\(clip($0, 60))\"" } ?? "") + " at \(format(a.near))"
         case .addPage(let a):
             return "added a new \(a.paper.rawValue) page"
         case .openSidebar(let a):

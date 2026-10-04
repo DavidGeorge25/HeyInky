@@ -2,29 +2,65 @@
   "description": "Hey Inky action contract v3. Source of truth for the model's structured output (OpenAI strict json_schema) and for the Swift Codable types in App/Modules/AICore/Contract/InkyAction.swift. Coordinates are normalized page space: (0,0) top-left, (1,1) bottom-right. Strict-mode rules: every object lists all properties in `required` and sets additionalProperties=false; optional values are nullable. Keep InkyActionSchemaSyncTests green when editing. Property ORDER matters: strict structured outputs generate keys in schema order, so `type` must stay first in every action.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["removeAnnotations", "actions"],
+  "required": [
+    "removeAnnotations",
+    "actions"
+  ],
   "properties": {
     "removeAnnotations": {
       "type": "array",
       "description": "Ids (like \"m2\") of existing Inky marks to delete, e.g. when the student says \"undo that\" or \"remove the highlight\". Usually empty.",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "actions": {
       "type": "array",
       "description": "Ordered list of things Inky does on the page. Prefer acting on the page over talking.",
       "items": {
         "anyOf": [
-          { "$ref": "#/$defs/highlight" },
-          { "$ref": "#/$defs/circle" },
-          { "$ref": "#/$defs/star" },
-          { "$ref": "#/$defs/label" },
-          { "$ref": "#/$defs/fillText" },
-          { "$ref": "#/$defs/insertMoleculeCard" },
-          { "$ref": "#/$defs/insertGraphCard" },
-          { "$ref": "#/$defs/draw" },
-          { "$ref": "#/$defs/addPage" },
-          { "$ref": "#/$defs/openSidebar" },
-          { "$ref": "#/$defs/say" }
+          {
+            "$ref": "#/$defs/highlight"
+          },
+          {
+            "$ref": "#/$defs/circle"
+          },
+          {
+            "$ref": "#/$defs/star"
+          },
+          {
+            "$ref": "#/$defs/label"
+          },
+          {
+            "$ref": "#/$defs/fillText"
+          },
+          {
+            "$ref": "#/$defs/insertMoleculeCard"
+          },
+          {
+            "$ref": "#/$defs/insertGraphCard"
+          },
+          {
+            "$ref": "#/$defs/draw"
+          },
+          {
+            "$ref": "#/$defs/annotateStructure"
+          },
+          {
+            "$ref": "#/$defs/insertChemScheme"
+          },
+          {
+            "$ref": "#/$defs/insertDiagram"
+          },
+          {
+            "$ref": "#/$defs/addPage"
+          },
+          {
+            "$ref": "#/$defs/openSidebar"
+          },
+          {
+            "$ref": "#/$defs/say"
+          }
         ]
       }
     }
@@ -34,129 +70,344 @@
       "type": "object",
       "description": "Axis-aligned rectangle in normalized page coordinates. x,y is the top-left corner.",
       "additionalProperties": false,
-      "required": ["x", "y", "width", "height"],
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
       "properties": {
-        "x": { "type": "number", "minimum": 0, "maximum": 1 },
-        "y": { "type": "number", "minimum": 0, "maximum": 1 },
-        "width": { "type": "number", "minimum": 0, "maximum": 1 },
-        "height": { "type": "number", "minimum": 0, "maximum": 1 }
+        "x": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "y": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "width": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "height": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
       }
     },
     "point": {
       "type": "object",
       "description": "Point in normalized page coordinates.",
       "additionalProperties": false,
-      "required": ["x", "y"],
+      "required": [
+        "x",
+        "y"
+      ],
       "properties": {
-        "x": { "type": "number", "minimum": 0, "maximum": 1 },
-        "y": { "type": "number", "minimum": 0, "maximum": 1 }
+        "x": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "y": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
       }
     },
     "highlight": {
       "type": "object",
       "description": "Translucent marker highlight over a region, with an optional short margin note.",
       "additionalProperties": false,
-      "required": ["type", "region", "color", "note"],
+      "required": [
+        "type",
+        "region",
+        "color",
+        "note"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["highlight"] },
-        "region": { "$ref": "#/$defs/region" },
-        "color": { "type": "string", "enum": ["yellow", "green", "blue", "pink", "orange"] },
-        "note": { "type": ["string", "null"] }
+        "type": {
+          "type": "string",
+          "enum": [
+            "highlight"
+          ]
+        },
+        "region": {
+          "$ref": "#/$defs/region"
+        },
+        "color": {
+          "type": "string",
+          "enum": [
+            "yellow",
+            "green",
+            "blue",
+            "pink",
+            "orange"
+          ]
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
     "circle": {
       "type": "object",
       "description": "Hand-drawn style loop around a region.",
       "additionalProperties": false,
-      "required": ["type", "region", "style"],
+      "required": [
+        "type",
+        "region",
+        "style"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["circle"] },
-        "region": { "$ref": "#/$defs/region" },
-        "style": { "type": "string", "enum": ["solid", "dashed"] }
+        "type": {
+          "type": "string",
+          "enum": [
+            "circle"
+          ]
+        },
+        "region": {
+          "$ref": "#/$defs/region"
+        },
+        "style": {
+          "type": "string",
+          "enum": [
+            "solid",
+            "dashed"
+          ]
+        }
       }
     },
     "star": {
       "type": "object",
       "description": "A small star placed at a point, e.g. to mark something important.",
       "additionalProperties": false,
-      "required": ["type", "point"],
+      "required": [
+        "type",
+        "point"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["star"] },
-        "point": { "$ref": "#/$defs/point" }
+        "type": {
+          "type": "string",
+          "enum": [
+            "star"
+          ]
+        },
+        "point": {
+          "$ref": "#/$defs/point"
+        }
       }
     },
     "label": {
       "type": "object",
       "description": "Short text label placed near an anchor point, optionally with an arrow pointing at the anchor.",
       "additionalProperties": false,
-      "required": ["type", "anchor", "text", "arrow"],
+      "required": [
+        "type",
+        "anchor",
+        "text",
+        "arrow"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["label"] },
-        "anchor": { "$ref": "#/$defs/point" },
-        "text": { "type": "string" },
-        "arrow": { "type": "boolean" }
+        "type": {
+          "type": "string",
+          "enum": [
+            "label"
+          ]
+        },
+        "anchor": {
+          "$ref": "#/$defs/point"
+        },
+        "text": {
+          "type": "string"
+        },
+        "arrow": {
+          "type": "boolean"
+        }
       }
     },
     "fillText": {
       "type": "object",
       "description": "Write text inside a region (e.g. fill a blank, answer box). handwritingStyle renders it in a handwriting font.",
       "additionalProperties": false,
-      "required": ["type", "region", "text", "handwritingStyle"],
+      "required": [
+        "type",
+        "region",
+        "text",
+        "handwritingStyle"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["fillText"] },
-        "region": { "$ref": "#/$defs/region" },
-        "text": { "type": "string" },
-        "handwritingStyle": { "type": "boolean" }
+        "type": {
+          "type": "string",
+          "enum": [
+            "fillText"
+          ]
+        },
+        "region": {
+          "$ref": "#/$defs/region"
+        },
+        "text": {
+          "type": "string"
+        },
+        "handwritingStyle": {
+          "type": "boolean"
+        }
       }
     },
     "insertMoleculeCard": {
       "type": "object",
       "description": "Interactive molecule card. highlightGroups/starGroups are SMARTS patterns matched against the molecule.",
       "additionalProperties": false,
-      "required": ["type", "smiles", "near", "highlightGroups", "starGroups", "caption"],
+      "required": [
+        "type",
+        "smiles",
+        "near",
+        "highlightGroups",
+        "starGroups",
+        "caption"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["insertMoleculeCard"] },
-        "smiles": { "type": "string" },
-        "near": { "$ref": "#/$defs/region" },
-        "highlightGroups": { "type": "array", "items": { "type": "string" } },
-        "starGroups": { "type": "array", "items": { "type": "string" } },
-        "caption": { "type": ["string", "null"] }
+        "type": {
+          "type": "string",
+          "enum": [
+            "insertMoleculeCard"
+          ]
+        },
+        "smiles": {
+          "type": "string"
+        },
+        "near": {
+          "$ref": "#/$defs/region"
+        },
+        "highlightGroups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "starGroups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "caption": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
     "insertGraphCard": {
       "type": "object",
       "description": "Interactive graph card placed near a region.",
       "additionalProperties": false,
-      "required": ["type", "spec", "near"],
+      "required": [
+        "type",
+        "spec",
+        "near"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["insertGraphCard"] },
-        "spec": { "$ref": "#/$defs/graphSpec" },
-        "near": { "$ref": "#/$defs/region" }
+        "type": {
+          "type": "string",
+          "enum": [
+            "insertGraphCard"
+          ]
+        },
+        "spec": {
+          "$ref": "#/$defs/graphSpec"
+        },
+        "near": {
+          "$ref": "#/$defs/region"
+        }
       }
     },
     "graphSpec": {
       "type": "object",
       "description": "JSXGraph-friendly graph description. Expressions are JavaScript math in x and the param names (e.g. 'a*Math.sin(b*x)').",
       "additionalProperties": false,
-      "required": ["title", "xMin", "xMax", "yMin", "yMax", "xLabel", "yLabel", "functions", "params", "asymptotes", "points", "labels"],
+      "required": [
+        "title",
+        "xMin",
+        "xMax",
+        "yMin",
+        "yMax",
+        "xLabel",
+        "yLabel",
+        "functions",
+        "params",
+        "asymptotes",
+        "points",
+        "labels"
+      ],
       "properties": {
-        "title": { "type": ["string", "null"] },
-        "xMin": { "type": "number" },
-        "xMax": { "type": "number" },
-        "yMin": { "type": "number" },
-        "yMax": { "type": "number" },
-        "xLabel": { "type": ["string", "null"], "description": "Axis label, e.g. \"[S] (mM)\" or \"t (s)\". Null = x." },
-        "yLabel": { "type": ["string", "null"], "description": "Axis label. Null = y." },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "xMin": {
+          "type": "number"
+        },
+        "xMax": {
+          "type": "number"
+        },
+        "yMin": {
+          "type": "number"
+        },
+        "yMax": {
+          "type": "number"
+        },
+        "xLabel": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Axis label, e.g. \"[S] (mM)\" or \"t (s)\". Null = x."
+        },
+        "yLabel": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Axis label. Null = y."
+        },
         "functions": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["expression", "label", "color"],
+            "required": [
+              "expression",
+              "label",
+              "color"
+            ],
             "properties": {
-              "expression": { "type": "string" },
-              "label": { "type": ["string", "null"] },
-              "color": { "type": ["string", "null"] }
+              "expression": {
+                "type": "string"
+              },
+              "label": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "color": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
             }
           }
         },
@@ -165,13 +416,32 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["name", "min", "max", "value", "step"],
+            "required": [
+              "name",
+              "min",
+              "max",
+              "value",
+              "step"
+            ],
             "properties": {
-              "name": { "type": "string" },
-              "min": { "type": "number" },
-              "max": { "type": "number" },
-              "value": { "type": "number" },
-              "step": { "type": ["number", "null"] }
+              "name": {
+                "type": "string"
+              },
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              },
+              "value": {
+                "type": "number"
+              },
+              "step": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
             }
           }
         },
@@ -180,12 +450,38 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["orientation", "value", "slope", "label"],
+            "required": [
+              "orientation",
+              "value",
+              "slope",
+              "label"
+            ],
             "properties": {
-              "orientation": { "type": "string", "enum": ["vertical", "horizontal", "oblique"] },
-              "value": { "type": "number", "description": "x for vertical, y for horizontal, y-intercept for oblique." },
-              "slope": { "type": ["number", "null"], "description": "Slope for oblique; null otherwise." },
-              "label": { "type": ["string", "null"] }
+              "orientation": {
+                "type": "string",
+                "enum": [
+                  "vertical",
+                  "horizontal",
+                  "oblique"
+                ]
+              },
+              "value": {
+                "type": "number",
+                "description": "x for vertical, y for horizontal, y-intercept for oblique."
+              },
+              "slope": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "Slope for oblique; null otherwise."
+              },
+              "label": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
             }
           }
         },
@@ -194,12 +490,28 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["x", "y", "label", "draggable"],
+            "required": [
+              "x",
+              "y",
+              "label",
+              "draggable"
+            ],
             "properties": {
-              "x": { "type": "number" },
-              "y": { "type": "number" },
-              "label": { "type": ["string", "null"] },
-              "draggable": { "type": "boolean" }
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "label": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "draggable": {
+                "type": "boolean"
+              }
             }
           }
         },
@@ -208,11 +520,21 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["x", "y", "text"],
+            "required": [
+              "x",
+              "y",
+              "text"
+            ],
             "properties": {
-              "x": { "type": "number" },
-              "y": { "type": "number" },
-              "text": { "type": "string" }
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "text": {
+                "type": "string"
+              }
             }
           }
         }
@@ -222,56 +544,603 @@
       "type": "object",
       "description": "Longer explanation shown in a sidebar. Markdown without LaTeX. speakable=true offers text-to-speech.",
       "additionalProperties": false,
-      "required": ["type", "markdown", "speakable"],
+      "required": [
+        "type",
+        "markdown",
+        "speakable"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["openSidebar"] },
-        "markdown": { "type": "string" },
-        "speakable": { "type": "boolean" }
+        "type": {
+          "type": "string",
+          "enum": [
+            "openSidebar"
+          ]
+        },
+        "markdown": {
+          "type": "string"
+        },
+        "speakable": {
+          "type": "boolean"
+        }
       }
     },
     "draw": {
       "type": "object",
       "description": "Inky draws on the page with real ink, like a tutor at the board: bonds and atoms, arrows (incl. curved mechanism arrows), diagrams, sketches of graphs, and handwritten working/steps. All points are normalized page coordinates.",
       "additionalProperties": false,
-      "required": ["type", "ink", "color", "shapes", "caption"],
+      "required": [
+        "type",
+        "ink",
+        "color",
+        "shapes",
+        "caption"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["draw"] },
-        "ink": { "type": "string", "enum": ["pen", "marker", "pencil"], "description": "pen = crisp lines and writing (default); marker = thick translucent emphasis; pencil = light sketch/construction lines." },
-        "color": { "type": "string", "enum": ["indigo", "black", "blue", "red", "green", "orange"], "description": "indigo is Inky's own ink (default)." },
-        "shapes": { "type": "array", "items": { "$ref": "#/$defs/shape" } },
-        "caption": { "type": ["string", "null"], "description": "Few words naming what was drawn (shown in the Inky layer list)." }
+        "type": {
+          "type": "string",
+          "enum": [
+            "draw"
+          ]
+        },
+        "ink": {
+          "type": "string",
+          "enum": [
+            "pen",
+            "marker",
+            "pencil"
+          ],
+          "description": "pen = crisp lines and writing (default); marker = thick translucent emphasis; pencil = light sketch/construction lines."
+        },
+        "color": {
+          "type": "string",
+          "enum": [
+            "indigo",
+            "black",
+            "blue",
+            "red",
+            "green",
+            "orange",
+            "yellow",
+            "pink"
+          ],
+          "description": "indigo is Inky's own ink (default). yellow/pink are for marker highlighting."
+        },
+        "shapes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/shape"
+          }
+        },
+        "caption": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Few words naming what was drawn (shown in the Inky layer list)."
+        }
       }
     },
     "shape": {
       "type": "object",
       "description": "line/dashedLine/arrow/doubleArrow: from points[0] to points[last] (through any middle points). curvedArrow: [start, end] bows to the left of travel; [start, through, end] passes through the middle point. polyline: open path; polygon: closed path. ellipse: [top-left, bottom-right] of its box. text: handwritten text; a short label (≤4 characters, one line: \"H\", \"δ+\", \"OH\") is CENTERED on points[0] (put it at the bond end; the app writes it just past the end), longer text has its top-left at points[0]; use \\n for more lines.",
       "additionalProperties": false,
-      "required": ["kind", "points", "text", "size"],
+      "required": [
+        "kind",
+        "points",
+        "text",
+        "size"
+      ],
       "properties": {
-        "kind": { "type": "string", "enum": ["line", "dashedLine", "arrow", "doubleArrow", "curvedArrow", "polyline", "polygon", "ellipse", "text"] },
-        "points": { "type": "array", "items": { "$ref": "#/$defs/point" } },
-        "text": { "type": ["string", "null"], "description": "Only for kind=text." },
-        "size": { "type": "string", "enum": ["small", "medium", "large"], "description": "Text size (small ≈ notes, medium ≈ normal handwriting, large ≈ headings); for lines: stroke weight." }
+        "kind": {
+          "type": "string",
+          "enum": [
+            "line",
+            "dashedLine",
+            "arrow",
+            "doubleArrow",
+            "curvedArrow",
+            "polyline",
+            "polygon",
+            "ellipse",
+            "text"
+          ]
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/point"
+          }
+        },
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Only for kind=text."
+        },
+        "size": {
+          "type": "string",
+          "enum": [
+            "small",
+            "medium",
+            "large"
+          ],
+          "description": "Text size (small ≈ notes, medium ≈ normal handwriting, large ≈ headings); for lines: stroke weight."
+        }
+      }
+    },
+    "annotateStructure": {
+      "type": "object",
+      "description": "Precise marks on a chemical structure that was recognized on the page (listed as S1, S2… with atom ids a1, a2…). Name WHAT to add by atom id; the app computes exact positions, angles and spacing from the real drawing. Use this instead of `draw` for anything attached to a recognized structure's atoms or bonds.",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "structure",
+        "relabel",
+        "hydrogens",
+        "lonePairs",
+        "charges",
+        "highlights",
+        "labels",
+        "arrows",
+        "color"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "annotateStructure"
+          ]
+        },
+        "structure": {
+          "type": "string",
+          "description": "Structure id, e.g. \"S1\"."
+        },
+        "relabel": {
+          "type": "array",
+          "description": "Only to fix atom labels that were listed as unsure (\"?\") or read wrong: the correct label as written, e.g. \"O\", \"OH\", \"NH2\", \"Cl\". Usually [].",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "atom",
+              "symbol"
+            ],
+            "properties": {
+              "atom": {
+                "type": "string"
+              },
+              "symbol": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "hydrogens": {
+          "type": "array",
+          "description": "Atom ids whose hidden hydrogens to draw (each as a short bond + \"H\"), or [\"all\"] for every atom with hidden H's (the app knows how many each atom has).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lonePairs": {
+          "type": "array",
+          "description": "Atom ids whose lone pairs to draw as dot pairs, or [\"all\"] for every heteroatom. The app counts them.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "charges": {
+          "type": "array",
+          "description": "Formal or partial charges / radicals to write next to atoms.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "atom",
+              "text"
+            ],
+            "properties": {
+              "atom": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string",
+                "enum": [
+                  "+",
+                  "−",
+                  "δ+",
+                  "δ−",
+                  "•",
+                  "2+",
+                  "2−"
+                ]
+              }
+            }
+          }
+        },
+        "highlights": {
+          "type": "array",
+          "description": "Marker highlights over groups of atoms (and the bonds between them). Give `group` (a functional group name like \"amide\", \"hydroxyl\", \"carbonyl\", \"aromatic ring\", or a SMARTS) to let the app find the exact atoms, or list `atoms`.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "atoms",
+              "group",
+              "color",
+              "note"
+            ],
+            "properties": {
+              "atoms": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "group": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "color": {
+                "type": "string",
+                "enum": [
+                  "yellow",
+                  "green",
+                  "blue",
+                  "pink",
+                  "orange"
+                ]
+              },
+              "note": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "1–3 word name written beside it, or null."
+              }
+            }
+          }
+        },
+        "labels": {
+          "type": "array",
+          "description": "Short text (1–4 words) pointing at one atom with a small arrow, e.g. \"sp² carbon\", \"chiral center\", \"nucleophile\".",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "atom",
+              "text"
+            ],
+            "properties": {
+              "atom": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "arrows": {
+          "type": "array",
+          "description": "Mechanism arrows. from: an atom id (electrons from its lone pair) or a bond \"a3-a4\" (electrons from that bond). to: an atom id, or a pair \"a4-a7\" (the bond being made/attacked, or the middle between two atoms).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "from",
+              "to",
+              "kind"
+            ],
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "curved",
+                  "fishhook"
+                ],
+                "description": "curved = electron-pair arrow (full head); fishhook = single-electron arrow (half head)."
+              }
+            }
+          }
+        },
+        "color": {
+          "type": "string",
+          "enum": [
+            "indigo",
+            "black",
+            "blue",
+            "red",
+            "green",
+            "orange",
+            "yellow",
+            "pink"
+          ],
+          "description": "Ink color for the added atoms/bonds/text (indigo default; red for mechanism arrows is applied automatically)."
+        }
+      }
+    },
+    "insertChemScheme": {
+      "type": "object",
+      "description": "A clean, typeset chemistry figure the app draws with RDKit (exact structures, aligned layouts): resonance structures, reactions, equilibria, mechanisms with curved arrows. Use for NEW structures that aren't on the page yet. Atoms you want to point at must carry atom-map numbers in the SMILES, e.g. \"C[C:2](=[O:1])[O-:3]\"; refer to them by number.",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "near",
+        "title",
+        "steps",
+        "connectors",
+        "arrows",
+        "lonePairs",
+        "highlights",
+        "caption"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "insertChemScheme"
+          ]
+        },
+        "near": {
+          "$ref": "#/$defs/region"
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Short title above the figure, or null."
+        },
+        "steps": {
+          "type": "array",
+          "description": "Structures left to right. Write Kekulé SMILES (explicit = bonds, uppercase atoms) for resonance forms so each form shows its own double bonds; charges in brackets ([O-], [N+], [CH2+]).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "smiles",
+              "label"
+            ],
+            "properties": {
+              "smiles": {
+                "type": "string"
+              },
+              "label": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Short caption under this structure, or null."
+              }
+            }
+          }
+        },
+        "connectors": {
+          "type": "array",
+          "description": "Exactly one per gap between consecutive steps.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "above",
+              "below"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "resonance",
+                  "reaction",
+                  "equilibrium",
+                  "plus",
+                  "none"
+                ]
+              },
+              "above": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Reagent/condition text above the arrow, or null."
+              },
+              "below": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "arrows": {
+          "type": "array",
+          "description": "Curved electron-pushing arrows inside one step (0-based step index). from: map number of an atom (its lone pair) or bond \"1-2\"; to: atom \"2\" or bond/new bond \"2-3\".",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "step",
+              "from",
+              "to",
+              "kind"
+            ],
+            "properties": {
+              "step": {
+                "type": "integer"
+              },
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "curved",
+                  "fishhook"
+                ],
+                "description": "curved = electron-pair arrow (full head); fishhook = single-electron arrow (half head)."
+              }
+            }
+          }
+        },
+        "lonePairs": {
+          "type": "array",
+          "description": "Lone pairs to show as dot pairs (atom map numbers).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "step",
+              "atom"
+            ],
+            "properties": {
+              "step": {
+                "type": "integer"
+              },
+              "atom": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "highlights": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "step",
+              "atoms",
+              "color"
+            ],
+            "properties": {
+              "step": {
+                "type": "integer"
+              },
+              "atoms": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "color": {
+                "type": "string",
+                "enum": [
+                  "yellow",
+                  "green",
+                  "blue",
+                  "pink",
+                  "orange"
+                ]
+              }
+            }
+          }
+        },
+        "caption": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "One short line under the figure, or null."
+        }
+      }
+    },
+    "insertDiagram": {
+      "type": "object",
+      "description": "A clean, stylized figure Inky composes as SVG code: biology/physics/general diagrams, labeled schematics, flowcharts, cycles, energy diagrams, timelines. The app renders it with Inky's style kit, fits it, checks text for overlaps and puts it on the page. Prefer `draw` for quick handwritten sketches and `insertGraphCard` for plots of functions.",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "near",
+        "title",
+        "svg",
+        "caption"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "insertDiagram"
+          ]
+        },
+        "near": {
+          "$ref": "#/$defs/region"
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "svg": {
+          "type": "string",
+          "description": "One <svg viewBox=\"0 0 W H\"> element using the style kit (classes and markers described in the instructions). No scripts, images, or external links."
+        },
+        "caption": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
     "addPage": {
       "type": "object",
       "description": "Adds a fresh page right after this one and moves there; every later action in this answer goes on the new page (coordinates are on the new page). Use for longer worked solutions or diagrams that don't fit.",
       "additionalProperties": false,
-      "required": ["type", "paper"],
+      "required": [
+        "type",
+        "paper"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["addPage"] },
-        "paper": { "type": "string", "enum": ["blank", "lined", "grid", "dotted"] }
+        "type": {
+          "type": "string",
+          "enum": [
+            "addPage"
+          ]
+        },
+        "paper": {
+          "type": "string",
+          "enum": [
+            "blank",
+            "lined",
+            "grid",
+            "dotted"
+          ]
+        }
       }
     },
     "say": {
       "type": "object",
       "description": "One short sentence shown as a toast.",
       "additionalProperties": false,
-      "required": ["type", "text"],
+      "required": [
+        "type",
+        "text"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["say"] },
-        "text": { "type": "string" }
+        "type": {
+          "type": "string",
+          "enum": [
+            "say"
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
       }
     }
   }
