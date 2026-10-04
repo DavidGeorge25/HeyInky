@@ -300,28 +300,31 @@ enum StructureRecognizer {
             Geometry2D.distance(t.a, toSegment: s.a, s.b), Geometry2D.distance(t.b, toSegment: s.a, s.b))
     }
 
-    /// Plausible skeletal chemistry rather than a table, chart or doodle: consistent bond lengths
-    /// and mostly non-right angles between bonds that share an atom.
+    /// Plausible skeletal chemistry rather than a ramp, table, chart or doodle: consistent bond
+    /// lengths (no bond much longer than the others) and bond angles mostly near 109–120°.
     static func looksLikeStructure(_ graph: Graph, atoms component: [Int]) -> Bool {
         let set = Set(component)
         let bonds = graph.bonds.filter { set.contains($0.a) }
         guard bonds.count >= 2, component.count >= 3 else { return false }
-        let lengths = bonds.map { Geometry2D.distance(graph.atoms[$0.a].point, graph.atoms[$0.b].point) }
+        let lengths = bonds.map { Geometry2D.distance(graph.atoms[$0.a].point, graph.atoms[$0.b].point) }.sorted()
+        let median = lengths[lengths.count / 2]
         let mean = lengths.reduce(0, +) / CGFloat(lengths.count)
         let sd = sqrt(lengths.map { ($0 - mean) * ($0 - mean) }.reduce(0, +) / CGFloat(lengths.count))
-        guard mean > 0, sd / mean < 0.45 else { return false }
-        var right = 0, total = 0
+        guard mean > 0, sd / mean < 0.35, (lengths.last ?? 0) < median * 2.6, (lengths.first ?? 0) > median * 0.4 else { return false }
+        var right = 0, chemical = 0, total = 0
         for a in component {
             let p = graph.atoms[a].point
             let dirs = graph.neighbors(of: a).map { atan2(graph.atoms[$0].point.y - p.y, graph.atoms[$0].point.x - p.x) }
             for i in dirs.indices {
                 for j in dirs.indices where j > i {
-                    let angle = abs(Geometry2D.normalize(dirs[i] - dirs[j]))
+                    let angle = abs(Geometry2D.normalize(dirs[i] - dirs[j])) * 180 / .pi
                     total += 1
-                    if abs(angle - .pi / 2) < 0.14 || abs(angle - .pi) < 0.1 { right += 1 }
+                    if abs(angle - 90) < 8 || angle > 172 { right += 1 }
+                    if angle > 95 && angle < 150 { chemical += 1 }
                 }
             }
         }
-        return total == 0 || Double(right) / Double(total) < 0.5
+        guard total > 0 else { return true }
+        return Double(right) / Double(total) < 0.5 && Double(chemical) / Double(total) >= 0.5
     }
 }

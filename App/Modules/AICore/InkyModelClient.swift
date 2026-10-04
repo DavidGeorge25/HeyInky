@@ -37,12 +37,19 @@ struct InkyRequest: Sendable {
     var inkAtoms: [InkAtom] = []
     /// Chemical structures recognized on the page (`PageStructureFinder`), ids S1, S2, ….
     var structures: [PageStructure] = []
+    /// Closed shapes drawn on the page (`ShapeFinder`), ids P1, P2, ….
+    var shapes: [PageShape] = []
     /// Set by `ValidatingInkyModelClient` on its one retry: what was wrong last time.
     var correction: InkyCorrection?
 
     func structure(_ id: String) -> PageStructure? {
         let key = id.trimmingCharacters(in: .whitespaces).uppercased()
         return structures.first { $0.id.uppercased() == key }
+    }
+
+    func shape(_ id: String) -> PageShape? {
+        let key = id.trimmingCharacters(in: .whitespaces).uppercased()
+        return shapes.first { $0.id.uppercased() == key }
     }
 
     /// The short id the model sees for a page annotation.

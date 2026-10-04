@@ -328,6 +328,46 @@ struct AnnotateStructureAction: Codable, Hashable, Sendable {
     }
 }
 
+/// Exact marks on a shape found on the page (`PageShape`): force vectors, angle arcs, side labels.
+struct AnnotateShapeAction: Codable, Hashable, Sendable {
+    enum Direction: String, Codable, CaseIterable, Sendable { case down, up, left, right, normal, intoSurface, upSlope, downSlope, angle }
+    enum Length: String, Codable, CaseIterable, Sendable { case short, medium, long }
+
+    struct Vector: Codable, Hashable, Sendable {
+        var label: String
+        var direction: Direction
+        /// Degrees, 0 = right, 90 = up (for `.angle`).
+        var angle: Double?
+        /// "center", "contact", or a vertex id.
+        var from: String
+        var length: Length
+        var color: DrawAction.Color
+    }
+
+    struct AngleMark: Codable, Hashable, Sendable {
+        var vertex: String
+        var label: String?
+        var right: Bool
+    }
+
+    struct SideLabel: Codable, Hashable, Sendable {
+        var edge: String
+        var text: String
+    }
+
+    struct Ticks: Codable, Hashable, Sendable {
+        var edge: String
+        var count: Int
+    }
+
+    var shape: String
+    var vectors: [Vector]
+    var angleMarks: [AngleMark]
+    var sideLabels: [SideLabel]
+    var ticks: [Ticks]
+    var color: DrawAction.Color
+}
+
 /// A typeset chemistry figure (RDKit structures in a row with connectors and electron arrows).
 /// Atoms are referenced by SMILES atom-map numbers ("[O-:1]" → "1").
 struct InsertChemSchemeAction: Codable, Hashable, Sendable {
@@ -428,9 +468,39 @@ struct InsertPracticeAction: Codable, Hashable, Sendable {
     struct Problem: Codable, Hashable, Sendable {
         /// Text with TeX between \( and \).
         var prompt: String
+        /// Multiple-choice options; empty for an open problem worked on paper.
+        var choices: [String] = []
+        var correctChoice: Int?
         var hints: [String]
         var answer: String
         var solution: [String]
+
+        init(prompt: String, choices: [String] = [], correctChoice: Int? = nil, hints: [String], answer: String, solution: [String]) {
+            self.prompt = prompt; self.choices = choices; self.correctChoice = correctChoice
+            self.hints = hints; self.answer = answer; self.solution = solution
+        }
+
+        private enum CodingKeys: String, CodingKey { case prompt, choices, correctChoice, hints, answer, solution }
+
+        init(from decoder: any Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            prompt = try c.decode(String.self, forKey: .prompt)
+            choices = try c.decodeIfPresent([String].self, forKey: .choices) ?? []
+            correctChoice = try c.decodeIfPresent(Int.self, forKey: .correctChoice)
+            hints = try c.decodeIfPresent([String].self, forKey: .hints) ?? []
+            answer = try c.decodeIfPresent(String.self, forKey: .answer) ?? ""
+            solution = try c.decodeIfPresent([String].self, forKey: .solution) ?? []
+        }
+
+        func encode(to encoder: any Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(prompt, forKey: .prompt)
+            try c.encode(choices, forKey: .choices)
+            try c.encode(correctChoice, forKey: .correctChoice)
+            try c.encode(hints, forKey: .hints)
+            try c.encode(answer, forKey: .answer)
+            try c.encode(solution, forKey: .solution)
+        }
     }
 
     var near: NormRect
@@ -456,7 +526,7 @@ struct SayAction: Codable, Hashable, Sendable {
 /// The discriminator values, in schema order.
 enum InkyActionType: String, Codable, CaseIterable, Sendable {
     case highlight, circle, star, label, fillText, insertMoleculeCard, insertGraphCard, draw
-    case annotateStructure, insertChemScheme, insertDiagram, insertMath, insertPractice, addPage, openSidebar, say
+    case annotateStructure, annotateShape, insertChemScheme, insertDiagram, insertMath, insertPractice, addPage, openSidebar, say
 }
 
 /// One thing Inky does. Encoded flat with a `type` discriminator, exactly as in the schema.
@@ -470,6 +540,7 @@ enum InkyAction: Hashable, Sendable {
     case insertGraphCard(InsertGraphCardAction)
     case draw(DrawAction)
     case annotateStructure(AnnotateStructureAction)
+    case annotateShape(AnnotateShapeAction)
     case insertChemScheme(InsertChemSchemeAction)
     case insertDiagram(InsertDiagramAction)
     case insertMath(InsertMathAction)
@@ -489,6 +560,7 @@ enum InkyAction: Hashable, Sendable {
         case .insertGraphCard: .insertGraphCard
         case .draw: .draw
         case .annotateStructure: .annotateStructure
+        case .annotateShape: .annotateShape
         case .insertChemScheme: .insertChemScheme
         case .insertDiagram: .insertDiagram
         case .insertMath: .insertMath
@@ -529,6 +601,7 @@ extension InkyAction: Codable {
         case .insertGraphCard: self = .insertGraphCard(try InsertGraphCardAction(from: decoder))
         case .draw: self = .draw(try DrawAction(from: decoder))
         case .annotateStructure: self = .annotateStructure(try AnnotateStructureAction(from: decoder))
+        case .annotateShape: self = .annotateShape(try AnnotateShapeAction(from: decoder))
         case .insertChemScheme: self = .insertChemScheme(try InsertChemSchemeAction(from: decoder))
         case .insertDiagram: self = .insertDiagram(try InsertDiagramAction(from: decoder))
         case .insertMath: self = .insertMath(try InsertMathAction(from: decoder))
@@ -552,6 +625,7 @@ extension InkyAction: Codable {
         case .insertGraphCard(let a): try a.encode(to: encoder)
         case .draw(let a): try a.encode(to: encoder)
         case .annotateStructure(let a): try a.encode(to: encoder)
+        case .annotateShape(let a): try a.encode(to: encoder)
         case .insertChemScheme(let a): try a.encode(to: encoder)
         case .insertDiagram(let a): try a.encode(to: encoder)
         case .insertMath(let a): try a.encode(to: encoder)

@@ -76,6 +76,27 @@ enum InkyResponseValidator {
         case .annotateStructure(let a):
             if let problem = structureProblem(a, request: request) { return .invalid("annotateStructure: \(problem)") }
             return .valid(action)
+        case .annotateShape(let a):
+            if let request {
+                guard let shape = request.shape(a.shape) else {
+                    return .invalid(request.shapes.isEmpty ? "annotateShape: no shapes were found on this page; use draw instead"
+                                    : "annotateShape: there is no shape \(a.shape) (found: \(request.shapes.map(\.id).joined(separator: ", ")))")
+                }
+                for v in a.vectors {
+                    let f = v.from.lowercased()
+                    if f != "center" && f != "contact" && shape.vertexIndex(f) == nil { return .invalid("annotateShape: vector from \"\(v.from)\" — use center, contact or a vertex id") }
+                    if f == "contact" && shape.contacts.isEmpty { return .invalid("annotateShape: \(shape.id) doesn't rest on anything; draw from center") }
+                    if [.normal, .intoSurface, .upSlope, .downSlope].contains(v.direction) && shape.contacts.isEmpty {
+                        return .invalid("annotateShape: \(v.direction.rawValue) needs a surface but \(shape.id) isn't resting on one; use an angle")
+                    }
+                    if v.direction == .angle && v.angle == nil { return .invalid("annotateShape: direction angle needs an angle") }
+                }
+                for m in a.angleMarks where shape.vertexIndex(m.vertex) == nil { return .invalid("annotateShape: \(shape.id) has no vertex \(m.vertex)") }
+                for l in a.sideLabels where shape.edgeIndex(l.edge) == nil { return .invalid("annotateShape: \(shape.id) has no edge \(l.edge)") }
+                for t in a.ticks where shape.edgeIndex(t.edge) == nil { return .invalid("annotateShape: \(shape.id) has no edge \(t.edge)") }
+            }
+            if a.vectors.isEmpty && a.angleMarks.isEmpty && a.sideLabels.isEmpty && a.ticks.isEmpty { return .invalid("annotateShape: nothing to add") }
+            return .valid(action)
         case .insertChemScheme(var a):
             if let problem = schemeProblem(&a) { return .invalid("insertChemScheme: \(problem)") }
             switch checkRegion(a.near, what: "insertChemScheme near") {
@@ -116,6 +137,9 @@ enum InkyResponseValidator {
             if a.problems.isEmpty { return .invalid("insertPractice: add at least one problem") }
             if a.problems.count > 10 { return .invalid("insertPractice: at most 10 problems") }
             if a.problems.contains(where: { $0.answer.trimmingCharacters(in: .whitespaces).isEmpty }) { return .invalid("insertPractice: every problem needs an answer") }
+            for (i, p) in a.problems.enumerated() where !p.choices.isEmpty {
+                guard let k = p.correctChoice, p.choices.indices.contains(k) else { return .invalid("insertPractice: problem \(i + 1) has choices but no valid correctChoice") }
+            }
             if a.problems.contains(where: { $0.prompt.contains("$") }) { return .invalid("insertPractice: write math between \\( and \\), not $") }
             switch checkRegion(a.near, what: "insertPractice near") {
             case .failure(let p): return .invalid(p.description)

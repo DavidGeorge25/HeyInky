@@ -14,6 +14,10 @@ enum UITestScenarios {
     static let asymptotesTitle = "Lecture 9 – Rational functions"
     static let worksheetTitle = "Warm-up worksheet"
     static let skeletonTitle = "Hydrogen practice"
+    static let algebraTitle = "Algebra homework"
+    static let physicsTitle = "Physics – Forces"
+    static let biologyTitle = "Bio – Cellular respiration"
+    static let stoichTitle = "Chem – Balancing equations"
 
     /// Worksheet questions and their answers (the UI tests check Inky's fills against these).
     static let worksheet: [(question: String, answer: String)] = [
@@ -36,6 +40,10 @@ enum UITestScenarios {
             case "asymptotes": seedPDF(title: asymptotesTitle, into: store, write: writeRationalSlide)
             case "worksheet": seedPDF(title: worksheetTitle, into: store, write: writeWorksheet)
             case "skeleton": seedSkeleton(into: store)
+            case "algebra": seedPDF(title: algebraTitle, into: store, write: writeAlgebraHomework)
+            case "physics": seedPDF(title: physicsTitle, into: store, write: writeInclineSlide)
+            case "biology": seedPDF(title: biologyTitle, into: store, write: writeRespirationNotes)
+            case "stoich": seedPDF(title: stoichTitle, into: store, write: writeBalancing)
             default: break
             }
         }
@@ -148,6 +156,91 @@ enum UITestScenarios {
                 path.stroke()
                 y += 110
             }
+        }
+        return url
+    }
+
+    /// A homework problem with the student's working (handwriting font) and a sign slip in line 1:
+    /// 3(x − 2) = 2x + 5 → "3x − 2 = 2x + 5" (should be 3x − 6), so they get x = 7 instead of 11.
+    static func writeAlgebraHomework() throws -> URL {
+        try writePage(name: "Algebra") { ink in
+            draw("Homework 4 — Linear equations", at: CGPoint(x: 72, y: 72), font: .systemFont(ofSize: 26, weight: .bold), color: ink)
+            draw("Q3.  Solve for x:   3(x − 2) = 2x + 5", at: CGPoint(x: 72, y: 150), font: .systemFont(ofSize: 22), color: ink)
+            let hand = UIFont(name: "Noteworthy-Bold", size: 24) ?? .systemFont(ofSize: 24)
+            let pen = UIColor(red: 0.10, green: 0.20, blue: 0.55, alpha: 1)
+            var y: CGFloat = 220
+            for line in ["3x − 2 = 2x + 5", "3x − 2x = 5 + 2", "x = 7"] {
+                draw(line, at: CGPoint(x: 110, y: y), font: hand, color: pen)
+                y += 56
+            }
+        }
+    }
+
+    /// A physics slide: a block on a 30° frictionless incline, drawn.
+    static func writeInclineSlide() throws -> URL {
+        try writePage(name: "Incline") { ink in
+            draw("Forces on an incline", at: CGPoint(x: 72, y: 72), font: .systemFont(ofSize: 28, weight: .bold), color: ink)
+            draw("A 5.0 kg block rests on a frictionless ramp inclined at 30°.", at: CGPoint(x: 72, y: 130), font: .systemFont(ofSize: 18), color: ink)
+            draw("(a) Draw the free-body diagram.  (b) Find the acceleration.", at: CGPoint(x: 72, y: 160), font: .systemFont(ofSize: 18), color: ink)
+            let a = CGPoint(x: 120, y: 520), b = CGPoint(x: 520, y: 520), c = CGPoint(x: 520, y: 289)
+            let ramp = UIBezierPath()
+            ramp.move(to: a); ramp.addLine(to: b); ramp.addLine(to: c); ramp.close()
+            ramp.lineWidth = 2
+            ink.setStroke(); ramp.stroke()
+            // The block sits on the slope, rotated 30°.
+            let ctx = UIGraphicsGetCurrentContext()!
+            ctx.saveGState()
+            ctx.translateBy(x: 330, y: 410)
+            ctx.rotate(by: -.pi / 6)
+            let block = UIBezierPath(rect: CGRect(x: -35, y: -60, width: 70, height: 60))
+            block.lineWidth = 2
+            UIColor(white: 0.93, alpha: 1).setFill(); block.fill(); block.stroke()
+            ctx.restoreGState()
+            draw("30°", at: CGPoint(x: 165, y: 490), font: .systemFont(ofSize: 18), color: ink)
+            draw("m = 5.0 kg", at: CGPoint(x: 300, y: 300), font: .systemFont(ofSize: 16), color: .gray)
+        }
+    }
+
+    /// Lecture notes (text only) on cellular respiration.
+    static func writeRespirationNotes() throws -> URL {
+        try writePage(name: "Respiration") { ink in
+            draw("Cellular respiration", at: CGPoint(x: 72, y: 72), font: .systemFont(ofSize: 28, weight: .bold), color: ink)
+            let body = UIFont.systemFont(ofSize: 17)
+            var y: CGFloat = 140
+            for line in [
+                "C₆H₁₂O₆ + 6 O₂ → 6 CO₂ + 6 H₂O + energy (~30–32 ATP)",
+                "1. Glycolysis (cytoplasm): glucose → 2 pyruvate, net 2 ATP + 2 NADH",
+                "2. Pyruvate oxidation: pyruvate → acetyl-CoA + CO₂ (mitochondrial matrix)",
+                "3. Krebs / citric acid cycle (matrix): 2 ATP, 6 NADH, 2 FADH₂, CO₂ released",
+                "4. Electron transport chain (inner membrane): NADH/FADH₂ → ~26–28 ATP",
+                "   O₂ is the final electron acceptor → water",
+                "Without O₂: fermentation (lactate in muscle, ethanol in yeast) — 2 ATP only",
+            ] {
+                draw(line, at: CGPoint(x: 72, y: y), font: body, color: ink)
+                y += 40
+            }
+        }
+    }
+
+    /// Equations to balance.
+    static func writeBalancing() throws -> URL {
+        try writePage(name: "Balancing") { ink in
+            draw("Balance these equations", at: CGPoint(x: 72, y: 72), font: .systemFont(ofSize: 28, weight: .bold), color: ink)
+            let font = UIFont.systemFont(ofSize: 22)
+            var y: CGFloat = 160
+            for line in ["1.   Fe + O₂ → Fe₂O₃", "2.   C₃H₈ + O₂ → CO₂ + H₂O", "3.   Al + HCl → AlCl₃ + H₂"] {
+                draw(line, at: CGPoint(x: 72, y: y), font: font, color: ink)
+                y += 90
+            }
+        }
+    }
+
+    private static func writePage(name: String, draw body: (UIColor) -> Void) throws -> URL {
+        let size = CGSize(width: 816, height: 1056)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(name)-\(UUID().uuidString).pdf")
+        try UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: size)).writePDF(to: url) { ctx in
+            ctx.beginPage()
+            body(UIColor(white: 0.12, alpha: 1))
         }
         return url
     }

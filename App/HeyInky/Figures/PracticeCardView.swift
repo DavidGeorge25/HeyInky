@@ -16,6 +16,7 @@ struct PracticeCardView: View {
     @State private var hintsShown = 0
     @State private var showAnswer = false
     @State private var showSolution = false
+    @State private var picked: Int?
 
     private var problem: InsertPracticeAction.Problem? { action.problems.indices.contains(index) ? action.problems[index] : nil }
 
@@ -45,6 +46,9 @@ struct PracticeCardView: View {
                     VStack(alignment: .leading, spacing: 10 * scale) {
                         MathText(problem.prompt, scale: scale)
                             .accessibilityIdentifier("inky.practice.prompt")
+                        ForEach(Array(problem.choices.enumerated()), id: \.offset) { k, choice in
+                            choiceRow(k, choice, problem: problem)
+                        }
                         ForEach(Array(problem.hints.prefix(hintsShown).enumerated()), id: \.offset) { _, hint in
                             HStack(alignment: .top, spacing: 6 * scale) {
                                 Image(systemName: "lightbulb").foregroundStyle(.orange).font(.system(size: 12 * scale))
@@ -97,9 +101,43 @@ struct PracticeCardView: View {
         .accessibilityIdentifier("inky.figure.practice")
     }
 
+    /// A tappable option: green when right, red when wrong (the right one shows too).
+    private func choiceRow(_ k: Int, _ choice: String, problem: InsertPracticeAction.Problem) -> some View {
+        let answered = picked != nil
+        let isRight = k == problem.correctChoice
+        let tint: Color = !answered ? Theme.accent : isRight ? .green : (picked == k ? .red : .secondary)
+        return Button {
+            guard picked == nil else { return }
+            withAnimation(.snappy) {
+                picked = k
+                showAnswer = true
+                if problem.correctChoice != k { showSolution = true }
+            }
+        } label: {
+            HStack(spacing: 8 * scale) {
+                Text(String(UnicodeScalar(65 + k).map(Character.init) ?? "?"))
+                    .font(.system(size: 12 * scale, weight: .bold, design: .rounded))
+                    .frame(width: 22 * scale, height: 22 * scale)
+                    .background(Circle().fill(tint.opacity(0.15)))
+                    .foregroundStyle(tint)
+                MathText(choice, scale: scale * 0.95)
+                Spacer(minLength: 0)
+                if answered && (isRight || picked == k) {
+                    Image(systemName: isRight ? "checkmark.circle.fill" : "xmark.circle.fill").foregroundStyle(isRight ? .green : .red)
+                }
+            }
+            .padding(.horizontal, 8 * scale)
+            .padding(.vertical, 6 * scale)
+            .background(RoundedRectangle(cornerRadius: 8 * scale).strokeBorder(tint.opacity(answered && (isRight || picked == k) ? 0.6 : 0.2)))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("inky.practice.choice.\(k)")
+    }
+
     private func go(_ delta: Int) {
         withAnimation(.snappy) {
             index = min(max(index + delta, 0), action.problems.count - 1)
+            picked = nil
             hintsShown = 0
             showAnswer = false
             showSolution = false

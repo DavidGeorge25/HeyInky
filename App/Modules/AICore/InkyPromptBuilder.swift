@@ -85,6 +85,10 @@ enum InkyPromptBuilder {
             lines.append("")
             lines.append(structureText(request.structures))
         }
+        if !request.shapes.isEmpty {
+            lines.append("")
+            lines.append(shapeText(request.shapes))
+        }
 
         lines.append("")
         if request.pageAnnotations.isEmpty {
@@ -153,6 +157,26 @@ enum InkyPromptBuilder {
         return lines.joined(separator: "\n")
     }
 
+    /// Shapes found on the page, for `annotateShape`.
+    static func shapeText(_ shapes: [PageShape]) -> String {
+        var lines = ["Shapes drawn on the page (exact — mark them with `annotateShape`; vertices v1, v2… in order, edge eK joins vK and the next vertex):"]
+        for s in shapes.prefix(10) {
+            if s.kind == .circle {
+                lines.append(String(format: "\(s.id) circle, center (%.3f, %.3f), radius %.0f pt", s.center.x, s.center.y, s.radius))
+                continue
+            }
+            let vs = s.vertices.enumerated().map { i, v in
+                String(format: "v%d (%.3f, %.3f) %.0f°", i + 1, v.x, v.y, s.angles.indices.contains(i) ? s.angles[i] : 0)
+            }.joined(separator: "; ")
+            var line = "\(s.id) \(s.kind.rawValue): " + vs
+            for c in s.contacts {
+                line += " — rests on \(c.other) along e\(c.edge + 1) (surface at \(c.slope)° from horizontal)"
+            }
+            lines.append(line)
+        }
+        return lines.joined(separator: "\n")
+    }
+
     static func questionText(for request: InkyRequest) -> String {
         var text = "Student: \(request.question)"
         if let correction = request.correction {
@@ -202,6 +226,12 @@ enum InkyPromptBuilder {
             if !a.labels.isEmpty { parts.append("labels " + a.labels.map { "\"\($0.text)\" at \($0.atom)" }.joined(separator: ", ")) }
             if !a.arrows.isEmpty { parts.append("arrows " + a.arrows.map { "\($0.from)→\($0.to)" }.joined(separator: ", ")) }
             return "marked \(a.structure): " + (parts.isEmpty ? "nothing" : parts.joined(separator: "; "))
+        case .annotateShape(let a):
+            var parts: [String] = []
+            if !a.vectors.isEmpty { parts.append("vectors " + a.vectors.map { "\($0.label) \($0.direction == .angle ? "\(Int($0.angle ?? 0))°" : $0.direction.rawValue)" }.joined(separator: ", ")) }
+            if !a.angleMarks.isEmpty { parts.append("angle marks at " + a.angleMarks.map(\.vertex).joined(separator: ",")) }
+            if !a.sideLabels.isEmpty { parts.append("side labels " + a.sideLabels.map { "\($0.edge) \"\($0.text)\"" }.joined(separator: ", ")) }
+            return "marked \(a.shape): " + (parts.isEmpty ? "ticks" : parts.joined(separator: "; "))
         case .insertChemScheme(let a):
             let kinds = a.connectors.map(\.kind.rawValue).joined(separator: "/")
             return "chemistry figure" + (a.title.map { " \"\(clip($0, 60))\"" } ?? "") + " (\(a.steps.count) structures\(kinds.isEmpty ? "" : ", \(kinds)")): " + clip(a.steps.map(\.smiles).joined(separator: " | "), long ? 400 : 120) + " at \(format(a.near))"

@@ -292,6 +292,12 @@ struct PerceptionTests {
         #expect(laidOut.ok, "\(laidOut.problems)")
         #expect(laidOut.textCount == 5)
 
+        // Text too wide for its box shrinks to fit.
+        let crowded = #"<svg viewBox="0 0 200 80"><rect x="10" y="10" width="120" height="50"/><text x="70" y="40" class="center" font-size="16">Electron transport chain</text></svg>"#
+        let fitted = try await DiagramEngine.shared.prepare(svg: crowded)
+        #expect(fitted.svg.contains("font-size:"), "shrunk inline")
+        #expect(!fitted.problems.contains { $0.contains("fit in its box") }, "\(fitted.problems)")
+
         let tiny = #"<svg viewBox="0 0 3000 2000"><rect x="0" y="0" width="3000" height="2000"/><text x="100" y="100" font-size="12">tiny</text></svg>"#
         let small = try await DiagramEngine.shared.prepare(svg: tiny)
         #expect(DiagramEngine.displayProblems(for: small, pageSize: CGSize(width: 816, height: 1056)).contains { $0.contains("pt on the page") })
@@ -322,6 +328,46 @@ struct PerceptionTests {
         let r = FigurePlacement.place(size: CGSize(width: 400, height: 200), near: NormRect(x: 0.2, y: 0.2, width: 0.5, height: 0.2), avoid: busy, pageSize: page)
         #expect(r.minY >= 0.5 - 1e-9)
         #expect(abs(r.width - 400 / 816) < 1e-6)
+    }
+
+    // MARK: Shapes
+
+    @Test func findsTheBlockOnTheRampAndDrawsExactForces() async throws {
+        let store = NotebookStore(rootURL: Fixtures.tempDirectory())
+        let (notebook, _) = try store.importPDF(from: UITestScenarios.writeInclineSlide(), title: "Physics")
+        let editor = PageEditorModel(notebookID: notebook.id, page: notebook.pages[0], store: store)
+        PageStructureFinder.clearCache()
+        let pdfText = PageRenderer.pdfTextLines(page: editor.page, notebookID: editor.notebookID, store: store)
+        let (_, shapes) = await PageStructureFinder.findAll(editor: editor, text: pdfText)
+        let ramp = try #require(shapes.first { $0.kind == .triangle }, "\(shapes.map(\.kind))")
+        let block = try #require(shapes.first { $0.kind == .rectangle || $0.kind == .square }, "\(shapes.map(\.kind))")
+        #expect(ramp.angles.contains { abs($0 - 30) < 3 }, "\(ramp.angles)")
+        #expect(ramp.angles.contains { abs($0 - 90) < 3 }, "\(ramp.angles)")
+        let contact = try #require(block.contacts.first, "the block rests on the ramp")
+        #expect(contact.other == ramp.id)
+        #expect(abs(contact.slope - 30) < 3, "\(contact.slope)")
+
+        let action = AnnotateShapeAction(shape: block.id, vectors: [
+            .init(label: "mg", direction: .down, angle: nil, from: "center", length: .long, color: .red),
+            .init(label: "N", direction: .normal, angle: nil, from: "contact", length: .medium, color: .blue),
+            .init(label: "a", direction: .downSlope, angle: nil, from: "center", length: .short, color: .green),
+        ], angleMarks: [], sideLabels: [], ticks: [], color: .indigo)
+        let out = ShapeAnnotator.compile(action, shape: block, pageSize: editor.page.size)
+        let arrows = out.actions.flatMap { a -> [DrawAction.Shape] in if case .draw(let d) = a { d.shapes.filter { $0.kind == .arrow } } else { [] } }
+        #expect(arrows.count == 3)
+        func direction(_ s: DrawAction.Shape) -> Double {
+            let a = s.points[0].cgPoint(in: editor.page.size), b = s.points[1].cgPoint(in: editor.page.size)
+            return Double(atan2(-(b.y - a.y), b.x - a.x)) * 180 / .pi
+        }
+        let angles = arrows.map(direction)
+        // Weight straight down; normal at 90° + 30° = 120°; acceleration down the slope at −150°.
+        #expect(angles.contains { abs($0 + 90) < 1 }, "\(angles)")
+        #expect(angles.contains { abs($0 - 120) < 4 }, "\(angles)")
+        #expect(angles.contains { abs($0 + 150) < 4 }, "\(angles)")
+
+        let marks = ShapeAnnotator.compile(AnnotateShapeAction(shape: ramp.id, vectors: [], angleMarks: [.init(vertex: "v1", label: "30°", right: false)],
+                                                               sideLabels: [.init(edge: "e1", text: "ramp")], ticks: [], color: .indigo), shape: ramp, pageSize: editor.page.size)
+        #expect(!marks.actions.isEmpty)
     }
 
     // MARK: Ink fixture

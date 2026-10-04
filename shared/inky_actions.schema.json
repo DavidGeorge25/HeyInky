@@ -47,6 +47,9 @@
             "$ref": "#/$defs/annotateStructure"
           },
           {
+            "$ref": "#/$defs/annotateShape"
+          },
+          {
             "$ref": "#/$defs/insertChemScheme"
           },
           {
@@ -890,6 +893,178 @@
         }
       }
     },
+    "annotateShape": {
+      "type": "object",
+      "description": "Exact marks on a shape the app found on the page (P1, P2…, with vertices v1, v2…): force arrows for free-body diagrams, angle arcs, right-angle marks, side labels and tick marks. Name WHAT; the app computes positions, perpendiculars and spacing from the real drawing. Use instead of `draw` for anything attached to a listed shape.",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "shape",
+        "vectors",
+        "angleMarks",
+        "sideLabels",
+        "ticks",
+        "color"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "annotateShape"
+          ]
+        },
+        "shape": {
+          "type": "string",
+          "description": "Shape id, e.g. \"P2\"."
+        },
+        "vectors": {
+          "type": "array",
+          "description": "Force/velocity/field arrows on the shape, drawn exactly by the app. direction: down (gravity), up, left, right, normal (out of the surface it rests on, perpendicular), intoSurface, upSlope / downSlope (along the surface it rests on), or angle (then give angle in degrees, 0 = right, 90 = up). from: center, contact (the middle of the contact surface), or a vertex id.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "label",
+              "direction",
+              "angle",
+              "from",
+              "length",
+              "color"
+            ],
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "down",
+                  "up",
+                  "left",
+                  "right",
+                  "normal",
+                  "intoSurface",
+                  "upSlope",
+                  "downSlope",
+                  "angle"
+                ]
+              },
+              "angle": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "from": {
+                "type": "string"
+              },
+              "length": {
+                "type": "string",
+                "enum": [
+                  "short",
+                  "medium",
+                  "long"
+                ],
+                "description": "Relative magnitude."
+              },
+              "color": {
+                "type": "string",
+                "enum": [
+                  "indigo",
+                  "black",
+                  "blue",
+                  "red",
+                  "green",
+                  "orange",
+                  "yellow",
+                  "pink"
+                ]
+              }
+            }
+          }
+        },
+        "angleMarks": {
+          "type": "array",
+          "description": "An arc inside the shape at a vertex (or a small square when right=true), with an optional label like \"30°\" or \"θ\".",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "vertex",
+              "label",
+              "right"
+            ],
+            "properties": {
+              "vertex": {
+                "type": "string"
+              },
+              "label": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "right": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "sideLabels": {
+          "type": "array",
+          "description": "Text beside an edge, outside the shape (\"5 cm\", \"hypotenuse\"). edge: \"e1\" (from v1 to v2) or \"v1-v2\".",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "edge",
+              "text"
+            ],
+            "properties": {
+              "edge": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "ticks": {
+          "type": "array",
+          "description": "Congruence tick marks on edges.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "edge",
+              "count"
+            ],
+            "properties": {
+              "edge": {
+                "type": "string"
+              },
+              "count": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "color": {
+          "type": "string",
+          "enum": [
+            "indigo",
+            "black",
+            "blue",
+            "red",
+            "green",
+            "orange",
+            "yellow",
+            "pink"
+          ]
+        }
+      }
+    },
     "insertChemScheme": {
       "type": "object",
       "description": "A clean, typeset chemistry figure the app draws with RDKit (exact structures, aligned layouts): resonance structures, reactions, equilibria, mechanisms with curved arrows. Use for NEW structures that aren't on the page yet. Atoms you want to point at must carry atom-map numbers in the SMILES, e.g. \"C[C:2](=[O:1])[O-:3]\"; refer to them by number.",
@@ -1245,6 +1420,8 @@
             "additionalProperties": false,
             "required": [
               "prompt",
+              "choices",
+              "correctChoice",
               "hints",
               "answer",
               "solution"
@@ -1252,6 +1429,20 @@
             "properties": {
               "prompt": {
                 "type": "string"
+              },
+              "choices": {
+                "type": "array",
+                "description": "Multiple-choice options (TeX between \\\\( \\\\) allowed), or [] for an open problem.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "correctChoice": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "description": "0-based index of the right choice; null for open problems."
               },
               "hints": {
                 "type": "array",

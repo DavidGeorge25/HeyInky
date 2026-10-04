@@ -70,7 +70,7 @@ struct InkyStroke: Equatable, Sendable {
             drawLayout = layout
             // A brisk but readable hand: ~420 pt of ink per second, a beat per stroke, capped.
             duration = min(7, 0.3 + Double(layout.totalLength) / 420 + 0.06 * Double(layout.segments.count))
-        case .annotateStructure, .addPage, .openSidebar, .say:
+        case .annotateStructure, .annotateShape, .addPage, .openSidebar, .say:
             return nil
         }
         self.annotationID = annotation.id

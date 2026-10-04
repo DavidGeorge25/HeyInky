@@ -36,29 +36,100 @@ enum PageStructureFinder {
         var region: NormRect
     }
 
-    private static var cache: [String: [Found]] = [:]
+    /// A shape found in one source, before ids are assigned.
+    struct FoundShape: Sendable {
+        var kind: PageShape.Kind
+        var vertices: [NormPoint]
+        var center: NormPoint
+        var radius: Double
+        var angles: [Double]
+    }
+
+    struct Analysis: Sendable {
+        var structures: [Found] = []
+        var shapes: [FoundShape] = []
+    }
+
+    private static var cache: [String: Analysis] = [:]
     private static var cacheOrder: [String] = []
 
     static func find(editor: PageEditorModel, text: [RecognizedTextLine]) async -> [PageStructure] {
+        await findAll(editor: editor, text: text).structures
+    }
+
+    /// Structures (S1…) and shapes (P1…) on the page.
+    static func findAll(editor: PageEditorModel, text: [RecognizedTextLine]) async -> (structures: [PageStructure], shapes: [PageShape]) {
         var found: [Found] = []
+        var shapes: [FoundShape] = []
         for source in sources(editor: editor, text: text) {
+            let analysis: Analysis
             if let hit = cache[source.cacheKey] {
-                found += hit
-                continue
+                analysis = hit
+            } else {
+                analysis = await analyze(source, pageSize: editor.page.size)
+                remember(analysis, key: source.cacheKey)
             }
-            let result = await analyze(source, pageSize: editor.page.size)
-            remember(result, key: source.cacheKey)
-            found += result
+            found += analysis.structures
+            shapes += analysis.shapes
         }
         // Ids: S1, S2… by position on the page (top to bottom, then left to right).
         found.sort { ($0.region.y, $0.region.x) < ($1.region.y, $1.region.x) }
-        return found.enumerated().map { index, f in
+        let structures = found.enumerated().map { index, f in
             PageStructure(id: "S\(index + 1)", source: f.kind, region: f.region, smiles: f.smiles,
                           bondLength: f.bondLength, atoms: f.atoms, bonds: f.bonds)
         }
+        shapes.sort { ($0.center.y, $0.center.x) < ($1.center.y, $1.center.x) }
+        var pageShapes = shapes.enumerated().map { index, f in
+            PageShape(id: "P\(index + 1)", kind: f.kind, vertices: f.vertices, center: f.center, radius: f.radius, angles: f.angles, contacts: [])
+        }
+        addContacts(&pageShapes, pageSize: editor.page.size)
+        return (structures, pageShapes)
     }
 
-    private static func remember(_ result: [Found], key: String) {
+    /// A shape rests on another when one of its edges lies along one of the other's (a block on a
+    /// ramp). Recorded on the shape that sits on the surface, with the surface's slope.
+    static func addContacts(_ shapes: inout [PageShape], pageSize: CGSize) {
+        func pts(_ s: PageShape) -> [CGPoint] { s.vertices.map { $0.cgPoint(in: pageSize) } }
+        for i in shapes.indices where shapes[i].kind != .circle {
+            let a = pts(shapes[i])
+            for j in shapes.indices where j != i && shapes[j].kind != .circle {
+                let b = pts(shapes[j])
+                let bCenter = shapes[j].center.cgPoint(in: pageSize), aCenter = shapes[i].center.cgPoint(in: pageSize)
+                for ea in a.indices {
+                    let p1 = a[ea], p2 = a[(ea + 1) % a.count]
+                    for eb in b.indices {
+                        let q1 = b[eb], q2 = b[(eb + 1) % b.count]
+                        let angA = atan2(p2.y - p1.y, p2.x - p1.x), angB = atan2(q2.y - q1.y, q2.x - q1.x)
+                        var d = abs(angA - angB).truncatingRemainder(dividingBy: .pi)
+                        d = min(d, .pi - d)
+                        guard d < 0.12 else { continue }
+                        let mid = CGPoint(x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2)
+                        guard Geometry2D.distance(mid, toLine: q1, q2) < 10 else { continue }
+                        // Overlap along the surface.
+                        let len = max(hypot(q2.x - q1.x, q2.y - q1.y), 1)
+                        let ux = (q2.x - q1.x) / len, uy = (q2.y - q1.y) / len
+                        let t1 = (p1.x - q1.x) * ux + (p1.y - q1.y) * uy, t2 = (p2.x - q1.x) * ux + (p2.y - q1.y) * uy
+                        let overlap = min(max(t1, t2), len) - max(min(t1, t2), 0)
+                        guard overlap > 0.3 * min(hypot(p2.x - p1.x, p2.y - p1.y), len) else { continue }
+                        // The smaller shape, outside the other, rests on it.
+                        let sizeA = hypot(a.map(\.x).max()! - a.map(\.x).min()!, a.map(\.y).max()! - a.map(\.y).min()!)
+                        let sizeB = hypot(b.map(\.x).max()! - b.map(\.x).min()!, b.map(\.y).max()! - b.map(\.y).min()!)
+                        guard sizeA < sizeB else { continue }
+                        // a's center on the opposite side of the edge from b's center.
+                        let side = { (p: CGPoint) in (q2.x - q1.x) * (p.y - q1.y) - (q2.y - q1.y) * (p.x - q1.x) }
+                        guard side(aCenter) * side(bCenter) < 0 else { continue }
+                        var slope = abs(Double(angB) * 180 / .pi).truncatingRemainder(dividingBy: 180)
+                        if slope > 90 { slope = 180 - slope }
+                        if !shapes[i].contacts.contains(where: { $0.other == shapes[j].id }) {
+                            shapes[i].contacts.append(.init(other: shapes[j].id, edge: ea, slope: (slope * 10).rounded() / 10))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static func remember(_ result: Analysis, key: String) {
         cache[key] = result
         cacheOrder.removeAll { $0 == key }
         cacheOrder.append(key)
@@ -113,7 +184,8 @@ enum PageStructureFinder {
                                            drawing: nil, pixelWidth: 1400, layers: [.pdf])
             if let cg = image.cgImage {
                 let pdfText = PageRenderer.pdfTextLines(page: page, notebookID: editor.notebookID, store: editor.store)
-                let prose = pdfText.filter { !isLabelHint($0.text) }.map(\.box)
+                // Only real words are masked: short labels ("30°", "F") sit on the lines of figures.
+                let prose = pdfText.filter { !isLabelHint($0.text) && $0.text.filter { !$0.isWhitespace }.count >= 4 }.map(\.box)
                 let hints = pdfText.filter { isLabelHint($0.text) }
                 result.append(Source(kind: .pdf, image: cg, frame: .unit, exclude: prose, hints: hints,
                                      cacheKey: "pdf:\(editor.notebookID):\(asset):\(index)"))
@@ -140,14 +212,19 @@ enum PageStructureFinder {
     private struct Raster: Sendable {
         var bitmap: InkBitmap
         var graph: StructureRecognizer.Graph
+        var shapes: [ShapeFinder.Shape]
     }
 
-    static func analyze(_ source: Source, pageSize: CGSize) async -> [Found] {
+    static func analyze(_ source: Source, pageSize: CGSize) async -> Analysis {
         let raster: Raster? = await Task.detached(priority: .userInitiated) {
             guard let (bitmap, _) = InkBitmap.threshold(source.image, maxSide: 1400, exclude: source.exclude) else { return nil }
-            return Raster(bitmap: bitmap, graph: StructureRecognizer.recognize(LineArt(bitmap: bitmap)))
+            let art = LineArt(bitmap: bitmap)
+            // Shapes at least ~3% of the page across (letters and arrowheads aren't shapes).
+            let pagePixels = CGFloat(bitmap.width) / max(CGFloat(source.frame.width), 0.01)
+            return Raster(bitmap: bitmap, graph: StructureRecognizer.recognize(art),
+                          shapes: ShapeFinder.shapes(in: art, minSize: max(18, pagePixels * 0.03)))
         }.value
-        guard let raster else { return [] }
+        guard let raster else { return Analysis() }
         let graph = raster.graph
         let bw = CGFloat(raster.bitmap.width), bh = CGFloat(raster.bitmap.height)
 
@@ -242,7 +319,16 @@ enum PageStructureFinder {
                 region: pageRect(region.insetBy(dx: -graph.bondLength * 0.25, dy: -graph.bondLength * 0.25))
             ))
         }
-        return result
+        // Shapes, except rings that are part of a molecule.
+        let shapes = raster.shapes.compactMap { shape -> FoundShape? in
+            let center = pagePoint(shape.center)
+            if result.contains(where: { $0.region.contains(center) }) { return nil }
+            return FoundShape(kind: PageShape.Kind(rawValue: shape.kind.rawValue) ?? .polygon,
+                              vertices: shape.vertices.map(pagePoint), center: center,
+                              radius: Double(shape.radius) * pointsPerPixel,
+                              angles: ShapeFinder.angles(shape.vertices).map { ($0 * 10).rounded() / 10 })
+        }
+        return Analysis(structures: result, shapes: shapes)
     }
 
     /// Typical valence when RDKit can't vouch for the drawing.

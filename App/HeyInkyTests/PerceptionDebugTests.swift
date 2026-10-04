@@ -68,3 +68,28 @@ struct PerceptionDebugScenarioTests {
         }
     }
 }
+
+@MainActor
+@Suite("Perception debug shapes", .enabled(if: ProcessInfo.processInfo.environment["INKY_DEBUG_PERCEPTION"] == "1"))
+struct PerceptionDebugShapeTests {
+    @Test func dumpShapes() async throws {
+        let store = NotebookStore(rootURL: Fixtures.tempDirectory())
+        let (notebook, _) = try store.importPDF(from: UITestScenarios.writeInclineSlide(), title: "Physics")
+        let editor = PageEditorModel(notebookID: notebook.id, page: notebook.pages[0], store: store)
+        let pdfText = PageRenderer.pdfTextLines(page: editor.page, notebookID: editor.notebookID, store: store)
+        PageStructureFinder.clearCache()
+        let all = await PageStructureFinder.findAll(editor: editor, text: pdfText)
+        print("DEBUG findAll structures \(all.structures.map { "\($0.id) \($0.smiles ?? "-") \($0.region)" }) shapes \(all.shapes.map { "\($0.id) \($0.kind) \($0.angles) contacts \($0.contacts)" })")
+        for source in PageStructureFinder.sources(editor: editor, text: pdfText) {
+            let (bitmap, _) = try #require(InkBitmap.threshold(source.image, maxSide: 1400, exclude: source.exclude))
+            let art = LineArt(bitmap: bitmap)
+            print("DEBUG \(source.kind) \(bitmap.width)x\(bitmap.height) sw \(art.strokeWidth) polylines \(art.polylines.count)")
+            for p in art.polylines where SkeletonTracer.length(p) > 30 { print("DEBUG  poly \(p.count) pts len \(Int(SkeletonTracer.length(p))) \(p.prefix(6).map { "(\(Int($0.x)),\(Int($0.y)))" })") }
+            let shapes = ShapeFinder.shapes(in: art, minSize: 30)
+            for s in shapes { print("DEBUG  shape \(s.kind) \(s.vertices.map { "(\(Int($0.x)),\(Int($0.y)))" })") }
+            if let dir = ProcessInfo.processInfo.environment["INKY_DUMP_DIR"] {
+                try UIImage(cgImage: source.image).pngData()?.write(to: URL(fileURLWithPath: dir).appendingPathComponent("shape_source.png"))
+            }
+        }
+    }
+}

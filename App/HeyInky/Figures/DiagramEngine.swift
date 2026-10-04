@@ -260,6 +260,26 @@ final class DiagramEngine: NSObject, WKNavigationDelegate {
         host.appendChild(svg);
         ensureKit(svg);
         applyDefaults(svg);
+        // Text that overflows the box it sits in shrinks to fit (down to a readable size).
+        const containers = Array.from(svg.querySelectorAll('rect,ellipse,circle')).filter((el) => !el.closest('defs') && !el.closest('marker'))
+          .map((el) => { try { return { el, b: el.getBBox() }; } catch (e) { return null; } }).filter((c) => c && c.b.width > 20 && c.b.height > 12);
+        for (const t of svg.querySelectorAll('text')) {
+          if (t.closest('defs')) continue;
+          let tb;
+          try { tb = t.getBBox(); } catch (e) { continue; }
+          const cx = tb.x + tb.width / 2, cy = tb.y + tb.height / 2;
+          const home = containers.filter((c) => cx > c.b.x && cx < c.b.x + c.b.width && cy > c.b.y && cy < c.b.y + c.b.height)
+            .sort((a, b) => a.b.width * a.b.height - b.b.width * b.b.height)[0];
+          if (!home) continue;
+          const room = home.b.width - 12;
+          if (tb.width <= room) continue;
+          const size = parseFloat(getComputedStyle(t).fontSize) || 14;
+          const fitted = Math.max(10, Math.floor(size * room / tb.width * 10) / 10);
+          t.style.fontSize = fitted + 'px';
+          try { tb = t.getBBox(); } catch (e) { continue; }
+          // Keep it centered in its box when it was meant to be.
+          if (tb.width > room + 2) problems.push('text "' + t.textContent.trim().slice(0, 30) + '" doesn’t fit in its box; widen the box or shorten the text');
+        }
         // Measure the content (all drawable children; markers/defs excluded by getBBox).
         let box;
         try { box = svg.getBBox(); } catch (e) { box = { x: 0, y: 0, width: 0, height: 0 }; }

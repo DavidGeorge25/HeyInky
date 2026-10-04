@@ -83,6 +83,16 @@ final class PrecisionUITests: XCTestCase {
         }
     }
 
+    func testFreeBodyDiagramOnTheDrawnBlock() throws {
+        launch(scenario: "physics")
+        openNotebook("Physics – Forces")
+        ask(isLive ? "draw the free-body diagram and find the acceleration" : "draw the free-body diagram")
+        XCTAssertTrue(element("inky.annotation.draw").waitForExistence(timeout: answerTimeout), "forces drawn")
+        XCTAssertTrue(app.buttons["inky.summon"].waitForExistence(timeout: answerTimeout))
+        sleep(isLive ? 12 : 8)
+        shot("fbd")
+    }
+
     func testResonanceStructuresAreATypesetFigure() throws {
         launch(scenario: "molecule")
         openNotebook("Organic structures")

@@ -117,7 +117,7 @@ final class InkySession {
             let (image, lines) = await editor.snapshotForInky()
             let skeleton = InkSkeleton.paths(in: editor.drawing, pageSize: editor.page.size, handwriting: lines.map(\.box))
             // Chemical structures in images, ink and PDF figures, with exact atom positions.
-            let structures = await PageStructureFinder.find(editor: editor, text: lines)
+            let (structures, shapes) = await PageStructureFinder.findAll(editor: editor, text: lines)
             let inkStructure = structures.contains { $0.source == .ink }
             let request = await InkyContextBuilder.makeRequest(
                 question: asked,
@@ -139,6 +139,7 @@ final class InkySession {
                 // A recognized structure replaces the rough junction list.
                 inkAtoms: inkStructure ? [] : BondLayout.atoms(skeleton: skeleton, pageSize: editor.page.size),
                 structures: structures,
+                shapes: shapes,
                 // The page's biggest picture gets a closer look (labeling parts of a diagram).
                 focus: editor.page.images.max { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }?.frame
             )
@@ -172,6 +173,20 @@ final class InkySession {
             case .annotateStructure(let a):
                 // Structures belong to the page Inky looked at.
                 await applyStructureAnnotation(a, request: request, editor: editor)
+            case .annotateShape(let a):
+                if let shape = request.shape(a.shape) {
+                    let output = ShapeAnnotator.compile(a, shape: shape, pageSize: editor.page.size, avoid: editor.layoutContent)
+                    for compiled in output.actions {
+                        editor.showsInkyLayer = true
+                        let count = editor.annotations.count
+                        editor.addAnnotation(compiled, question: request.question, exact: true)
+                        if editor.annotations.count > count, let added = editor.annotations.last {
+                            editor.choreographer.perform(added, pageSize: editor.page.size)
+                        }
+                    }
+                } else {
+                    showToast("Inky couldn't find \(a.shape) on this page.", isError: true)
+                }
             case .insertChemScheme, .insertDiagram, .insertMath, .insertPractice:
                 switch await FigurePreparer.prepare(action, editor: target) {
                 case .ready(let prepared): apply(prepared, editor: target, question: request.question)

@@ -111,6 +111,19 @@ struct MockInkyModelClient: InkyModelClient {
                 ])),
             ]
         }
+        if let shape = request.shapes.first(where: { !$0.contacts.isEmpty }), q.contains("free-body") || q.contains("forces") {
+            return [
+                .say(SayAction(text: "Here are the forces on the block.")),
+                .annotateShape(AnnotateShapeAction(shape: shape.id, vectors: [
+                    .init(label: "mg", direction: .down, angle: nil, from: "center", length: .long, color: .red),
+                    .init(label: "N", direction: .normal, angle: nil, from: "center", length: .medium, color: .blue),
+                ], angleMarks: [], sideLabels: [], ticks: [], color: .indigo)),
+            ] + request.shapes.filter { $0.kind == .triangle }.prefix(1).map { tri in
+                .annotateShape(AnnotateShapeAction(shape: tri.id, vectors: [],
+                                                   angleMarks: tri.angles.indices.map { .init(vertex: "v\($0 + 1)", label: "\(Int(tri.angles[$0].rounded()))°", right: abs(tri.angles[$0] - 90) < 3) },
+                                                   sideLabels: [], ticks: [], color: .indigo))
+            }
+        }
         if q.contains("resonance") {
             return [
                 .say(SayAction(text: "Here are the resonance structures of phenoxide.")),
