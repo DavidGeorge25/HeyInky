@@ -205,6 +205,10 @@ enum InkyPromptBuilder {
         case .insertChemScheme(let a):
             let kinds = a.connectors.map(\.kind.rawValue).joined(separator: "/")
             return "chemistry figure" + (a.title.map { " \"\(clip($0, 60))\"" } ?? "") + " (\(a.steps.count) structures\(kinds.isEmpty ? "" : ", \(kinds)")): " + clip(a.steps.map(\.smiles).joined(separator: " | "), long ? 400 : 120) + " at \(format(a.near))"
+        case .insertMath(let a):
+            return "typeset math" + (a.title.map { " \"\(clip($0, 60))\"" } ?? "") + ": " + clip(a.lines.map(\.latex).joined(separator: " ; "), long ? 400 : 140) + " at \(format(a.near))"
+        case .insertPractice(let a):
+            return "practice card" + (a.title.map { " \"\(clip($0, 60))\"" } ?? "") + " with \(a.problems.count) problem(s): " + clip(a.problems.map(\.prompt).joined(separator: " | "), long ? 400 : 120)
         case .insertDiagram(let a):
             return "diagram" + (a.title.map { " \"\(clip($0, 60))\"" } ?? "") + " at \(format(a.near))"
         case .addPage(let a):

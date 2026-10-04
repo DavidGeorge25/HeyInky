@@ -155,17 +155,28 @@ struct GraphMolecule: Decodable, Sendable, Equatable {
         var aromatic: Bool
     }
 
+    struct Stereocenter: Decodable, Sendable, Equatable {
+        var atom: Int
+        /// "R", "S", or "?" when the drawing doesn't fix it.
+        var label: String
+    }
+
     var ok: Bool
     var error: String?
     var smiles: String?
     var formula: String?
+    var molWeight: Double?
+    var inchiKey: String?
+    var stereocenters: [Stereocenter]
+    /// Atom indices of each ring (RDKit's smallest set of smallest rings).
+    var rings: [[Int]]
     var atoms: [Atom]
     /// Bonds whose order had to be lowered for RDKit to accept the drawing (misread double lines).
     var loweredBonds: [Int]
     var groups: [MoleculeDepiction.GroupHit]
     var highlights: [MoleculeDepiction.PatternHit]
 
-    private enum CodingKeys: String, CodingKey { case ok, error, smiles, formula, atoms, loweredBonds, groups, highlights }
+    private enum CodingKeys: String, CodingKey { case ok, error, smiles, formula, molWeight, inchiKey, stereocenters, rings, atoms, loweredBonds, groups, highlights }
 
     init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -173,6 +184,10 @@ struct GraphMolecule: Decodable, Sendable, Equatable {
         error = try c.decodeIfPresent(String.self, forKey: .error)
         smiles = try c.decodeIfPresent(String.self, forKey: .smiles)
         formula = try c.decodeIfPresent(String.self, forKey: .formula)
+        molWeight = try c.decodeIfPresent(Double.self, forKey: .molWeight)
+        inchiKey = try c.decodeIfPresent(String.self, forKey: .inchiKey)
+        stereocenters = try c.decodeIfPresent([Stereocenter].self, forKey: .stereocenters) ?? []
+        rings = try c.decodeIfPresent([[Int]].self, forKey: .rings) ?? []
         atoms = try c.decodeIfPresent([Atom].self, forKey: .atoms) ?? []
         loweredBonds = try c.decodeIfPresent([Int].self, forKey: .loweredBonds) ?? []
         groups = try c.decodeIfPresent([MoleculeDepiction.GroupHit].self, forKey: .groups) ?? []

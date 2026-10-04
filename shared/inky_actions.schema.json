@@ -53,6 +53,12 @@
             "$ref": "#/$defs/insertDiagram"
           },
           {
+            "$ref": "#/$defs/insertMath"
+          },
+          {
+            "$ref": "#/$defs/insertPractice"
+          },
+          {
             "$ref": "#/$defs/addPage"
           },
           {
@@ -677,6 +683,7 @@
         "type",
         "structure",
         "relabel",
+        "insights",
         "hydrogens",
         "lonePairs",
         "charges",
@@ -714,6 +721,20 @@
                 "type": "string"
               }
             }
+          }
+        },
+        "insights": {
+          "type": "array",
+          "description": "Facts the app computes exactly from the structure and writes on it: functionalGroups (every group highlighted and named), stereocenters (* on each chiral center, with R/S when the drawing fixes it), hybridization (sp/sp²/sp³ beside each atom), aromaticRings (a circle inside each aromatic ring), formula (molecular formula, molar mass and name under the structure). Usually [].",
+          "items": {
+            "type": "string",
+            "enum": [
+              "functionalGroups",
+              "stereocenters",
+              "hybridization",
+              "aromaticRings",
+              "formula"
+            ]
           }
         },
         "hydrogens": {
@@ -1119,6 +1140,139 @@
             "string",
             "null"
           ]
+        }
+      }
+    },
+    "insertMath": {
+      "type": "object",
+      "description": "Beautifully typeset math (TeX, rendered by the app): formulas, worked solutions and derivations as aligned steps, chemical equations with \\\\ce{}. Use when the student wants it written neatly, for formulas they should copy, and for multi-step working where typesetting reads better than handwriting.",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "near",
+        "title",
+        "lines",
+        "align",
+        "boxLast",
+        "caption"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "insertMath"
+          ]
+        },
+        "near": {
+          "$ref": "#/$defs/region"
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lines": {
+          "type": "array",
+          "description": "One equation or step per line, in TeX without $ delimiters (e.g. \"x = \\\\frac{-b \\\\pm \\\\sqrt{b^2-4ac}}{2a}\", \"\\\\ce{2H2 + O2 -> 2H2O}\"). note: a few gray words explaining the step (\"divide by 2\"), or null.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "latex",
+              "note"
+            ],
+            "properties": {
+              "latex": {
+                "type": "string"
+              },
+              "note": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "align": {
+          "type": "boolean",
+          "description": "Line steps up at their first =, ≤, → … (true for derivations and solutions)."
+        },
+        "boxLast": {
+          "type": "boolean",
+          "description": "Draw a box around the final line (the answer)."
+        },
+        "caption": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "insertPractice": {
+      "type": "object",
+      "description": "An interactive practice card: problems the student works on paper, with hints revealed one at a time, the answer, and a worked solution. Use for \"give me practice problems\", \"quiz me\", \"test me on this\".",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "near",
+        "title",
+        "problems"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "insertPractice"
+          ]
+        },
+        "near": {
+          "$ref": "#/$defs/region"
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "problems": {
+          "type": "array",
+          "description": "2–6 problems, easiest first, like the ones on the page. Math in TeX between \\\\( and \\\\) inside text, e.g. \"Solve \\\\(x^2-7x+12=0\\\\).\"",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "prompt",
+              "hints",
+              "answer",
+              "solution"
+            ],
+            "properties": {
+              "prompt": {
+                "type": "string"
+              },
+              "hints": {
+                "type": "array",
+                "description": "1–3 nudges, from gentle to specific; never the answer.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "answer": {
+                "type": "string",
+                "description": "Final answer only (TeX allowed between \\\\( \\\\))."
+              },
+              "solution": {
+                "type": "array",
+                "description": "Worked solution, one short step per item (TeX allowed between \\\\( \\\\)).",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
         }
       }
     },

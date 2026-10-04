@@ -33,7 +33,7 @@ struct InkyActionSchemaSyncTests {
         .insertGraphCard(InsertGraphCardAction(spec: GraphSpec(title: "t", xMin: 0, xMax: 1, yMin: 0, yMax: 1, xLabel: "x", yLabel: "y", functions: [], params: [], asymptotes: [], points: [], labels: []), near: .unit)),
         .draw(DrawAction(ink: .pen, color: .indigo, shapes: [.init(kind: .line, points: [], text: "t", size: .medium)], caption: "c")),
         .annotateStructure(AnnotateStructureAction(
-            structure: "S1", relabel: [.init(atom: "a1", symbol: "O")], hydrogens: ["all"], lonePairs: [], charges: [.init(atom: "a1", text: "+")],
+            structure: "S1", relabel: [.init(atom: "a1", symbol: "O")], insights: [.formula], hydrogens: ["all"], lonePairs: [], charges: [.init(atom: "a1", text: "+")],
             highlights: [.init(atoms: ["a1"], group: "amide", color: .yellow, note: "n")], labels: [.init(atom: "a1", text: "t")],
             arrows: [.init(from: "a1", to: "a2-a3", kind: .curved)], color: .indigo)),
         .insertChemScheme(InsertChemSchemeAction(
@@ -41,6 +41,8 @@ struct InkyActionSchemaSyncTests {
             arrows: [.init(step: 0, from: "1", to: "2", kind: .fishhook)], lonePairs: [.init(step: 0, atom: "1")],
             highlights: [.init(step: 0, atoms: ["1"], color: .pink)], caption: "c")),
         .insertDiagram(InsertDiagramAction(near: .unit, title: "t", svg: "<svg/>", callouts: [.init(text: "t", x: 1, y: 2)], caption: "c")),
+        .insertMath(InsertMathAction(near: .unit, title: "t", lines: [.init(latex: "x=1", note: "n")], align: true, boxLast: true, caption: "c")),
+        .insertPractice(InsertPracticeAction(near: .unit, title: "t", problems: [.init(prompt: "p", hints: ["h"], answer: "a", solution: ["s"])])),
         .addPage(AddPageAction(paper: .grid)),
         .openSidebar(OpenSidebarAction(markdown: "m", speakable: true)),
         .say(SayAction(text: "s")),

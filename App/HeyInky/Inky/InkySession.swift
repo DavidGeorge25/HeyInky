@@ -86,6 +86,14 @@ final class InkySession {
         editor?.clearLasso()
     }
 
+    /// Asks Inky directly (e.g. a card's "Check my work").
+    func ask(_ text: String, editor: PageEditorModel) {
+        guard phase != .thinking else { return }
+        summon(editor: editor)
+        question = text
+        submit(editor: editor)
+    }
+
     func toggleListening() {
         if speechInput.isListening {
             speechInput.stop()
@@ -164,7 +172,7 @@ final class InkySession {
             case .annotateStructure(let a):
                 // Structures belong to the page Inky looked at.
                 await applyStructureAnnotation(a, request: request, editor: editor)
-            case .insertChemScheme, .insertDiagram:
+            case .insertChemScheme, .insertDiagram, .insertMath, .insertPractice:
                 switch await FigurePreparer.prepare(action, editor: target) {
                 case .ready(let prepared): apply(prepared, editor: target, question: request.question)
                 case .failed(let message): showToast(message, isError: true)
@@ -237,18 +245,29 @@ final class InkySession {
             return
         }
         var groupAtoms: [Int: [Int]] = [:]
+        var facts: StructureAnnotator.Facts?
         let relabeled = StructureAnnotator.applyRelabels(action.relabel, to: structure)
-        for (h, highlight) in action.highlights.enumerated() {
-            guard let group = highlight.group, !group.isEmpty else { continue }
-            if let molecule = try? await MoleculeEngine.shared.molecule(
-                fromGraph: Self.engineAtoms(relabeled, pageSize: editor.page.size),
-                bonds: relabeled.bonds.map { ["a": $0.a, "b": $0.b, "order": $0.order] },
-                highlightGroups: [group]
-            ), molecule.ok {
-                groupAtoms[h] = Array(Set(molecule.highlights.first?.matches.flatMap(\.atoms) ?? []))
+        let groups = action.highlights.compactMap { $0.group?.isEmpty == false ? $0.group : nil }
+        if !groups.isEmpty || !action.insights.isEmpty,
+           let molecule = try? await MoleculeEngine.shared.molecule(
+               fromGraph: Self.engineAtoms(relabeled, pageSize: editor.page.size),
+               bonds: relabeled.bonds.map { ["a": $0.a, "b": $0.b, "order": $0.order] },
+               highlightGroups: groups
+           ), molecule.ok {
+            var k = 0
+            for (h, highlight) in action.highlights.enumerated() where highlight.group?.isEmpty == false {
+                if k < molecule.highlights.count { groupAtoms[h] = Array(Set(molecule.highlights[k].matches.flatMap(\.atoms))) }
+                k += 1
             }
+            facts = StructureAnnotator.Facts(
+                formula: molecule.formula, molWeight: molecule.molWeight,
+                name: MoleculeNames.lookup(molecule.inchiKey)?.common,
+                groups: molecule.groups.flatMap { g in g.matches.map { (name: g.name, atoms: $0.atoms) } },
+                stereocenters: molecule.stereocenters.map { (atom: $0.atom, label: $0.label) },
+                rings: molecule.rings
+            )
         }
-        let output = StructureAnnotator.compile(action, structure: structure, pageSize: editor.page.size, groupAtoms: groupAtoms)
+        let output = StructureAnnotator.compile(action, structure: structure, pageSize: editor.page.size, groupAtoms: groupAtoms, facts: facts)
         for compiled in output.actions {
             editor.showsInkyLayer = true
             let count = editor.annotations.count

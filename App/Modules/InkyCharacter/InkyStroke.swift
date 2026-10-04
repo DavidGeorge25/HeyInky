@@ -61,7 +61,7 @@ struct InkyStroke: Equatable, Sendable {
             kind = .fillText
             textWidthFraction = FillTextMark.textWidthFraction(a, size: bounds.size, scale: 1)
             duration = min(1.4, max(0.5, 0.3 + 0.05 * Double(a.text.count)))
-        case .insertMoleculeCard, .insertGraphCard, .insertChemScheme, .insertDiagram:
+        case .insertMoleculeCard, .insertGraphCard, .insertChemScheme, .insertDiagram, .insertMath, .insertPractice:
             kind = .card
             duration = 0.45
         case .draw(let a):

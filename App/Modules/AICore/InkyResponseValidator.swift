@@ -98,6 +98,30 @@ enum InkyResponseValidator {
             case .success(let r): a.near = r
             }
             return .valid(.insertDiagram(a))
+        case .insertMath(var a):
+            a.lines = a.lines.filter { !$0.latex.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            if a.lines.isEmpty { return .invalid("insertMath: add at least one line") }
+            if a.lines.count > 16 { return .invalid("insertMath: too many lines (max 16); put longer work on a new page in parts") }
+            if let bad = a.lines.first(where: { $0.latex.contains("$") }) { return .invalid("insertMath: write TeX without $ delimiters (\"\(bad.latex.prefix(40))\")") }
+            for line in a.lines where !balanced(line.latex, open: "{", close: "}") {
+                return .invalid("insertMath: unbalanced braces in \"\(line.latex.prefix(60))\"")
+            }
+            switch checkRegion(a.near, what: "insertMath near") {
+            case .failure(let p): return .invalid(p.description)
+            case .success(let r): a.near = r
+            }
+            return .valid(.insertMath(a))
+        case .insertPractice(var a):
+            a.problems = a.problems.filter { !$0.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            if a.problems.isEmpty { return .invalid("insertPractice: add at least one problem") }
+            if a.problems.count > 10 { return .invalid("insertPractice: at most 10 problems") }
+            if a.problems.contains(where: { $0.answer.trimmingCharacters(in: .whitespaces).isEmpty }) { return .invalid("insertPractice: every problem needs an answer") }
+            if a.problems.contains(where: { $0.prompt.contains("$") }) { return .invalid("insertPractice: write math between \\( and \\), not $") }
+            switch checkRegion(a.near, what: "insertPractice near") {
+            case .failure(let p): return .invalid(p.description)
+            case .success(let r): a.near = r
+            }
+            return .valid(.insertPractice(a))
         case .addPage:
             return .valid(action)
         case .openSidebar(let a):
@@ -152,7 +176,7 @@ enum InkyResponseValidator {
         if a.highlights.contains(where: { $0.atoms.isEmpty && ($0.group ?? "").isEmpty }) {
             return "each highlight needs atoms or a group"
         }
-        if a.hydrogens.isEmpty && a.lonePairs.isEmpty && a.charges.isEmpty && a.highlights.isEmpty && a.labels.isEmpty && a.arrows.isEmpty {
+        if a.insights.isEmpty && a.hydrogens.isEmpty && a.lonePairs.isEmpty && a.charges.isEmpty && a.highlights.isEmpty && a.labels.isEmpty && a.arrows.isEmpty {
             return "nothing to add; fill at least one list"
         }
         return nil
@@ -301,7 +325,7 @@ enum InkyResponseValidator {
         return nil
     }
 
-    private static func balanced(_ s: String, open: Character, close: Character) -> Bool {
+    static func balanced(_ s: String, open: Character, close: Character) -> Bool {
         var depth = 0
         for ch in s {
             if ch == open { depth += 1 }

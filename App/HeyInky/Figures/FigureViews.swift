@@ -174,8 +174,73 @@ enum FigurePreparer {
             } catch {
                 return .failed(error.localizedDescription)
             }
+        case .insertPractice(var a):
+            // A compact card beside the work: about 340 × 300 pt.
+            let size = FigurePlacement.fitted(CGSize(width: 340, height: 300), pageSize: pageSize)
+            a.near = FigurePlacement.place(size: size, near: a.near, avoid: editor.figureObstacles, pageSize: pageSize)
+            return .ready(.insertPractice(a))
+        case .insertMath(var a):
+            do {
+                let math = try await MathTypesetter.shared.typeset(a)
+                let report = try await DiagramEngine.shared.prepare(svg: math.svg)
+                guard !report.svg.isEmpty else { return .failed(math.problems.first ?? "Inky's math couldn't be typeset.") }
+                let natural = DiagramEngine.displaySize(for: report, pageSize: pageSize)
+                let chrome = InkyFigureFrame<EmptyView>.chrome(title: a.title, caption: a.caption)
+                let size = FigurePlacement.fitted(CGSize(width: natural.width + chrome.width, height: natural.height + chrome.height), pageSize: pageSize)
+                a.near = FigurePlacement.place(size: size, near: a.near, avoid: editor.figureObstacles, pageSize: pageSize)
+                return .ready(.insertMath(a))
+            } catch {
+                return .failed(error.localizedDescription)
+            }
         default:
             return .ready(action)
+        }
+    }
+}
+
+/// An `insertMath` figure: MathJax SVG → checked → vector PDF, drawn natively.
+struct MathFigureView: View {
+    let action: InsertMathAction
+    @State private var page: PDFPage?
+    @State private var failed: String?
+    @MainActor private static var memory: [InsertMathAction: PDFDocument] = [:]
+
+    var body: some View {
+        Canvas { context, size in
+            guard let page else { return }
+            let box = page.bounds(for: .mediaBox)
+            guard box.width > 0, box.height > 0 else { return }
+            context.withCGContext { cg in
+                let s = min(size.width / box.width, size.height / box.height)
+                cg.saveGState()
+                cg.translateBy(x: (size.width - box.width * s) / 2, y: (size.height + box.height * s) / 2)
+                cg.scaleBy(x: s, y: -s)
+                page.draw(with: .mediaBox, to: cg)
+                cg.restoreGState()
+            }
+        }
+        .overlay {
+            if page == nil {
+                if let failed { Text(failed).font(.caption).foregroundStyle(.secondary).padding() } else { ProgressView().controlSize(.small) }
+            }
+        }
+        .accessibilityElement()
+        .accessibilityLabel("Math: " + action.lines.map(\.latex).joined(separator: "; "))
+        .accessibilityIdentifier("inky.figure.math")
+        .task(id: action) {
+            var key = action
+            key.near = .zero
+            if let cached = Self.memory[key] { page = cached.page(at: 0); return }
+            do {
+                let math = try await MathTypesetter.shared.typeset(action)
+                let report = try await DiagramEngine.shared.prepare(svg: math.svg)
+                let data = try await DiagramEngine.shared.pdf(for: report)
+                guard let document = PDFDocument(data: data) else { failed = "This math couldn't be drawn."; return }
+                Self.memory[key] = document
+                page = document.page(at: 0)
+            } catch {
+                failed = error.localizedDescription
+            }
         }
     }
 }

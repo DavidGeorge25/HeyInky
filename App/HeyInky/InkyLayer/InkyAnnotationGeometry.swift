@@ -53,6 +53,8 @@ enum InkyAnnotationGeometry {
         // Figures are measured and placed when Inky adds them; `near` is their frame.
         case .insertChemScheme(let a): a.near
         case .insertDiagram(let a): a.near
+        case .insertMath(let a): a.near
+        case .insertPractice(let a): a.near
         case .annotateStructure, .addPage, .openSidebar, .say: .zero
         }
     }
@@ -76,7 +78,7 @@ extension InkyAction {
     /// Molecule and graph cards (interactive) and Inky's figures: views rather than ink marks.
     var isCard: Bool {
         switch self {
-        case .insertMoleculeCard, .insertGraphCard, .insertChemScheme, .insertDiagram: true
+        case .insertMoleculeCard, .insertGraphCard, .insertChemScheme, .insertDiagram, .insertMath, .insertPractice: true
         default: false
         }
     }

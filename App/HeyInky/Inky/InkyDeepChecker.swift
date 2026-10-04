@@ -48,6 +48,10 @@ enum InkyDeepChecker {
                 return .invalid("insertDiagram: " + problems.joined(separator: "; "))
             }
             return .valid(action)
+        case .insertMath(let a):
+            guard let math = try? await MathTypesetter.shared.typeset(a) else { return .valid(action) }
+            if !math.problems.isEmpty { return .invalid("insertMath: " + math.problems.joined(separator: "; ") + " — use standard LaTeX commands") }
+            return .valid(action)
         default:
             return .valid(action)
         }

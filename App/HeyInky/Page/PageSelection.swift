@@ -99,6 +99,8 @@ extension InkyAction {
             return .draw(a)
         case .insertChemScheme(var a): a.near = rect(a.near); return .insertChemScheme(a)
         case .insertDiagram(var a): a.near = rect(a.near); return .insertDiagram(a)
+        case .insertMath(var a): a.near = rect(a.near); return .insertMath(a)
+        case .insertPractice(var a): a.near = rect(a.near); return .insertPractice(a)
         case .annotateStructure, .addPage, .openSidebar, .say: return self
         }
     }

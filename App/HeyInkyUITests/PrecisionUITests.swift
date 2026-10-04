@@ -38,6 +38,51 @@ final class PrecisionUITests: XCTestCase {
         shot("lonepairs")
     }
 
+    func testInsightsOnTheDrawing() throws {
+        launch(scenario: "molecule")
+        openNotebook("Organic structures")
+        ask(isLive ? "label all the functional groups and show the hybridization and molecular formula" : "label all the functional groups, hybridization and formula")
+        XCTAssertTrue(element("inky.annotation.draw").waitForExistence(timeout: answerTimeout), "Inky marked the structure")
+        XCTAssertTrue(app.buttons["inky.summon"].waitForExistence(timeout: answerTimeout))
+        sleep(isLive ? 16 : 14)  // many marks: let Inky finish drawing them all
+        shot("insights")
+    }
+
+    func testTypesetMathSolution() throws {
+        launch(scenario: "molecule")
+        openNotebook("Organic structures")
+        ask(isLive ? "solve x^2 - 5x + 6 = 0 neatly, step by step" : "solve the quadratic neatly")
+        XCTAssertTrue(element("inky.annotation.insertMath").waitForExistence(timeout: answerTimeout), "math inserted")
+        XCTAssertTrue(element("inky.figure.math").waitForExistence(timeout: 30), "math drawn")
+        XCTAssertTrue(app.buttons["inky.summon"].waitForExistence(timeout: answerTimeout))
+        sleep(3)
+        shot("math")
+    }
+
+    func testPracticeCardRevealsHintsAnswersAndSolutions() throws {
+        launch(scenario: "molecule")
+        openNotebook("Organic structures")
+        ask(isLive ? "give me 3 practice problems on factoring quadratics" : "give me practice problems")
+        XCTAssertTrue(element("inky.annotation.insertPractice").waitForExistence(timeout: answerTimeout), "practice card inserted")
+        XCTAssertTrue(app.buttons["inky.summon"].waitForExistence(timeout: answerTimeout))
+        sleep(2)
+        let hint = element("inky.practice.hint")
+        if hint.waitForExistence(timeout: 5) { hint.tap() }
+        let reveal = element("inky.practice.reveal")
+        XCTAssertTrue(reveal.waitForExistence(timeout: 5))
+        reveal.tap()
+        XCTAssertTrue(element("inky.practice.answer").waitForExistence(timeout: 5), "answer revealed")
+        let solve = element("inky.practice.solve")
+        if solve.waitForExistence(timeout: 3) { solve.tap() }
+        sleep(2)
+        shot("practice")
+        let next = element("inky.practice.next")
+        if next.exists && next.isEnabled {
+            next.tap()
+            XCTAssertFalse(element("inky.practice.answer").waitForExistence(timeout: 1), "next problem starts hidden")
+        }
+    }
+
     func testResonanceStructuresAreATypesetFigure() throws {
         launch(scenario: "molecule")
         openNotebook("Organic structures")

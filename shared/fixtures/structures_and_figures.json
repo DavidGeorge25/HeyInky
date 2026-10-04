@@ -9,6 +9,10 @@
       "type": "annotateStructure",
       "structure": "S1",
       "relabel": [],
+      "insights": [
+        "stereocenters",
+        "formula"
+      ],
       "hydrogens": [
         "all"
       ],
@@ -113,6 +117,52 @@
         }
       ],
       "caption": null
+    },
+    {
+      "type": "insertMath",
+      "near": {
+        "x": 0.1,
+        "y": 0.4,
+        "width": 0.6,
+        "height": 0.2
+      },
+      "title": "Quadratic formula",
+      "lines": [
+        {
+          "latex": "ax^2 + bx + c = 0",
+          "note": null
+        },
+        {
+          "latex": "x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}",
+          "note": "complete the square"
+        }
+      ],
+      "align": true,
+      "boxLast": true,
+      "caption": null
+    },
+    {
+      "type": "insertPractice",
+      "near": {
+        "x": 0.55,
+        "y": 0.1,
+        "width": 0.4,
+        "height": 0.3
+      },
+      "title": "Practice: factoring",
+      "problems": [
+        {
+          "prompt": "Solve \\(x^2-7x+12=0\\).",
+          "hints": [
+            "Find two numbers that multiply to 12 and add to −7."
+          ],
+          "answer": "\\(x=3\\) or \\(x=4\\)",
+          "solution": [
+            "\\((x-3)(x-4)=0\\)",
+            "\\(x=3\\) or \\(x=4\\)"
+          ]
+        }
+      ]
     }
   ]
 }

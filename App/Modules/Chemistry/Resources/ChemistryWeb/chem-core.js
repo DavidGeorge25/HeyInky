@@ -374,10 +374,22 @@
         for (const m of matchQuery(mol, qa)) m.atoms.forEach((i) => aromatic.add(i));
         qa.delete();
         const detected = detectGroups(mol, rbonds);
+        let stereo = { CIP_atoms: [] };
+        try { stereo = JSON.parse(mol.get_stereo_tags()); } catch (_) { /* none */ }
+        let inchiKey = null;
+        try { const inchi = mol.get_inchi(); if (inchi) inchiKey = RDKit.get_inchikey_for_inchi(inchi); } catch (_) { /* optional */ }
+        let molWeight = null;
+        try { molWeight = JSON.parse(mol.get_descriptors()).amw || null; } catch (_) { /* optional */ }
+        const ext = (json.extensions || []).find((e) => e.name === 'rdkitRepresentation') || {};
         return {
           ok: true,
           smiles: mol.get_smiles(),
           formula: formulaOf(ratoms),
+          molWeight,
+          inchiKey,
+          // Every stereocenter, assigned (R/S) or not ("?": a flat drawing doesn't say).
+          stereocenters: (stereo.CIP_atoms || []).map(([atom, label]) => ({ atom, label: String(label).replace(/[()]/g, '') })),
+          rings: ext.atomRings || [],
           atoms: ratoms.map((a, i) => ({ index: i, symbol: SYMBOLS[a.z] || '*', hydrogens: a.impHs || 0, charge: a.chg || 0, aromatic: aromatic.has(i) })),
           loweredBonds: lowered,
           groups: detected.map((g) => ({ id: g.id, name: g.name, matches: g.matches })),

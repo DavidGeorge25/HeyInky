@@ -77,6 +77,10 @@ struct NotebookView: View {
             if pageIndex >= ids.count { pageIndex = ids.count - 1 }
             if editor?.page.id != ids[pageIndex] { loadPage() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .inkyAskFromCard)) { note in
+            // A card asked Inky something ("Check my work").
+            if let question = note.object as? String, let editor { session.ask(question, editor: editor) }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { editor?.flush() }
         }
@@ -387,6 +391,8 @@ struct InkyLayerMenu: View {
         case .draw(let a): a.caption.map { "Drawing · \($0)" } ?? "Drawing"
         case .insertChemScheme(let a): a.title.map { "Chemistry · \($0)" } ?? "Chemistry figure"
         case .insertDiagram(let a): a.title.map { "Diagram · \($0)" } ?? "Diagram"
+        case .insertMath(let a): a.title.map { "Math · \($0)" } ?? "Math"
+        case .insertPractice(let a): a.title.map { "Practice · \($0)" } ?? "Practice"
         case .annotateStructure, .addPage, .openSidebar, .say: ""
         }
     }

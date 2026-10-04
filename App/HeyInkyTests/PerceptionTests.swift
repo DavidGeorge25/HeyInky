@@ -151,6 +151,33 @@ struct PerceptionTests {
         #expect(out.actions.contains { if case .label(let l) = $0 { l.text == "lone pair donor" } else { false } })
     }
 
+    @Test func insightsAreComputedOnTheStudentsDrawing() async throws {
+        let editor = try Self.imageEditor()
+        PageStructureFinder.clearCache()
+        let s = try #require(await PageStructureFinder.find(editor: editor, text: []).first)
+        let molecule = try await MoleculeEngine.shared.molecule(fromGraph: InkySession.engineAtoms(s, pageSize: editor.page.size),
+                                                                bonds: s.bonds.map { ["a": $0.a, "b": $0.b, "order": $0.order] })
+        #expect(molecule.ok)
+        #expect(molecule.formula == "C8H9NO2")
+        #expect(abs((molecule.molWeight ?? 0) - 151.16) < 0.1)
+        #expect(["Acetaminophen", "Paracetamol"].contains(MoleculeNames.lookup(molecule.inchiKey)?.common ?? ""))
+        #expect(molecule.stereocenters.isEmpty, "acetaminophen has none")
+        let facts = StructureAnnotator.Facts(formula: molecule.formula, molWeight: molecule.molWeight, name: "Acetaminophen",
+                                             groups: molecule.groups.flatMap { g in g.matches.map { (name: g.name, atoms: $0.atoms) } },
+                                             stereocenters: [], rings: molecule.rings)
+        let action = AnnotateStructureAction(structure: "S1", relabel: [], insights: [.functionalGroups, .hybridization, .aromaticRings, .formula],
+                                             hydrogens: [], lonePairs: [], charges: [], highlights: [], labels: [], arrows: [], color: .indigo)
+        let out = StructureAnnotator.compile(action, structure: s, pageSize: editor.page.size, facts: facts)
+        let texts = out.actions.flatMap { a -> [String] in if case .draw(let d) = a { d.shapes.compactMap(\.text) } else { [] } }
+        #expect(texts.contains { $0.contains("C₈H₉NO₂") && $0.contains("151.2") && $0.contains("Acetaminophen") })
+        // Ring carbons and the carbonyl carbon sp², methyl sp³, amide N sp².
+        #expect(texts.filter { $0 == "sp²" }.count == 9, "\(texts)")
+        #expect(texts.filter { $0 == "sp³" }.count == 2, "methyl C and phenol O")
+        #expect(out.actions.contains { if case .draw(let d) = $0 { d.shapes.contains { $0.kind == .ellipse } } else { false } }, "aromatic circle")
+        #expect(texts.contains { $0.lowercased().contains("amide") })
+        #expect(texts.contains { $0.lowercased().contains("phenol") })
+    }
+
     @Test func unknownAtomsAreReportedNotGuessed() throws {
         let s = PageStructure(id: "S1", source: .ink, region: .unit, smiles: "CC", bondLength: 40,
                               atoms: [.init(id: "a1", element: "C", label: nil, point: NormPoint(x: 0.4, y: 0.5), labelBox: nil, hydrogens: 3, writtenHydrogens: 0, charge: 0, aromatic: false, unsure: false),

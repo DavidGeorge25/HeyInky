@@ -192,6 +192,8 @@ struct InkyLayerView: View {
                 + { let t = a.shapes.compactMap { $0.kind == .text ? $0.text : nil }; return t.isEmpty ? "" : " — " + t.joined(separator: ", ") }()
         case .insertChemScheme(let a): ChemSchemeView.accessibilityText(a)
         case .insertDiagram(let a): "Diagram" + (a.title.map { ": \($0)" } ?? "")
+        case .insertMath(let a): "Math: " + a.lines.map(\.latex).joined(separator: "; ")
+        case .insertPractice(let a): "Practice: " + (a.title ?? "\(a.problems.count) problems")
         case .annotateStructure, .addPage, .openSidebar, .say: ""
         }
     }
@@ -249,6 +251,15 @@ struct InkyAnnotationView: View {
                 DiagramFigureView(action: a)
             }
             .cardReveal(progress)
+        case .insertMath(let a):
+            InkyFigureFrame(title: a.title, caption: a.caption, scale: scale) {
+                MathFigureView(action: a)
+            }
+            .cardReveal(progress)
+        case .insertPractice(let a):
+            PracticeCardView(action: a, scale: scale)
+                .inkySurface(cornerRadius: 12 * scale)
+                .cardReveal(progress)
         case .annotateStructure, .addPage, .openSidebar, .say:
             EmptyView()
         }

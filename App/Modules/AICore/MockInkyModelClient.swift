@@ -67,12 +67,48 @@ struct MockInkyModelClient: InkyModelClient {
             }
             return [.say(SayAction(text: "Here are the hidden hydrogens."))] + [.draw(mockHydrogens(request))]
         }
+        if let structure = request.structures.first, q.contains("chiral") || q.contains("stereo") || q.contains("hybridi") || q.contains("all the functional") || q.contains("formula") {
+            var insights: [AnnotateStructureAction.Insight] = []
+            if q.contains("chiral") || q.contains("stereo") { insights.append(.stereocenters) }
+            if q.contains("hybridi") { insights.append(.hybridization) }
+            if q.contains("all the functional") { insights += [.functionalGroups, .aromaticRings] }
+            if q.contains("formula") { insights.append(.formula) }
+            return [
+                .say(SayAction(text: "Here's what this structure has.")),
+                .annotateStructure(AnnotateStructureAction(structure: structure.id, relabel: [], insights: insights, hydrogens: [], lonePairs: [],
+                                                           charges: [], highlights: [], labels: [], arrows: [], color: .indigo)),
+            ]
+        }
         if q.contains("lone pair"), let structure = request.structures.first {
             return [
                 .say(SayAction(text: "Lone pairs added.")),
                 .annotateStructure(AnnotateStructureAction(
                     structure: structure.id, relabel: [], hydrogens: [], lonePairs: ["all"], charges: [],
                     highlights: [.init(atoms: [], group: "amide", color: .yellow, note: "amide")], labels: [], arrows: [], color: .indigo)),
+            ]
+        }
+        if q.contains("quadratic") || q.contains("neatly") || q.contains("typeset") {
+            return [
+                .say(SayAction(text: "Here it is, step by step.")),
+                .insertMath(InsertMathAction(
+                    near: NormRect(x: 0.1, y: 0.62, width: 0.6, height: 0.25), title: "Solving x² − 5x + 6 = 0",
+                    lines: [.init(latex: "x^2 - 5x + 6 = 0", note: nil),
+                            .init(latex: "(x - 2)(x - 3) = 0", note: "factor"),
+                            .init(latex: "x = 2 \\quad\\text{or}\\quad x = 3", note: "zero product")],
+                    align: true, boxLast: true, caption: nil)),
+            ]
+        }
+        if q.contains("practice") || q.contains("quiz") {
+            return [
+                .say(SayAction(text: "Here are three to try — hints if you need them.")),
+                .insertPractice(InsertPracticeAction(near: NormRect(x: 0.55, y: 0.55, width: 0.4, height: 0.3), title: "Practice: factoring", problems: [
+                    .init(prompt: "Solve \\(x^2 - 7x + 12 = 0\\).", hints: ["Find two numbers that multiply to 12 and add to −7."],
+                          answer: "\\(x = 3\\) or \\(x = 4\\)", solution: ["\\((x-3)(x-4) = 0\\)", "\\(x = 3\\) or \\(x = 4\\)"]),
+                    .init(prompt: "Solve \\(x^2 + 2x - 15 = 0\\).", hints: ["Which factors of −15 add to 2?"],
+                          answer: "\\(x = 3\\) or \\(x = -5\\)", solution: ["\\((x+5)(x-3) = 0\\)"]),
+                    .init(prompt: "Solve \\(2x^2 - 8 = 0\\).", hints: ["Divide by 2 first.", "\\(x^2 = 4\\)"],
+                          answer: "\\(x = \\pm 2\\)", solution: ["\\(x^2 = 4\\)", "\\(x = \\pm 2\\)"]),
+                ])),
             ]
         }
         if q.contains("resonance") {

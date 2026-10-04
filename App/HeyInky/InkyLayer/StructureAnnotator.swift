@@ -18,11 +18,26 @@ enum StructureAnnotator {
 
     /// - Parameter groupAtoms: atom indices matched for each highlight's `group` (by the caller via
     ///   RDKit), keyed by highlight index. Highlights with a group and no entry are reported.
+    /// What RDKit knows about the structure, for `insights`.
+    struct Facts {
+        var formula: String?
+        var molWeight: Double?
+        var name: String?
+        /// (group name, atom indices) per instance.
+        var groups: [(name: String, atoms: [Int])] = []
+        /// (atom index, "R"/"S"/"?").
+        var stereocenters: [(atom: Int, label: String)] = []
+        var rings: [[Int]] = []
+    }
+
     static func compile(_ action: AnnotateStructureAction, structure input: PageStructure, pageSize: CGSize,
-                        groupAtoms: [Int: [Int]] = [:]) -> Output {
+                        groupAtoms: [Int: [Int]] = [:], facts: Facts? = nil) -> Output {
         var out = Output()
         let structure = applyRelabels(action.relabel, to: input)
         var geometry = Geometry(structure: structure, pageSize: pageSize)
+        let insights = Set(action.insights)
+        if !insights.isEmpty && facts == nil { out.problems.append("RDKit couldn't analyse \(structure.id)") }
+        let facts = facts ?? Facts()
 
         func atom(_ id: String) -> Int? {
             if let i = structure.atomIndex(id) { return i }
@@ -36,7 +51,7 @@ enum StructureAnnotator {
 
         // 1. Highlights first (they go under everything).
         var markerShapes: [DrawAction.Color: [DrawAction.Shape]] = [:]
-        var notes: [DrawAction.Shape] = []
+        var noteRequests: [(text: String, atoms: Set<Int>)] = []
         for (h, highlight) in action.highlights.enumerated() {
             var atoms = Set(highlight.atoms.compactMap(atom))
             if highlight.group != nil {
@@ -51,11 +66,32 @@ enum StructureAnnotator {
             let color = markerColor(highlight.color)
             markerShapes[color, default: []] += geometry.highlightShapes(atoms: atoms)
             if let note = highlight.note?.trimmingCharacters(in: .whitespaces), !note.isEmpty {
-                notes.append(geometry.noteShape(note, near: atoms))
+                noteRequests.append((note, atoms))
+            }
+        }
+        // Insight: every functional group, each in its own color and named.
+        if insights.contains(.functionalGroups) {
+            let palette: [HighlightColor] = [.yellow, .green, .blue, .pink, .orange]
+            for (k, group) in facts.groups.enumerated() {
+                let atoms = Set(group.atoms)
+                guard !atoms.isEmpty else { continue }
+                markerShapes[markerColor(palette[k % palette.count]), default: []] += geometry.highlightShapes(atoms: atoms)
+                noteRequests.append((group.name, atoms))
             }
         }
         for (color, shapes) in markerShapes.sorted(by: { $0.key.rawValue < $1.key.rawValue }) where !shapes.isEmpty {
             out.actions.append(.draw(DrawAction(ink: .marker, color: color, shapes: shapes, caption: "highlight on \(structure.id)")))
+        }
+
+        // Insight: aromatic rings get the inner circle.
+        if insights.contains(.aromaticRings) {
+            var circles: [DrawAction.Shape] = []
+            for ring in facts.rings where ring.count >= 5 && ring.allSatisfy({ $0 < structure.atoms.count && structure.atoms[$0].aromatic }) {
+                circles.append(geometry.ringCircle(ring))
+            }
+            if !circles.isEmpty {
+                out.actions.append(.draw(DrawAction(ink: .pen, color: action.color, shapes: circles, caption: "aromatic rings in \(structure.id)")))
+            }
         }
 
         // 2. Hydrogens.
@@ -99,6 +135,32 @@ enum StructureAnnotator {
             out.actions.append(.draw(DrawAction(ink: .pen, color: color, shapes: chargeShapes, caption: "charges on \(structure.id)")))
         }
 
+        // Insight: stereocenters (red *, with R/S when the drawing fixes it).
+        if insights.contains(.stereocenters) {
+            var stars: [DrawAction.Shape] = []
+            for center in facts.stereocenters where center.atom < structure.atoms.count {
+                let text = (center.label == "R" || center.label == "S") ? "*\(center.label)" : "*"
+                stars.append(.init(kind: .text, points: [geometry.norm(geometry.placeCharge(atom: center.atom, text: text))], text: text, size: .small))
+            }
+            if !stars.isEmpty {
+                out.actions.append(.draw(DrawAction(ink: .pen, color: .red, shapes: stars, caption: "stereocenters in \(structure.id)")))
+            } else {
+                out.problems.append("\(structure.id) has no stereocenters")
+            }
+        }
+
+        // Insight: hybridization beside each heavy atom.
+        if insights.contains(.hybridization) {
+            var tags: [DrawAction.Shape] = []
+            for i in structure.atoms.indices {
+                guard let tag = hybridization(structure, i) else { continue }
+                tags.append(.init(kind: .text, points: [geometry.norm(geometry.placeCharge(atom: i, text: tag))], text: tag, size: .small))
+            }
+            if !tags.isEmpty {
+                out.actions.append(.draw(DrawAction(ink: .pen, color: .blue, shapes: tags, caption: "hybridization in \(structure.id)")))
+            }
+        }
+
         // 5. Mechanism arrows.
         var arrowShapes: [DrawAction.Shape] = []
         for arrow in action.arrows {
@@ -111,14 +173,49 @@ enum StructureAnnotator {
         }
 
         // 6. Notes for highlights, then atom labels.
+        // Names last, so they keep clear of every tag placed above.
+        let notes = noteRequests.map { geometry.noteShape($0.text, near: $0.atoms) }
         if !notes.isEmpty {
             out.actions.append(.draw(DrawAction(ink: .pen, color: action.color, shapes: notes, caption: "notes on \(structure.id)")))
+        }
+        // Insight: formula, molar mass and name under the structure.
+        if insights.contains(.formula), let formula = facts.formula {
+            var line = subscripted(formula)
+            if let mw = facts.molWeight { line += String(format: " · %.1f g/mol", mw) }
+            if let name = facts.name { line = name + "\n" + line }
+            out.actions.append(.draw(DrawAction(ink: .pen, color: action.color, shapes: [
+                .init(kind: .text, points: [geometry.belowStructure()], text: line, size: .small),
+            ], caption: "formula of \(structure.id)")))
         }
         for label in action.labels {
             guard let i = atom(label.atom) else { continue }
             out.actions.append(.label(LabelAction(anchor: geometry.norm(geometry.labelAnchor(atom: i)), text: label.text, arrow: true)))
         }
         return out
+    }
+
+    /// sp / sp² / sp³ from the drawn bonds: a triple bond or two doubles → sp; a double bond or an
+    /// aromatic ring → sp²; an N next to a π system (amide, aniline, pyrrole) → sp²; otherwise sp³.
+    /// Halogens and hydrogens aren't tagged.
+    static func hybridization(_ structure: PageStructure, _ i: Int) -> String? {
+        let atom = structure.atoms[i]
+        guard ["C", "N", "O", "S", "P", "B"].contains(atom.element) else { return nil }
+        let bonds = structure.bonds.filter { $0.a == i || $0.b == i }
+        let triples = bonds.filter { $0.order == 3 }.count, doubles = bonds.filter { $0.order == 2 }.count
+        if triples > 0 || doubles >= 2 { return "sp" }
+        if doubles == 1 || atom.aromatic { return "sp²" }
+        if atom.element == "N" {
+            let conjugated = structure.neighbors(of: i).contains { n in
+                structure.atoms[n].aromatic || structure.bonds.contains { ($0.a == n || $0.b == n) && $0.order >= 2 }
+            }
+            if conjugated { return "sp²" }
+        }
+        return "sp³"
+    }
+
+    static func subscripted(_ formula: String) -> String {
+        let map: [Character: Character] = ["0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉"]
+        return String(formula.map { map[$0] ?? $0 })
     }
 
     static func lonePairs(_ structure: PageStructure, _ i: Int) -> Int {
@@ -273,14 +370,20 @@ enum StructureAnnotator {
 
         /// Upper right when free, otherwise the most open direction.
         mutating func placeCharge(atom i: Int, text: String) -> CGPoint {
-            let r = max(radius(i), 4) + bondLength * 0.22
+            // Far enough that the text clears the atom's bonds (wider text sits further out).
+            let (textSize, _) = DrawInk.measure(text, size: .small, pageSize: pageSize)
+            let r = max(radius(i), 4) + max(bondLength * 0.22, textSize.width * 0.55 + 3)
             let preferred: CGFloat = -.pi / 4
             let taken = bondAngles(i) + (used[i] ?? [])
-            let free = taken.allSatisfy { abs(Self.wrap($0 - preferred + .pi) - .pi) > 0.6 }
+            // Upper right is customary, but only if that's outside the molecule (not into a ring).
+            let away = CGPoint(x: points[i].x - centroid.x, y: points[i].y - centroid.y)
+            let outward = cos(preferred) * away.x + sin(preferred) * away.y >= 0
+            let free = outward && taken.allSatisfy { abs(Self.wrap($0 - preferred + .pi) - .pi) > 0.6 }
             let a = free ? preferred : directions(atom: i, count: 1, reach: r)[0]
             if free { used[i, default: []].append(a) }
             let p = CGPoint(x: points[i].x + cos(a) * r, y: points[i].y + sin(a) * r)
             placed.append(p)
+            placedRects.append(CGRect(x: p.x - 9, y: p.y - 7, width: 18, height: 14))
             return p
         }
 
@@ -289,6 +392,23 @@ enum StructureAnnotator {
             let a = directions(atom: i, count: 1, reach: bondLength * 0.4)[0]
             let r = radius(i) + 3
             return CGPoint(x: points[i].x + cos(a) * r, y: points[i].y + sin(a) * r)
+        }
+
+        /// A circle inside an aromatic ring.
+        func ringCircle(_ ring: [Int]) -> DrawAction.Shape {
+            var cx: CGFloat = 0, cy: CGFloat = 0
+            for i in ring { cx += points[i].x; cy += points[i].y }
+            cx /= CGFloat(ring.count); cy /= CGFloat(ring.count)
+            var mean: CGFloat = 0
+            for i in ring { mean += hypot(points[i].x - cx, points[i].y - cy) }
+            let r = mean / CGFloat(ring.count) * 0.55
+            return .init(kind: .ellipse, points: [norm(CGPoint(x: cx - r, y: cy - r)), norm(CGPoint(x: cx + r, y: cy + r))], text: nil, size: .small)
+        }
+
+        /// Top-left point for a line of text just below the structure.
+        func belowStructure() -> NormPoint {
+            let region = structure.region.cgRect(in: pageSize)
+            return norm(CGPoint(x: region.minX + 4, y: region.maxY + 6))
         }
 
         /// Marker strokes over the bonds within `atoms`, or dabs on lone atoms.
@@ -307,20 +427,59 @@ enum StructureAnnotator {
             return shapes
         }
 
-        /// A highlight's name, written outside the structure beside the group.
-        func noteShape(_ text: String, near atoms: Set<Int>) -> DrawAction.Shape {
-            var sx: CGFloat = 0, sy: CGFloat = 0
-            for i in atoms { sx += points[i].x; sy += points[i].y }
-            let c = CGPoint(x: sx / CGFloat(max(1, atoms.count)), y: sy / CGFloat(max(1, atoms.count)))
-            var d = CGPoint(x: c.x - centroid.x, y: c.y - centroid.y)
-            let l = hypot(d.x, d.y)
-            d = l > 1 ? CGPoint(x: d.x / l, y: d.y / l) : CGPoint(x: 0, y: -1)
+        /// Text already placed by this compile (names, tags), so later text avoids it.
+        var placedRects: [CGRect] = []
+
+        /// A group's name beside it: the spot (around the group, preferring outside the molecule)
+        /// that covers no atom, label, bond or earlier text.
+        mutating func noteShape(_ text: String, near atoms: Set<Int>) -> DrawAction.Shape {
+            var cx: CGFloat = 0, cy: CGFloat = 0
+            for i in atoms { cx += points[i].x; cy += points[i].y }
+            let c = CGPoint(x: cx / CGFloat(max(1, atoms.count)), y: cy / CGFloat(max(1, atoms.count)))
             let (size, _) = DrawInk.measure(text, size: .small, pageSize: pageSize)
-            let anchor = CGPoint(x: c.x + d.x * bondLength * 1.05, y: c.y + d.y * bondLength * 0.9)
-            let topLeft = CGPoint(x: anchor.x - size.width / 2 + d.x * size.width * 0.3, y: anchor.y - size.height / 2)
-            // Long text is placed by its top-left corner; short text by its center.
-            let point = DrawInk.isShortLabel(text) ? anchor : topLeft
+            let labelRects = structure.atoms.compactMap { $0.labelBox?.cgRect(in: pageSize) }
+            let segments = structure.bonds.map { (points[$0.a], points[$0.b]) }
+            let page = CGRect(origin: .zero, size: pageSize).insetBy(dx: 6, dy: 6)
+            var groupRadius: CGFloat = 0
+            for i in atoms { groupRadius = max(groupRadius, hypot(points[i].x - c.x, points[i].y - c.y)) }
+            let outward = CGPoint(x: c.x - centroid.x, y: c.y - centroid.y)
+            var best: CGRect?
+            var bestCost = CGFloat.infinity
+            for step in 0..<16 {
+                let a = CGFloat(step) * .pi / 8
+                for d in [groupRadius + bondLength * 0.7, groupRadius + bondLength * 1.2, groupRadius + bondLength * 1.8] {
+                    let p = CGPoint(x: c.x + cos(a) * (d + size.width * 0.35 * abs(cos(a))), y: c.y + sin(a) * (d + size.height * 0.5 * abs(sin(a))))
+                    let r = CGRect(x: p.x - size.width / 2, y: p.y - size.height / 2, width: size.width, height: size.height)
+                    guard page.contains(r) else { continue }
+                    let padded = r.insetBy(dx: -3, dy: -3)
+                    var cost = d / bondLength * 0.6
+                    cost += CGFloat(points.filter { padded.contains($0) }.count) * 20
+                    cost += CGFloat(labelRects.filter { $0.intersects(padded) }.count) * 20
+                    cost += CGFloat(segments.filter { Self.segment($0.0, $0.1, hits: padded) }.count) * 12
+                    cost += CGFloat(placedRects.filter { $0.intersects(padded) }.count) * 20
+                    cost += CGFloat(placed.filter { padded.insetBy(dx: -4, dy: -4).contains($0) }.count) * 8
+                    // Prefer the outside of the molecule.
+                    if hypot(outward.x, outward.y) > 1 {
+                        let dot = (cos(a) * outward.x + sin(a) * outward.y) / hypot(outward.x, outward.y)
+                        cost -= dot * 0.8
+                    }
+                    if cost < bestCost { bestCost = cost; best = r }
+                }
+            }
+            let rect = best ?? CGRect(x: c.x - size.width / 2, y: c.y - bondLength - size.height, width: size.width, height: size.height)
+            placedRects.append(rect)
+            let point = DrawInk.isShortLabel(text) ? CGPoint(x: rect.midX, y: rect.midY) : rect.origin
             return .init(kind: .text, points: [norm(point)], text: text, size: .small)
+        }
+
+        static func segment(_ a: CGPoint, _ b: CGPoint, hits r: CGRect) -> Bool {
+            if r.contains(a) || r.contains(b) { return true }
+            let corners = [CGPoint(x: r.minX, y: r.minY), CGPoint(x: r.maxX, y: r.minY), CGPoint(x: r.maxX, y: r.maxY), CGPoint(x: r.minX, y: r.maxY)]
+            func cross(_ p: CGPoint, _ q: CGPoint, _ s: CGPoint, _ t: CGPoint) -> Bool {
+                func d(_ u: CGPoint, _ v: CGPoint, _ w: CGPoint) -> CGFloat { (v.x - u.x) * (w.y - u.y) - (v.y - u.y) * (w.x - u.x) }
+                return d(p, q, s) * d(p, q, t) < 0 && d(s, t, p) * d(s, t, q) < 0
+            }
+            return (0..<4).contains { cross(a, b, corners[$0], corners[($0 + 1) % 4]) }
         }
 
         /// An arrow end: an atom (its lone pair when it's the source) or a bond/gap "a3-a4".

@@ -218,6 +218,8 @@ final class DiagramEngine: NSObject, WKNavigationDelegate {
     function applyDefaults(svg){
       for (const el of svg.querySelectorAll('path,line,polyline,polygon,rect,circle,ellipse')) {
         if (el.closest('marker') || el.closest('defs')) continue;
+        // Typeset math (nested <svg> from MathJax) keeps its own glyph styling.
+        if (el.ownerSVGElement && el.ownerSVGElement !== svg) continue;
         if (!el.hasAttribute('stroke')) el.setAttribute('stroke', COLORS.ink);
         if (!el.hasAttribute('stroke-width')) el.setAttribute('stroke-width', '2');
         if (!el.hasAttribute('fill')) el.setAttribute('fill', 'none');

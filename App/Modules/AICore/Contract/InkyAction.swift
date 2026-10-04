@@ -279,8 +279,14 @@ struct AnnotateStructureAction: Codable, Hashable, Sendable {
         var kind: ArrowKind
     }
 
+    /// Facts the app computes from the structure and writes on it.
+    enum Insight: String, Codable, CaseIterable, Sendable {
+        case functionalGroups, stereocenters, hybridization, aromaticRings, formula
+    }
+
     var structure: String
     var relabel: [Relabel]
+    var insights: [Insight] = []
     /// Atom ids, or ["all"].
     var hydrogens: [String]
     /// Atom ids, or ["all"].
@@ -290,6 +296,36 @@ struct AnnotateStructureAction: Codable, Hashable, Sendable {
     var labels: [AtomLabel]
     var arrows: [Arrow]
     var color: DrawAction.Color
+
+    init(structure: String, relabel: [Relabel], insights: [Insight] = [], hydrogens: [String], lonePairs: [String], charges: [Charge],
+         highlights: [Highlight], labels: [AtomLabel], arrows: [Arrow], color: DrawAction.Color) {
+        self.structure = structure
+        self.relabel = relabel
+        self.insights = insights
+        self.hydrogens = hydrogens
+        self.lonePairs = lonePairs
+        self.charges = charges
+        self.highlights = highlights
+        self.labels = labels
+        self.arrows = arrows
+        self.color = color
+    }
+
+    private enum CodingKeys: String, CodingKey { case structure, relabel, insights, hydrogens, lonePairs, charges, highlights, labels, arrows, color }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        structure = try c.decode(String.self, forKey: .structure)
+        relabel = try c.decodeIfPresent([Relabel].self, forKey: .relabel) ?? []
+        insights = try c.decodeIfPresent([Insight].self, forKey: .insights) ?? []
+        hydrogens = try c.decodeIfPresent([String].self, forKey: .hydrogens) ?? []
+        lonePairs = try c.decodeIfPresent([String].self, forKey: .lonePairs) ?? []
+        charges = try c.decodeIfPresent([Charge].self, forKey: .charges) ?? []
+        highlights = try c.decodeIfPresent([Highlight].self, forKey: .highlights) ?? []
+        labels = try c.decodeIfPresent([AtomLabel].self, forKey: .labels) ?? []
+        arrows = try c.decodeIfPresent([Arrow].self, forKey: .arrows) ?? []
+        color = try c.decodeIfPresent(DrawAction.Color.self, forKey: .color) ?? .indigo
+    }
 }
 
 /// A typeset chemistry figure (RDKit structures in a row with connectors and electron arrows).
@@ -372,6 +408,36 @@ struct InsertDiagramAction: Codable, Hashable, Sendable {
     }
 }
 
+/// Typeset TeX lines (MathJax), optionally aligned at their first relation, last line boxed.
+struct InsertMathAction: Codable, Hashable, Sendable {
+    struct Line: Codable, Hashable, Sendable {
+        var latex: String
+        var note: String?
+    }
+
+    var near: NormRect
+    var title: String?
+    var lines: [Line]
+    var align: Bool
+    var boxLast: Bool
+    var caption: String?
+}
+
+/// Practice problems on an interactive card (hints, answer, worked solution).
+struct InsertPracticeAction: Codable, Hashable, Sendable {
+    struct Problem: Codable, Hashable, Sendable {
+        /// Text with TeX between \( and \).
+        var prompt: String
+        var hints: [String]
+        var answer: String
+        var solution: [String]
+    }
+
+    var near: NormRect
+    var title: String?
+    var problems: [Problem]
+}
+
 /// A fresh page after the current one; the rest of the answer goes there.
 struct AddPageAction: Codable, Hashable, Sendable {
     enum Paper: String, Codable, CaseIterable, Sendable { case blank, lined, grid, dotted }
@@ -390,7 +456,7 @@ struct SayAction: Codable, Hashable, Sendable {
 /// The discriminator values, in schema order.
 enum InkyActionType: String, Codable, CaseIterable, Sendable {
     case highlight, circle, star, label, fillText, insertMoleculeCard, insertGraphCard, draw
-    case annotateStructure, insertChemScheme, insertDiagram, addPage, openSidebar, say
+    case annotateStructure, insertChemScheme, insertDiagram, insertMath, insertPractice, addPage, openSidebar, say
 }
 
 /// One thing Inky does. Encoded flat with a `type` discriminator, exactly as in the schema.
@@ -406,6 +472,8 @@ enum InkyAction: Hashable, Sendable {
     case annotateStructure(AnnotateStructureAction)
     case insertChemScheme(InsertChemSchemeAction)
     case insertDiagram(InsertDiagramAction)
+    case insertMath(InsertMathAction)
+    case insertPractice(InsertPracticeAction)
     case addPage(AddPageAction)
     case openSidebar(OpenSidebarAction)
     case say(SayAction)
@@ -423,6 +491,8 @@ enum InkyAction: Hashable, Sendable {
         case .annotateStructure: .annotateStructure
         case .insertChemScheme: .insertChemScheme
         case .insertDiagram: .insertDiagram
+        case .insertMath: .insertMath
+        case .insertPractice: .insertPractice
         case .addPage: .addPage
         case .openSidebar: .openSidebar
         case .say: .say
@@ -461,6 +531,8 @@ extension InkyAction: Codable {
         case .annotateStructure: self = .annotateStructure(try AnnotateStructureAction(from: decoder))
         case .insertChemScheme: self = .insertChemScheme(try InsertChemSchemeAction(from: decoder))
         case .insertDiagram: self = .insertDiagram(try InsertDiagramAction(from: decoder))
+        case .insertMath: self = .insertMath(try InsertMathAction(from: decoder))
+        case .insertPractice: self = .insertPractice(try InsertPracticeAction(from: decoder))
         case .addPage: self = .addPage(try AddPageAction(from: decoder))
         case .openSidebar: self = .openSidebar(try OpenSidebarAction(from: decoder))
         case .say: self = .say(try SayAction(from: decoder))
@@ -482,6 +554,8 @@ extension InkyAction: Codable {
         case .annotateStructure(let a): try a.encode(to: encoder)
         case .insertChemScheme(let a): try a.encode(to: encoder)
         case .insertDiagram(let a): try a.encode(to: encoder)
+        case .insertMath(let a): try a.encode(to: encoder)
+        case .insertPractice(let a): try a.encode(to: encoder)
         case .addPage(let a): try a.encode(to: encoder)
         case .openSidebar(let a): try a.encode(to: encoder)
         case .say(let a): try a.encode(to: encoder)
