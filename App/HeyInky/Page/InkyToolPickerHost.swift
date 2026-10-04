@@ -7,8 +7,9 @@ import UIKit
 final class InkyToolPickerHost: NSObject, PKToolPickerObserver {
     static let inkyItemIdentifier = "com.heyinky.tool.inky"
     static let selectItemIdentifier = "com.heyinky.tool.select"
+    static let textItemIdentifier = "com.heyinky.tool.text"
     /// Bump when the set of tool items changes (see `migrateSavedLayout`).
-    static let layoutVersion = 2
+    static let layoutVersion = 3
 
     let picker: PKToolPicker
     /// Called when the user picks the Inky item in the tool picker.
@@ -17,8 +18,11 @@ final class InkyToolPickerHost: NSObject, PKToolPickerObserver {
     var onInkyDeselected: (() -> Void)?
     /// The Select tool was picked (true) or left (false).
     var onSelectToolChanged: ((Bool) -> Void)?
+    /// The Text tool was picked (true) or left (false).
+    var onTextToolChanged: ((Bool) -> Void)?
     private var wasInkySelected = false
     private var wasSelectSelected = false
+    private var wasTextSelected = false
 
     private var previousIdentifier: String?
     private var lastDrawingIdentifier: String?
@@ -59,6 +63,16 @@ final class InkyToolPickerHost: NSObject, PKToolPickerObserver {
         selectConfig.allowsColorSelection = false
         let selectItem = PKToolPickerCustomItem(configuration: selectConfig)
 
+        // Typed text boxes.
+        var textConfig = PKToolPickerCustomItem.Configuration(identifier: Self.textItemIdentifier, name: "Text")
+        textConfig.imageProvider = { _ in
+            let symbol = UIImage.SymbolConfiguration(pointSize: 26, weight: .regular)
+            return UIImage(systemName: "textformat", withConfiguration: symbol)?
+                .withTintColor(.label, renderingMode: .alwaysOriginal) ?? UIImage()
+        }
+        textConfig.allowsColorSelection = false
+        let textItem = PKToolPickerCustomItem(configuration: textConfig)
+
         picker = PKToolPicker(toolItems: [
             PKToolPickerInkingItem(type: .pen),
             PKToolPickerInkingItem(type: .marker),
@@ -66,6 +80,7 @@ final class InkyToolPickerHost: NSObject, PKToolPickerObserver {
             // Pixel eraser by default (rubs out part of a stroke); the picker still offers object erase.
             PKToolPickerEraserItem(type: .bitmap),
             selectItem,
+            textItem,
             PKToolPickerRulerItem(),
             inkyItem,
         ])
@@ -95,13 +110,20 @@ final class InkyToolPickerHost: NSObject, PKToolPickerObserver {
         picker.selectedToolItemIdentifier == Self.selectItemIdentifier
     }
 
+    var isTextSelected: Bool {
+        picker.selectedToolItemIdentifier == Self.textItemIdentifier
+    }
+
+    /// Select/Text aren't drawing tools: Inky returns to the last pen, not to them.
+    private var isModeToolSelected: Bool { isSelectSelected || isTextSelected }
+
     /// Mirrors Inky mode in the picker (e.g. when summoned from the button or a squeeze).
     func setInkySelected(_ selected: Bool) {
         guard selected != isInkySelected else { return }
         suppressCallbacks = true
         defer { suppressCallbacks = false }
         if selected {
-            if !isSelectSelected { lastDrawingIdentifier = picker.selectedToolItemIdentifier }
+            if !isModeToolSelected { lastDrawingIdentifier = picker.selectedToolItemIdentifier }
             picker.selectedToolItemIdentifier = Self.inkyItemIdentifier
         } else {
             picker.selectedToolItemIdentifier = lastDrawingIdentifier ?? picker.toolItems.first?.identifier ?? ""
@@ -132,13 +154,15 @@ final class InkyToolPickerHost: NSObject, PKToolPickerObserver {
         defer {
             wasInkySelected = isInkySelected
             wasSelectSelected = isSelectSelected
+            wasTextSelected = isTextSelected
         }
         if isSelectSelected != wasSelectSelected { onSelectToolChanged?(isSelectSelected) }
+        if isTextSelected != wasTextSelected { onTextToolChanged?(isTextSelected) }
         guard !suppressCallbacks else { return }
         if isInkySelected {
             onInkySelected?()
         } else {
-            if !isSelectSelected {
+            if !isModeToolSelected {
                 previousIdentifier = lastDrawingIdentifier
                 lastDrawingIdentifier = toolPicker.selectedToolItemIdentifier
             }

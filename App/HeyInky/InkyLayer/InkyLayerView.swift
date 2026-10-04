@@ -70,6 +70,11 @@ struct InkyLayerView: View {
                 if editor.isSelectMode {
                     SelectionOverlay(editor: editor, viewSize: geo.size)
                 }
+
+                if let id = editor.editingTextBoxID, let box = editor.page.textBoxes.first(where: { $0.id == id }) {
+                    TextBoxEditor(editor: editor, box: box, viewSize: geo.size, scale: scale)
+                        .id(id)
+                }
             }
         }
         .alert("Edit", isPresented: Binding(get: { editing != nil }, set: { if !$0 { editing = nil } })) {
@@ -331,6 +336,8 @@ struct ImageSelectionOverlay: View {
 struct SelectionOverlay: View {
     let editor: PageEditorModel
     let viewSize: CGSize
+    @State private var converting = false
+    @State private var conversionFailed = false
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -359,6 +366,11 @@ struct SelectionOverlay: View {
             }
         }
         .frame(width: viewSize.width, height: viewSize.height, alignment: .topLeading)
+        .alert("Couldn't read that handwriting", isPresented: $conversionFailed) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Try selecting just the writing, or write a little larger.")
+        }
     }
 
     private func box(_ rect: CGRect) -> some View {
@@ -421,6 +433,26 @@ struct SelectionOverlay: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("select.askInky")
+            if !(editor.selection?.strokeIndices.isEmpty ?? true) {
+                Button {
+                    converting = true
+                    Task {
+                        let ok = await editor.convertSelectedInkToText()
+                        converting = false
+                        if !ok { conversionFailed = true }
+                    }
+                } label: {
+                    Group {
+                        if converting { ProgressView().controlSize(.small) } else { Image(systemName: "character.cursor.ibeam") }
+                    }
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 34, height: 30)
+                }
+                .buttonStyle(.plain)
+                .disabled(converting)
+                .accessibilityLabel("Convert to Text")
+                .accessibilityIdentifier("select.convertToText")
+            }
             if editor.selectedDrawingCount > 0 {
                 button("Make it my ink", "scribble", id: "select.makeInk") { editor.convertSelectedDrawingsToInk() }
             }
@@ -447,5 +479,97 @@ struct SelectionOverlay: View {
 
     private func normalized(_ translation: CGSize) -> NormPoint {
         NormPoint(x: translation.width / max(viewSize.width, 1), y: translation.height / max(viewSize.height, 1))
+    }
+}
+
+/// Typing into a text box on the page: the text sits exactly where it will be drawn, with a
+/// small formatting bar above (size, typed/handwriting, color, delete, done).
+struct TextBoxEditor: View {
+    let editor: PageEditorModel
+    let box: PageTextBox
+    let viewSize: CGSize
+    let scale: CGFloat
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        let rect = box.frame.cgRect(in: viewSize)
+        ZStack(alignment: .topLeading) {
+            TextField("Type here", text: $text, axis: .vertical)
+                .font(Font(PageRenderer.font(for: box, scale: scale)))
+                .foregroundStyle(Color(PageRenderer.uiColor(box.color)))
+                .textFieldStyle(.plain)
+                .focused($focused)
+                .frame(width: rect.width, alignment: .topLeading)
+                .padding(4)
+                .background(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .strokeBorder(Theme.accent.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                )
+                .offset(x: rect.minX - 4, y: rect.minY - 4)
+                .accessibilityIdentifier("text.editor")
+                .onChange(of: text) { _, new in
+                    var updated = box
+                    updated.text = new
+                    editor.updateTextBox(updated)
+                }
+
+            formatBar
+                .fixedSize()
+                .offset(x: min(max(rect.minX - 4, 4), max(4, viewSize.width - 360)), y: max(4, rect.minY - 52))
+        }
+        .frame(width: viewSize.width, height: viewSize.height, alignment: .topLeading)
+        .onAppear {
+            text = box.text
+            focused = true
+        }
+    }
+
+    private var formatBar: some View {
+        HStack(spacing: 2) {
+            barButton("Smaller", "textformat.size.smaller", id: "text.smaller") { change { $0.fontSize = max(10, $0.fontSize - 2) } }
+            barButton("Larger", "textformat.size.larger", id: "text.larger") { change { $0.fontSize = min(72, $0.fontSize + 2) } }
+            barButton(box.style == .typed ? "Handwriting style" : "Typed style",
+                      box.style == .typed ? "pencil.and.scribble" : "textformat", id: "text.style") {
+                change { $0.style = $0.style == .typed ? .handwriting : .typed }
+            }
+            ForEach(PageTextBox.Color.allCases, id: \.self) { color in
+                Button { change { $0.color = color } } label: {
+                    Circle()
+                        .fill(Color(PageRenderer.uiColor(color)))
+                        .frame(width: 18, height: 18)
+                        .overlay(Circle().stroke(Color.primary.opacity(box.color == color ? 0.6 : 0), lineWidth: 2).padding(-3))
+                        .frame(width: 30, height: 30)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(color.rawValue.capitalized)
+                .accessibilityIdentifier("text.color.\(color.rawValue)")
+            }
+            barButton("Delete", "trash", id: "text.delete", destructive: true) { editor.deleteTextBox(box.id) }
+            Button("Done") { editor.endTextEditing() }
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .padding(.horizontal, 10)
+                .accessibilityIdentifier("text.done")
+        }
+        .padding(4)
+        .inkySurface(cornerRadius: 12)
+    }
+
+    private func change(_ edit: (inout PageTextBox) -> Void) {
+        var updated = editor.page.textBoxes.first { $0.id == box.id } ?? box
+        edit(&updated)
+        editor.updateTextBox(updated)
+    }
+
+    private func barButton(_ title: String, _ symbol: String, id: String, destructive: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .medium))
+                .frame(width: 32, height: 30)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(destructive ? Color.red : Color.primary)
+        .accessibilityLabel(title)
+        .accessibilityIdentifier(id)
     }
 }

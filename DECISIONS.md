@@ -122,3 +122,37 @@ Newest last. Each entry: decision — why.
 
 32. **Cards keep child accessibility** (`.contain` instead of `.combine`) on the Inky layer, so VoiceOver and
     UI tests reach sliders, chips and menus inside molecule/graph cards.
+
+33. **Inky teaches on the page; the sidebar is the exception.** Schema v3 adds `draw` (strokes + handwriting
+    in normalized page space) and `addPage`. The prompt makes on-page work the default for "explain / solve /
+    show / draw"; `openSidebar` is for explicit "notes / summarize / in words". — Students learn from watching
+    the work happen where their notes are, not from a chat transcript.
+
+34. **Inky's drawings are real PencilKit ink, rendered from geometry** (`DrawInk`), stored as Inky-layer
+    annotations. — They look like the student's own ink, animate under Inky's nib from the same paths,
+    stay hideable/undoable/selectable as Inky's, and "Make it my ink" turns them into user strokes.
+
+35. **The model decides the chemistry and content; the app decides the geometry.** Text centering on bond
+    ends, collision resolution (labels slide along their bond and the bond lengthens), snapping enclosures
+    to the text they circle, label/note placement off other text and ink (`InkyLayout`), clean bond angles
+    from the student's skeleton and a carbon valence check (`BondLayout`). — Language models are good at
+    "which atoms get how many H's" and bad at pixel geometry; splitting it this way made drawings readable.
+
+36. **The model sees the student's ink as geometry**: strokes simplified to corners (RDP) and junctions with
+    bond counts. — Exact atom positions instead of estimating from the image; "4 − lines meeting" turns
+    hydrogen counting into arithmetic.
+
+37. **Adaptive reasoning effort**: `medium` for draw/solve/explain requests, `low` for quick marks. — Medium
+    fixed hydrogen counting in testing; quick highlights keep ~2 s latency.
+
+38. **Our own Select tool replaces PencilKit's lasso** (its selection isn't public API and can't include
+    images or Inky's marks). Edits through it are whole-page snapshots for undo; the per-page `UndoManager`
+    is shared by ink, Inky and selection edits.
+
+39. **Pixel eraser by default.** PencilKit restores the palette's saved state over the items an app passes
+    in, so a one-time migration clears the saved palette when our item set changes (`layoutVersion`).
+
+40. **GoodNotes basics:** draw-and-hold shape correction (pure-geometry recognizer; the hold is detected
+    from the pen-lift time because touches report no movement while still), typed text boxes as page
+    content (drawn by `PageRenderer`, so thumbnails/export/Inky see them), handwriting → text via on-device
+    Vision, PDF export with or without Inky's marks.

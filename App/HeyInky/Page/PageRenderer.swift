@@ -12,12 +12,14 @@ enum PageRenderer {
         static let pdf = Layers(rawValue: 1 << 1)
         static let images = Layers(rawValue: 1 << 2)
         static let ink = Layers(rawValue: 1 << 3)
-        static let background: Layers = [.paper, .pdf, .images]
-        static let all: Layers = [.paper, .pdf, .images, .ink]
+        static let text = Layers(rawValue: 1 << 4)
+        static let background: Layers = [.paper, .pdf, .images, .text]
+        static let all: Layers = [.paper, .pdf, .images, .text, .ink]
     }
 
-    /// Draws paper, PDF and placed images into `rect` of the current context.
-    static func drawBackground(page: Page, notebookID: UUID, store: NotebookStore, in rect: CGRect, context: CGContext, layers: Layers = .background) {
+    /// Draws paper, PDF, placed images and text boxes into `rect` of the current context.
+    /// `skippingTextBox` is the one being edited on screen (the editor shows it live).
+    static func drawBackground(page: Page, notebookID: UUID, store: NotebookStore, in rect: CGRect, context: CGContext, layers: Layers = .background, skippingTextBox: UUID? = nil) {
         UIColor.white.setFill()
         context.fill(rect)
 
@@ -35,6 +37,51 @@ enum PageRenderer {
                 store.image(placed.asset, in: notebookID)?.draw(in: placed.frame.cgRect(in: rect.size).offsetBy(dx: rect.minX, dy: rect.minY))
             }
         }
+
+        if layers.contains(.text) {
+            let scale = rect.width / page.width
+            for box in page.textBoxes where box.id != skippingTextBox {
+                let frame = box.frame.cgRect(in: rect.size).offsetBy(dx: rect.minX, dy: rect.minY)
+                NSAttributedString(string: box.text, attributes: textAttributes(box, scale: scale))
+                    .draw(with: frame, options: [.usesLineFragmentOrigin], context: nil)
+            }
+        }
+    }
+
+    // MARK: Text boxes
+
+    static func font(for box: PageTextBox, scale: CGFloat = 1) -> UIFont {
+        let size = box.fontSize * scale
+        switch box.style {
+        case .typed:
+            let base = UIFont.systemFont(ofSize: size, weight: .regular)
+            return base.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: size) } ?? base
+        case .handwriting:
+            return DrawInk.handwritingFont(size: size)
+        }
+    }
+
+    static func uiColor(_ color: PageTextBox.Color) -> UIColor {
+        switch color {
+        case .black: UIColor(white: 0.12, alpha: 1)
+        case .blue: UIColor(red: 0.18, green: 0.43, blue: 0.87, alpha: 1)
+        case .red: UIColor(red: 0.90, green: 0.28, blue: 0.30, alpha: 1)
+        case .green: UIColor(red: 0.19, green: 0.62, blue: 0.40, alpha: 1)
+        case .indigo: Theme.accentUI
+        }
+    }
+
+    static func textAttributes(_ box: PageTextBox, scale: CGFloat = 1) -> [NSAttributedString.Key: Any] {
+        [.font: font(for: box, scale: scale), .foregroundColor: uiColor(box.color)]
+    }
+
+    /// Height (normalized) the box needs for its text at its width.
+    static func textBoxHeight(_ box: PageTextBox, pageSize: CGSize) -> Double {
+        let width = box.frame.width * pageSize.width
+        let text = box.text.isEmpty ? " " : box.text
+        let size = (text as NSString).boundingRect(with: CGSize(width: width, height: .greatestFiniteMagnitude),
+                                                   options: [.usesLineFragmentOrigin], attributes: textAttributes(box), context: nil).size
+        return (ceil(size.height) + 4) / pageSize.height
     }
 
     static func drawPaper(_ style: PaperStyle, page: Page, in rect: CGRect, context: CGContext) {

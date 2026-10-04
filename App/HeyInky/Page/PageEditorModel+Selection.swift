@@ -27,6 +27,9 @@ extension PageEditorModel {
             let center = InkyAnnotationGeometry.bounds(for: annotation, pageSize: size).center
             if SelectionGeometry.contains(polygon, center.cgPoint(in: size)) { result.annotationIDs.insert(annotation.id) }
         }
+        for box in page.textBoxes where SelectionGeometry.contains(polygon, box.frame.center.cgPoint(in: size)) {
+            result.textBoxIDs.insert(box.id)
+        }
         setSelection(result)
     }
 
@@ -38,6 +41,8 @@ extension PageEditorModel {
         var result = PageSelection()
         if let annotation = visibleAnnotations.last(where: { InkyAnnotationGeometry.hitRect(for: $0, pageSize: size).contains(point) }) {
             result.annotationIDs = [annotation.id]
+        } else if let box = textBox(at: point) {
+            result.textBoxIDs = [box.id]
         } else if let index = drawing.strokes.indices.last(where: { i in
             let stroke = drawing.strokes[i]
             guard stroke.renderBounds.insetBy(dx: -14, dy: -14).contains(p) else { return false }
@@ -78,6 +83,7 @@ extension PageEditorModel {
         }
         rects += page.images.filter { selection.imageIDs.contains($0.id) }.map(\.frame)
         rects += annotations.filter { selection.annotationIDs.contains($0.id) }.map { InkyAnnotationGeometry.bounds(for: $0, pageSize: size) }
+        rects += page.textBoxes.filter { selection.textBoxIDs.contains($0.id) }.map(\.frame)
         guard var union = rects.first else { return .zero }
         for r in rects.dropFirst() { union = InkyAnnotationGeometry.union(union, r) }
         return union
@@ -118,6 +124,14 @@ extension PageEditorModel {
         }
         setImages(images, save: false)
 
+        setTextBoxes(base.textBoxes.map { box in
+            guard baseSelection.textBoxIDs.contains(box.id) else { return box }
+            var moved = box
+            moved.frame = SelectionGeometry.transform(box.frame, anchor: anchorNorm, scale: s, delta: deltaNorm)
+            moved.fontSize = box.fontSize * s
+            return moved
+        }, save: false)
+
         setAnnotations(base.annotations.map { annotation in
             guard baseSelection.annotationIDs.contains(annotation.id) else { return annotation }
             var moved = annotation.bakingOffset
@@ -157,6 +171,7 @@ extension PageEditorModel {
                 FileManager.default.contents(atPath: store.assetURL(image.asset, in: notebookID).path).map { ($0, image.frame) }
             },
             annotations: annotations.filter { selection.annotationIDs.contains($0.id) }.map(\.bakingOffset),
+            textBoxes: page.textBoxes.filter { selection.textBoxIDs.contains($0.id) },
             bounds: selection.bounds,
             sourcePageSize: size
         )
@@ -214,6 +229,13 @@ extension PageEditorModel {
                 pasted.annotationIDs.insert(annotation.id)
             }
             setAnnotations(annotations, save: true)
+            for var box in content.textBoxes {
+                box.id = UUID()
+                box.frame = SelectionGeometry.transform(box.frame, anchor: .zero, scale: 1, delta: deltaNorm)
+                setTextBoxes(page.textBoxes + [box], save: false)
+                pasted.textBoxIDs.insert(box.id)
+            }
+            setTextBoxes(page.textBoxes, save: true)
         } else if let image = UIPasteboard.general.image, let data = image.pngData() {
             let center = point.map { NormPoint(x: $0.x + 0.15, y: $0.y + 0.1) } ?? NormPoint(x: 0.5, y: 0.4)
             if let placed = try? store.addImage(data, to: page.id, in: notebookID, center: center) {
@@ -286,7 +308,7 @@ extension PageEditorModel {
     // MARK: Snapshots and undo
 
     var contentSnapshot: PageContentSnapshot {
-        PageContentSnapshot(drawing: drawing, images: page.images, annotations: annotations)
+        PageContentSnapshot(drawing: drawing, images: page.images, annotations: annotations, textBoxes: page.textBoxes)
     }
 
     func registerContentUndo(restoring before: PageContentSnapshot, actionName: String) {
@@ -304,6 +326,7 @@ extension PageEditorModel {
         selection = nil
         applyDrawing(snapshot.drawing)
         setImages(snapshot.images, save: true)
+        setTextBoxes(snapshot.textBoxes, save: true)
         setAnnotations(snapshot.annotations, save: true)
     }
 
@@ -311,6 +334,7 @@ extension PageEditorModel {
         let removed = Set(selection.strokeIndices)
         applyDrawing(PKDrawing(strokes: drawing.strokes.enumerated().filter { !removed.contains($0.offset) }.map(\.element)))
         setImages(page.images.filter { !selection.imageIDs.contains($0.id) }, save: true)
+        setTextBoxes(page.textBoxes.filter { !selection.textBoxIDs.contains($0.id) }, save: true)
         setAnnotations(annotations.filter { !selection.annotationIDs.contains($0.id) }, save: true)
     }
 }

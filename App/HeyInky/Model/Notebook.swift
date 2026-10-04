@@ -34,16 +34,53 @@ struct Page: Codable, Identifiable, Hashable, Sendable {
     var height: Double
     var background: PageBackground
     var images: [PlacedImage]
+    /// Typed text (Text tool, converted handwriting), drawn below the ink.
+    var textBoxes: [PageTextBox]
 
     var size: CGSize { CGSize(width: width, height: height) }
 
-    init(id: UUID = UUID(), size: CGSize = Page.defaultSize, background: PageBackground, images: [PlacedImage] = []) {
+    init(id: UUID = UUID(), size: CGSize = Page.defaultSize, background: PageBackground, images: [PlacedImage] = [], textBoxes: [PageTextBox] = []) {
         self.id = id
         self.width = size.width
         self.height = size.height
         self.background = background
         self.images = images
+        self.textBoxes = textBoxes
     }
+
+    private enum CodingKeys: String, CodingKey { case id, width, height, background, images, textBoxes }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        width = try c.decode(Double.self, forKey: .width)
+        height = try c.decode(Double.self, forKey: .height)
+        background = try c.decode(PageBackground.self, forKey: .background)
+        images = try c.decode([PlacedImage].self, forKey: .images)
+        // Older notebooks have no text boxes.
+        textBoxes = try c.decodeIfPresent([PageTextBox].self, forKey: .textBoxes) ?? []
+    }
+}
+
+/// A typed text box on the page. `frame` is normalized page space; its width wraps the text and
+/// its height follows the text (`PageRenderer.textBoxHeight`).
+struct PageTextBox: Codable, Identifiable, Hashable, Sendable {
+    enum Style: String, Codable, CaseIterable, Sendable {
+        /// SF Rounded, like printed notes.
+        case typed
+        /// Inky's handwriting font, to sit naturally among ink.
+        case handwriting
+    }
+
+    enum Color: String, Codable, CaseIterable, Sendable { case black, blue, red, green, indigo }
+
+    var id: UUID = UUID()
+    var frame: NormRect
+    var text: String
+    /// Font size in page points.
+    var fontSize: Double = 18
+    var style: Style = .typed
+    var color: Color = .black
 }
 
 enum PaperStyle: String, Codable, CaseIterable, Sendable, Identifiable {

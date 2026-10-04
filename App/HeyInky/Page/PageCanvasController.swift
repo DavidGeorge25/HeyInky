@@ -81,6 +81,7 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
         overlayContainer.wantsTouch = { [weak self] point in
             guard let self, self.overlayContainer.bounds.width > 0 else { return false }
             if self.editor.isSelectMode { return self.selectionUIContains(point) }
+            if self.editor.isTextMode { return self.textEditorContains(point) }
             return self.editor.overlayWantsTouch(at: NormPoint(
                 x: point.x / self.overlayContainer.bounds.width,
                 y: point.y / self.overlayContainer.bounds.height
@@ -101,7 +102,7 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
         selectView.isUserInteractionEnabled = false
         selectView.keepsLoop = false
         selectView.onLassoChanged = { [weak self] path, finished in
-            guard let self, finished else { return }
+            guard let self, finished, !self.editor.isTextMode else { return }
             let size = self.selectView.bounds.size
             guard size.width > 0 else { return }
             self.editor.select(lasso: path.map { NormPoint(x: $0.x / size.width, y: $0.y / size.height) })
@@ -110,7 +111,8 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
             guard let self else { return }
             let size = self.selectView.bounds.size
             guard size.width > 0 else { return }
-            self.editor.select(at: NormPoint(x: point.x / size.width, y: point.y / size.height))
+            let p = NormPoint(x: point.x / size.width, y: point.y / size.height)
+            if self.editor.isTextMode { self.editor.textTap(at: p) } else { self.editor.select(at: p) }
         }
         canvas.addSubview(selectView)
 
@@ -134,7 +136,9 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
         tools.attach(to: canvas)
         tools.onInkySelected = { [weak self] in self?.onSummon?(nil) }
         tools.onSelectToolChanged = { [weak self] on in self?.editor.isSelectMode = on }
+        tools.onTextToolChanged = { [weak self] on in self?.editor.isTextMode = on }
         editor.isSelectMode = tools.isSelectSelected
+        editor.isTextMode = tools.isTextSelected
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -191,7 +195,7 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
     /// Called from SwiftUI when observed editor state changes.
     func sync() {
         let inky = editor.isInkyMode
-        let select = editor.isSelectMode && !inky
+        let select = (editor.isSelectMode || editor.isTextMode) && !inky
         lassoView.isUserInteractionEnabled = inky
         selectView.isUserInteractionEnabled = select
         canvas.drawingGestureRecognizer.isEnabled = !inky && !select
@@ -226,6 +230,16 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
         isApplyingDrawing = false
     }
 
+    /// The text box being typed into and its formatting bar take touches; elsewhere a tap
+    /// finishes it or starts another.
+    private func textEditorContains(_ point: CGPoint) -> Bool {
+        let size = overlayContainer.bounds.size
+        guard let id = editor.editingTextBoxID, let box = editor.page.textBoxes.first(where: { $0.id == id }) else { return false }
+        var r = box.frame.cgRect(in: size).insetBy(dx: -12, dy: -12)
+        r = CGRect(x: r.minX, y: r.minY - 56, width: max(r.width, 360), height: r.height + 56)
+        return r.contains(point)
+    }
+
     /// The Select tool's box, handles and toolbar (or the Paste button) take touches; the rest
     /// of the page goes to the lasso. Toolbars are a fixed size on screen, so this is in view points.
     private func selectionUIContains(_ point: CGPoint) -> Bool {
@@ -248,6 +262,15 @@ final class PageCanvasController: UIViewController, PKCanvasViewDelegate, UIPenc
     func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
         guard !isApplyingDrawing else { return }
         editor.drawingDidChange(canvasView.drawing)
+    }
+
+    func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
+        editor.penDown(strokes: canvasView.drawing.strokes.count)
+    }
+
+    func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
+        // PencilKit commits the stroke after this; the editor checks the hold when it arrives.
+        editor.penUp(at: Date())
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
@@ -330,7 +353,8 @@ final class PageBackgroundView: UIView {
 
     override func draw(_ rect: CGRect) {
         guard let editor, let context = UIGraphicsGetCurrentContext() else { return }
-        PageRenderer.drawBackground(page: editor.page, notebookID: editor.notebookID, store: editor.store, in: bounds, context: context)
+        PageRenderer.drawBackground(page: editor.page, notebookID: editor.notebookID, store: editor.store, in: bounds, context: context,
+                                    skippingTextBox: editor.editingTextBoxID)
     }
 }
 
@@ -446,6 +470,8 @@ struct PageCanvasRepresentable: UIViewControllerRepresentable {
         // Reading these registers Observation tracking, so SwiftUI calls us when they change.
         _ = editor.isInkyMode
         _ = editor.isSelectMode
+        _ = editor.isTextMode
+        _ = editor.editingTextBoxID
         _ = editor.lassoPath
         _ = editor.page
         controller.onSummon = onSummon

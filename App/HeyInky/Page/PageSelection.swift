@@ -7,9 +7,10 @@ struct PageSelection: Equatable {
     var strokeIndices: [Int] = []
     var imageIDs: Set<UUID> = []
     var annotationIDs: Set<UUID> = []
+    var textBoxIDs: Set<UUID> = []
     var bounds: NormRect = .zero
 
-    var isEmpty: Bool { strokeIndices.isEmpty && imageIDs.isEmpty && annotationIDs.isEmpty }
+    var isEmpty: Bool { strokeIndices.isEmpty && imageIDs.isEmpty && annotationIDs.isEmpty && textBoxIDs.isEmpty }
 }
 
 /// Everything on a page that an undoable whole-page edit (move, scale, paste, delete) touches.
@@ -17,6 +18,7 @@ struct PageContentSnapshot {
     var drawing: PKDrawing
     var images: [PlacedImage]
     var annotations: [InkyAnnotation]
+    var textBoxes: [PageTextBox] = []
 }
 
 /// Copy/paste between pages and notebooks (in memory, for this app session).
@@ -28,6 +30,7 @@ enum PageClipboard {
         var images: [(data: Data, frame: NormRect)]
         /// Offsets baked in.
         var annotations: [InkyAnnotation]
+        var textBoxes: [PageTextBox] = []
         var bounds: NormRect
         var sourcePageSize: CGSize
     }

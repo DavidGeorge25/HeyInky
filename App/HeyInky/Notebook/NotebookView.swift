@@ -17,6 +17,13 @@ struct NotebookView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var errorMessage: String?
     @State private var confirmDeletePage = false
+    @State private var exported: ExportedFile?
+    @State private var shapeCorrection = PageEditorModel.shapeCorrectionEnabled
+
+    struct ExportedFile: Identifiable {
+        let url: URL
+        var id: URL { url }
+    }
 
     enum ImportMode: Identifiable {
         case pdf, image
@@ -93,6 +100,11 @@ struct NotebookView: View {
         } message: {
             Text(errorMessage ?? "")
         }
+        .sheet(item: $exported) { file in
+            ShareSheet(items: [file.url])
+                .accessibilityIdentifier("notebook.share")
+        }
+        .onChange(of: shapeCorrection) { _, on in PageEditorModel.shapeCorrectionEnabled = on }
         .confirmationDialog("Delete this page?", isPresented: $confirmDeletePage, titleVisibility: .visible) {
             Button("Delete Page", role: .destructive) { deleteCurrentPage() }
         }
@@ -221,6 +233,13 @@ struct NotebookView: View {
             }
 
             Menu {
+                Button("Export PDF", systemImage: "square.and.arrow.up") { exportPDF(includeInky: true) }
+                    .accessibilityIdentifier("notebook.exportPDF")
+                Button("Export PDF without Inky", systemImage: "square.and.arrow.up.on.square") { exportPDF(includeInky: false) }
+                    .accessibilityIdentifier("notebook.exportPDFPlain")
+                Toggle("Shape Correction (draw & hold)", systemImage: "scribble.variable", isOn: $shapeCorrection)
+                    .accessibilityIdentifier("notebook.shapeCorrection")
+                Divider()
                 Button("Delete Page", systemImage: "trash", role: .destructive) { confirmDeletePage = true }
                     .accessibilityIdentifier("notebook.deletePage")
             } label: {
@@ -272,6 +291,17 @@ struct NotebookView: View {
         pageIndex += 1
         loadPage()
         return editor
+    }
+
+    private func exportPDF(includeInky: Bool) {
+        editor?.flush()
+        editor?.endTextEditing()
+        guard let notebook else { return }
+        do {
+            exported = ExportedFile(url: try NotebookExporter.pdf(notebook: notebook, store: app.store, includeInky: includeInky))
+        } catch {
+            errorMessage = "Couldn't export: \(error.localizedDescription)"
+        }
     }
 
     private func deleteCurrentPage() {

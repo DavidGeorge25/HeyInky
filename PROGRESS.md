@@ -1,6 +1,27 @@
 # Progress
 
-_Last updated: 2026-10-03 (integration + end-to-end QA session)._
+_Last updated: 2026-10-04 (integration, QA, Inky-as-tutor, drawing, notebook tools)._
+
+## Latest: Inky tutors on the page + notebook tools ✅
+- **Inky draws** (`draw` action, schema v3): real PencilKit ink + handwriting — bonds/atoms, arrows,
+  curved mechanism arrows, dashed lines, polygons, ellipses, worked steps. Inky's character draws each
+  stroke under its nib. **`addPage`**: longer work goes on a fresh page.
+- **Tutor-first prompt:** "explain / solve / show / draw" are answered on the page; the sidebar is for
+  explicit "notes / summarize". Adaptive reasoning (medium for drawing/solving).
+- **Readable by construction:** labels and notes placed off other text, marks and ink; drawing text
+  doesn't collide; circles/boxes snap around the text they enclose; atom labels centered on bond ends;
+  clean bond angles from the student's skeleton; carbon valence check drops duplicated H's.
+- **Context:** the student's pen strokes as corner points + junctions with bond counts.
+- **Select tool:** lasso/tap ink, images, text and Inky marks; move, resize, copy/cut/paste/duplicate/
+  delete, Ask Inky about the selection, Convert to Text, Make it my ink. Undo for all of it.
+- **Text tool**, **draw-and-hold shape correction** (line/circle/ellipse/triangle/rectangle/polygon, angle
+  snapping), **handwriting → text** (Vision), **PDF export** (with/without Inky), **pixel eraser default**,
+  tool bar returns after typing.
+
+Live checks (real proxy): methylcyclohexane → 14 H's drawn with clean angles (gpt-5.4, medium; mini/low
+gets close but can miscount, which the valence check partly catches); "explain why raising T shifts this
+left" → highlight + note + fill + red reasoning arrow on the page, no sidebar; "intercepts step by step on
+a new page" → full correct worked solution on a new grid page with answers circled.
 
 ## Status: all modules integrated on `main` ✅
 Merged in order (PRs #4, #2, #3, #1): **AICore** → **Chemistry** → **Graphs** → **InkyCharacter**. Every
@@ -58,6 +79,10 @@ daily cap too. **To do:** re-run the whole live suite on the default model once 
   how much has been read.
 
 ## Needs a human on a real iPad + Apple Pencil
+- **Draw-and-hold** with a real Pencil (hold time 0.4 s feels right? false triggers while pausing mid-word?).
+- **Text tool** with Scribble (writing into text boxes with the Pencil) and the hardware keyboard.
+- **Select tool** with Pencil vs finger (lasso precision, dragging small selections, the resize handle).
+- **Watching Inky draw**: is the stroke-by-stroke speed pleasant for long answers (worked steps take ~5 s)?
 The simulator draws with a mouse/touch and has no Pencil, so these can't be verified here:
 - **Pencil feel:** stroke latency and prediction with the Inky layer and cards on screen; palm rejection
   while a card or the ask popover is up; pressure/tilt with each tool.
@@ -77,6 +102,10 @@ The simulator draws with a mouse/touch and has no Pencil, so these can't be veri
 - **Visuals:** Inky's hop/draw choreography timing on a 120 Hz display; app icon and launch screen on device.
 
 ## Known gaps / next steps
+- Hydrogen/atom placement is reliable only for skeletons drawn as pen ink (images give no stroke geometry).
+- mini/low sometimes miscounts atoms; the app fixes duplicates but can't add missing ones.
+- Text boxes don't wrap around ink; no rich text (bold/lists) yet. No handwriting search yet.
+- Eval cases in `evals/` still expect sidebars for "explain" questions; update them to the tutor format.
 - Stale-asymptote/point logic is heuristic for multi-curve graphs (only single-curve graphs drop given lines).
 - PDF pages with rotation: rendered, but text-layer boxes are skipped (OCR covers them).
 - One page on screen at a time (no continuous vertical scroll); no iCloud sync, search or export yet.

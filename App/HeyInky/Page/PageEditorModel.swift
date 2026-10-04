@@ -33,6 +33,13 @@ final class PageEditorModel {
     var selection: PageSelection?
     /// Where a tap on empty paper offered "Paste".
     var pasteAnchor: NormPoint?
+    /// The Text tool is active: a tap places or edits a text box.
+    var isTextMode = false {
+        didSet { if !isTextMode { endTextEditing() } }
+    }
+    /// The text box being typed into (drawn live by the editor overlay, not the background).
+    var editingTextBoxID: UUID?
+    @ObservationIgnored var textEditBase: PageContentSnapshot?
     @ObservationIgnored var transformBase: (PageContentSnapshot, PageSelection)?
     /// Set by the notebook: summon Inky about the current selection.
     @ObservationIgnored var onAskInkyAboutSelection: (() -> Void)?
@@ -57,8 +64,24 @@ final class PageEditorModel {
 
     // MARK: Ink
 
+    /// Draw-and-hold shape correction (More menu → Shape Correction). On by default.
+    static var shapeCorrectionEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: "HeyInkyShapeCorrection") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "HeyInkyShapeCorrection") }
+    }
+
     func drawingDidChange(_ drawing: PKDrawing) {
+        let previousCount = self.drawing.strokes.count
         self.drawing = drawing
+        if drawing.strokes.count == previousCount + 1, let stroke = drawing.strokes.last {
+            if ShapeRecognizer.endsWithHold(stroke) {
+                // The hold is visible in the stroke's own timing (a Pencil reports a resting nib).
+                Task { @MainActor [weak self] in self?.correctLastShape() }
+            } else if let lift = pendingLift, drawing.strokes.count == strokesAtPenDown + 1 {
+                pendingLift = nil
+                penLifted(at: lift)
+            }
+        }
         hasUnsavedInk = true
         saveTask?.cancel()
         saveTask = Task { [weak self] in
@@ -76,6 +99,11 @@ final class PageEditorModel {
         drawingDidChange(newDrawing)
     }
 
+    func setTextBoxes(_ boxes: [PageTextBox], save: Bool) {
+        page.textBoxes = boxes
+        if save { store.updatePage(page, in: notebookID) }
+    }
+
     func setImages(_ images: [PlacedImage], save: Bool) {
         page.images = images
         if save { store.updatePage(page, in: notebookID) }
@@ -84,6 +112,44 @@ final class PageEditorModel {
     func setAnnotations(_ list: [InkyAnnotation], save: Bool) {
         annotations = list
         if save { saveAnnotations() }
+    }
+
+    @ObservationIgnored private var strokesAtPenDown = 0
+    @ObservationIgnored private var pendingLift: Date?
+
+    func penDown(strokes: Int) {
+        strokesAtPenDown = strokes
+        pendingLift = nil
+    }
+
+    /// The pen left the page. The new stroke usually arrives just after; check then.
+    func penUp(at date: Date) {
+        if drawing.strokes.count == strokesAtPenDown + 1 {
+            penLifted(at: date)
+        } else {
+            pendingLift = date
+        }
+    }
+
+    /// The pen was lifted at `date`: if it rested still for a moment first (finger and simulator
+    /// touches report no movement while held), snap the stroke just drawn.
+    func penLifted(at date: Date) {
+        guard let stroke = drawing.strokes.last, let last = stroke.path.last else { return }
+        let lastMovement = stroke.path.creationDate.addingTimeInterval(last.timeOffset)
+        let age = date.timeIntervalSince(stroke.path.creationDate)
+        // Only the stroke that just ended.
+        guard age >= 0, age < 30, date.timeIntervalSince(lastMovement) >= ShapeRecognizer.holdDuration else { return }
+        Task { @MainActor [weak self] in self?.correctLastShape() }
+    }
+
+    /// Replaces the newest stroke with the clean shape it is (if it's one). One step: PencilKit's
+    /// undo of the stroke also removes the shape.
+    func correctLastShape() {
+        guard Self.shapeCorrectionEnabled, let stroke = drawing.strokes.last, !ShapeRecognizer.isClean(stroke),
+              let clean = ShapeRecognizer.corrected(stroke) else { return }
+        var strokes = drawing.strokes
+        strokes[strokes.count - 1] = clean
+        applyDrawing(PKDrawing(strokes: strokes))
     }
 
     func flush() {
